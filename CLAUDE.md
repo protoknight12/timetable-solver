@@ -43,8 +43,9 @@ The app must work end to end with `LLM_ENABLED=false`.
 
 - Branch per task: `be-05-login`, `fe-04-checker`, `team-03-schema`.
 - Small, focused commits. Don't rewrite unrelated files.
-- Every change goes through a PR into `main`, reviewed by the other developer. Put `Closes #<issue>` in the PR.
-- Before opening a PR: run lint and tests (commands below once the skeleton exists) and make sure CI is green.
+- Every change goes through a PR into `main`. No reviewer is required; the CI `test` check must pass
+  before merging (branch protection). Put `Closes #<issue>` in the PR.
+- Before opening a PR: run lint and tests (commands below).
 
 ## Commands
 

@@ -59,7 +59,7 @@ The app must work end to end **with the LLM switched off**. Manual constraint en
 | WSGI server | Gunicorn | Inside the `web` container |
 | ORM | SQLAlchemy 2.x | 2.0-style `select()` queries |
 | Database | PostgreSQL 16 | Constraints stored as `JSONB` |
-| Migrations | Alembic (via Flask-Migrate) | Every schema change is a reviewed migration file |
+| Migrations | Alembic (via Flask-Migrate) | Every schema change is a committed migration file |
 | Solver | OR-Tools CP-SAT | Time limit + `num_workers`; always keep the best solution found |
 | Checker | Plain Python, no dependencies | Must not reuse solver code |
 | Background jobs | Redis + **RQ** | Chosen over Celery: far less config, and the extra Celery features aren't needed |
