@@ -34,7 +34,12 @@ Full details and open decisions: [TECH_STACK.md](TECH_STACK.md).
 
 ## Getting started
 
-Not available yet. Setup instructions will be added once the first runnable skeleton exists.
+```bash
+cp .env.example .env
+docker compose up --build    # http://localhost:8000
+```
+
+For local development without Docker: `uv sync`, then `uv run pytest`.
 Configuration variables are documented in [.env.example](.env.example).
 
 ## Ground rules
