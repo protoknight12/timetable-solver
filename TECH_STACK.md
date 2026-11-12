@@ -1,6 +1,6 @@
-# Звънец — Technical Overview
+# SATurn — Technical Overview
 
-> **Working name:** Звънец (*Zvanets*, "school bell"). Not final; alternatives: Разпис, Седмица, SATурн.
+> **Name:** SATurn (decided 12.11.2026).
 > **Project:** AI-assisted school timetable maker for the National Autumn IT Tournament "Джон Атанасов" (December 2026, Sofia).
 > **Team:** two students + a teacher supervisor.
 > **Status:** planning. **Feature freeze: 26.11.2026.**
@@ -288,9 +288,8 @@ SOLVER_TIME_LIMIT_S=60
 
 **Team decisions [DECIDE]:**
 
-1. Final name.
-2. License.
-3. Data model and constraint format (sections 5–6).
-4. Tailwind or Bootstrap.
-5. Default solver time limit.
-6. Is the tournament demo run on a laptop (offline-capable) or a hosted server?
+1. License.
+2. Data model and constraint format (sections 5–6).
+3. Tailwind or Bootstrap.
+4. Default solver time limit.
+5. Is the tournament demo run on a laptop (offline-capable) or a hosted server?
