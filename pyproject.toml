@@ -1,0 +1,29 @@
+[project]
+name = "saturn"
+version = "0.1.0"
+description = "AI-assisted school timetable maker"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "flask>=3.1",
+    "gunicorn>=23",
+    "rq>=2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.8",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+extend-select = ["I", "UP", "B"]

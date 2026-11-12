@@ -48,8 +48,15 @@ The app must work end to end with `LLM_ENABLED=false`.
 
 ## Commands
 
-The runnable skeleton doesn't exist yet (task BE-01). When it lands, replace this section with the real commands
-for: starting the stack (`docker compose up`), running tests (`pytest`), lint/format (`ruff`), migrations, and seeding.
+```bash
+docker compose up --build          # web on http://localhost:8000, plus worker, db, redis
+uv sync                            # local dev environment (Python 3.12)
+uv run pytest                      # tests
+uv run ruff check . && uv run ruff format --check .   # lint + format check (CI runs both)
+uv add <pkg>                       # add a dependency; commit pyproject.toml and uv.lock together
+```
+
+Migrations and seeding: added in BE-04.
 
 ## Stack (short)
 

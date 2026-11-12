@@ -1,0 +1,50 @@
+x-app: &app
+  build: .
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    # Service hostnames inside the Compose network override the localhost values in .env.
+    DATABASE_URL: postgresql+psycopg://saturn:${POSTGRES_PASSWORD:-change-me}@db:5432/saturn
+    REDIS_URL: redis://redis:6379/0
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  web:
+    <<: *app
+    ports:
+      - "8000:8000"
+
+  worker:
+    <<: *app
+    command: ["rq", "worker", "--url", "redis://redis:6379/0"]
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: saturn
+      POSTGRES_DB: saturn
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saturn -d saturn"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  db-data:

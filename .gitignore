@@ -5,3 +5,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
+
+# Real school data - never commit (project rule 5)
+example timetable.pdf
+data/raw/
