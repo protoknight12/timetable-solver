@@ -1,0 +1,2 @@
+# Keep LF line endings everywhere so shell scripts and Docker builds work on Windows too.
+* text=auto eol=lf
