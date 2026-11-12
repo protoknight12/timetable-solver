@@ -2,7 +2,7 @@
 
 AI-assisted school timetable maker, built for the National Autumn IT Tournament "Джон Атанасов" (December 2026, Sofia).
 
-> **Status:** planning. Working name: Звънец (not final). Feature freeze: **26.11.2026**.
+> **Status:** planning. Working name: SATurn (not final). Feature freeze: **26.11.2026**.
 
 ## Core principle
 
