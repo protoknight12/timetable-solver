@@ -1,0 +1,532 @@
+{
+  "$defs": {
+    "BlockPosition": {
+      "additionalProperties": false,
+      "properties": {
+        "day": {
+          "description": "School day number, 1 = Monday.",
+          "minimum": 1,
+          "title": "Day",
+          "type": "integer"
+        },
+        "start_period": {
+          "description": "Period the block starts in.",
+          "minimum": 1,
+          "title": "Start Period",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "day",
+        "start_period"
+      ],
+      "title": "BlockPosition",
+      "type": "object"
+    },
+    "ClassScope": {
+      "additionalProperties": false,
+      "properties": {
+        "class_id": {
+          "description": "Id of one school class.",
+          "minimum": 1,
+          "title": "Class Id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "class_id"
+      ],
+      "title": "ClassScope",
+      "type": "object"
+    },
+    "FixedSlot": {
+      "additionalProperties": false,
+      "description": "Pins every block of a course to a given day and start period.",
+      "properties": {
+        "hard": {
+          "description": "true = must always hold; false = a preference.",
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only for preferences (hard = false): how much it matters, 1 or more.",
+          "title": "Weight"
+        },
+        "type": {
+          "const": "fixed_slot",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/FixedSlotParams"
+        }
+      },
+      "required": [
+        "hard",
+        "type",
+        "params"
+      ],
+      "title": "FixedSlot",
+      "type": "object"
+    },
+    "FixedSlotParams": {
+      "additionalProperties": false,
+      "properties": {
+        "course_id": {
+          "description": "Id of one course.",
+          "minimum": 1,
+          "title": "Course Id",
+          "type": "integer"
+        },
+        "blocks": {
+          "description": "Where each block of the course goes, one entry per block, in the same order as the course's block sizes.",
+          "items": {
+            "$ref": "#/$defs/BlockPosition"
+          },
+          "minItems": 1,
+          "title": "Blocks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "course_id",
+        "blocks"
+      ],
+      "title": "FixedSlotParams",
+      "type": "object"
+    },
+    "GradeScope": {
+      "additionalProperties": false,
+      "properties": {
+        "grade": {
+          "description": "Applies to every class in this grade, e.g. 9.",
+          "minimum": 1,
+          "title": "Grade",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "grade"
+      ],
+      "title": "GradeScope",
+      "type": "object"
+    },
+    "MaxLessonsPerDay": {
+      "additionalProperties": false,
+      "description": "A class (or every class in a grade) has at most N periods per day.",
+      "properties": {
+        "hard": {
+          "description": "true = must always hold; false = a preference.",
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only for preferences (hard = false): how much it matters, 1 or more.",
+          "title": "Weight"
+        },
+        "type": {
+          "const": "max_lessons_per_day",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/MaxLessonsPerDayParams"
+        }
+      },
+      "required": [
+        "hard",
+        "type",
+        "params"
+      ],
+      "title": "MaxLessonsPerDay",
+      "type": "object"
+    },
+    "MaxLessonsPerDayParams": {
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClassScope"
+            },
+            {
+              "$ref": "#/$defs/GradeScope"
+            }
+          ],
+          "title": "Scope"
+        },
+        "max": {
+          "description": "Most periods the class may have in one day.",
+          "minimum": 1,
+          "title": "Max",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "max"
+      ],
+      "title": "MaxLessonsPerDayParams",
+      "type": "object"
+    },
+    "NoGaps": {
+      "additionalProperties": false,
+      "description": "No empty periods between two lessons in a student's day.",
+      "properties": {
+        "hard": {
+          "description": "true = must always hold; false = a preference.",
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only for preferences (hard = false): how much it matters, 1 or more.",
+          "title": "Weight"
+        },
+        "type": {
+          "const": "no_gaps",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/NoGapsParams"
+        }
+      },
+      "required": [
+        "hard",
+        "type",
+        "params"
+      ],
+      "title": "NoGaps",
+      "type": "object"
+    },
+    "NoGapsParams": {
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClassScope"
+            },
+            {
+              "$ref": "#/$defs/GradeScope"
+            },
+            {
+              "const": "all",
+              "type": "string"
+            }
+          ],
+          "description": "One class, one grade, or 'all' classes.",
+          "title": "Scope"
+        }
+      },
+      "required": [
+        "scope"
+      ],
+      "title": "NoGapsParams",
+      "type": "object"
+    },
+    "RoomTypeRequired": {
+      "additionalProperties": false,
+      "description": "A subject (or one course) must be held in a room of the given type.",
+      "properties": {
+        "hard": {
+          "description": "true = must always hold; false = a preference.",
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only for preferences (hard = false): how much it matters, 1 or more.",
+          "title": "Weight"
+        },
+        "type": {
+          "const": "room_type_required",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/RoomTypeRequiredParams"
+        }
+      },
+      "required": [
+        "hard",
+        "type",
+        "params"
+      ],
+      "title": "RoomTypeRequired",
+      "type": "object"
+    },
+    "RoomTypeRequiredParams": {
+      "additionalProperties": false,
+      "properties": {
+        "subject_id": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Every lesson of this subject. Give this or course_id.",
+          "title": "Subject Id"
+        },
+        "course_id": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only this one course. Give this or subject_id.",
+          "title": "Course Id"
+        },
+        "room_type": {
+          "description": "Room type, e.g. 'lab' or 'gym'.",
+          "minLength": 1,
+          "title": "Room Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "room_type"
+      ],
+      "title": "RoomTypeRequiredParams",
+      "type": "object"
+    },
+    "Slot": {
+      "additionalProperties": false,
+      "properties": {
+        "day": {
+          "description": "School day number, 1 = Monday.",
+          "minimum": 1,
+          "title": "Day",
+          "type": "integer"
+        },
+        "period": {
+          "description": "Period number within the day, 1 = first period.",
+          "minimum": 1,
+          "title": "Period",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "day",
+        "period"
+      ],
+      "title": "Slot",
+      "type": "object"
+    },
+    "TeacherAvailableDays": {
+      "additionalProperties": false,
+      "description": "The teacher works only on the listed days.",
+      "properties": {
+        "hard": {
+          "description": "true = must always hold; false = a preference.",
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only for preferences (hard = false): how much it matters, 1 or more.",
+          "title": "Weight"
+        },
+        "type": {
+          "const": "teacher_available_days",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/TeacherAvailableDaysParams"
+        }
+      },
+      "required": [
+        "hard",
+        "type",
+        "params"
+      ],
+      "title": "TeacherAvailableDays",
+      "type": "object"
+    },
+    "TeacherAvailableDaysParams": {
+      "additionalProperties": false,
+      "properties": {
+        "teacher_id": {
+          "description": "Id of the teacher.",
+          "minimum": 1,
+          "title": "Teacher Id",
+          "type": "integer"
+        },
+        "days": {
+          "description": "The only days the teacher can teach, 1 = Monday.",
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Days",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "teacher_id",
+        "days"
+      ],
+      "title": "TeacherAvailableDaysParams",
+      "type": "object"
+    },
+    "TeacherUnavailableSlots": {
+      "additionalProperties": false,
+      "description": "The teacher cannot teach in the listed slots.",
+      "properties": {
+        "hard": {
+          "description": "true = must always hold; false = a preference.",
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only for preferences (hard = false): how much it matters, 1 or more.",
+          "title": "Weight"
+        },
+        "type": {
+          "const": "teacher_unavailable_slots",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/TeacherUnavailableSlotsParams"
+        }
+      },
+      "required": [
+        "hard",
+        "type",
+        "params"
+      ],
+      "title": "TeacherUnavailableSlots",
+      "type": "object"
+    },
+    "TeacherUnavailableSlotsParams": {
+      "additionalProperties": false,
+      "properties": {
+        "teacher_id": {
+          "description": "Id of the teacher.",
+          "minimum": 1,
+          "title": "Teacher Id",
+          "type": "integer"
+        },
+        "slots": {
+          "description": "Slots the teacher cannot teach in.",
+          "items": {
+            "$ref": "#/$defs/Slot"
+          },
+          "minItems": 1,
+          "title": "Slots",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "teacher_id",
+        "slots"
+      ],
+      "title": "TeacherUnavailableSlotsParams",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "fixed_slot": "#/$defs/FixedSlot",
+      "max_lessons_per_day": "#/$defs/MaxLessonsPerDay",
+      "no_gaps": "#/$defs/NoGaps",
+      "room_type_required": "#/$defs/RoomTypeRequired",
+      "teacher_available_days": "#/$defs/TeacherAvailableDays",
+      "teacher_unavailable_slots": "#/$defs/TeacherUnavailableSlots"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/TeacherAvailableDays"
+    },
+    {
+      "$ref": "#/$defs/TeacherUnavailableSlots"
+    },
+    {
+      "$ref": "#/$defs/RoomTypeRequired"
+    },
+    {
+      "$ref": "#/$defs/MaxLessonsPerDay"
+    },
+    {
+      "$ref": "#/$defs/NoGaps"
+    },
+    {
+      "$ref": "#/$defs/FixedSlot"
+    }
+  ]
+}
