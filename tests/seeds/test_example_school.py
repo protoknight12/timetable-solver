@@ -5,12 +5,17 @@ the seed is internally consistent, so solver/checker tests can rely on it.
 """
 
 import json
+import re
+import sys
 from collections import Counter
 from pathlib import Path
 
 import pytest
 
-SEED = Path(__file__).resolve().parents[2] / "seeds" / "example_school.json"
+ROOT = Path(__file__).resolve().parents[2]
+SEED = ROOT / "seeds" / "example_school.json"
+sys.path.insert(0, str(ROOT / "tools" / "asc_import"))
+from anonymize import anonymize
 
 
 @pytest.fixture(scope="module")
@@ -57,3 +62,44 @@ def test_curriculum_matches_reference_timetable(seed):
     assert from_curriculum == from_timetable
     for c in seed["curriculum"]:
         assert sum(c["blocks"]) == c["periods_per_week"]
+
+
+def test_seed_hides_the_real_school(seed):
+    # TECH_STACK §15 q12: no real room numbers or room codes, generic bell times.
+    assert seed["meta"]["anonymized"] is True
+    for room in seed["rooms"]:
+        assert re.fullmatch(r"[RLG]\d\d", room["id"]), room
+        assert re.fullmatch(r"(Стая|Лаборатория|Физкултурен салон) \d+", room["name"])
+    assert seed["meta"]["periods"][0]["start"] == "7:30"
+    text = json.dumps(seed, ensure_ascii=False)
+    assert "СБ" not in text and "STEM" not in text
+
+
+def test_anonymize_keeps_structure_and_is_idempotent():
+    raw = {
+        "meta": {"periods": [{"number": n} for n in (1, 2, 3, 4)], "known_quirks": []},
+        "rooms": [
+            {"id": "101", "name": "101", "type": "regular"},
+            {"id": "СБ", "name": "СБ", "type": "gym"},
+        ],
+        "reference_timetable": [
+            {"id": "A1", "day": 0, "start_period": 1, "length": 2, "room": "СБ",
+             "teacher": "T1", "subject": "S1"},
+            {"id": "A2", "day": 4, "start_period": 3, "length": 1, "room": None,
+             "teacher": "T1", "subject": "S2"},
+        ],
+    }  # fmt: skip
+    once = anonymize(raw)
+    assert [r["id"] for r in once["rooms"]] == ["R01", "G01"]
+    acts = once["reference_timetable"]
+    assert sorted((a["day"], a["length"], a["room"]) for a in acts) == [
+        (1, 1, None),
+        (2, 2, "G01"),
+    ]
+    assert [p["start"] for p in once["meta"]["periods"]] == [
+        "7:30",
+        "8:25",
+        "9:20",
+        "10:25",
+    ]
+    assert anonymize(once) == once
