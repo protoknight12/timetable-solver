@@ -68,7 +68,6 @@ def new_model(inp: SolverInput) -> TimetableModel:
     last = inp.periods[-1]
     rooms = inp.rooms
     for course in inp.courses:
-        ends = defaultdict(list)  # (day, last period of a block) -> start literals
         for b, size in enumerate(course.block_sizes):
             starts = {
                 (d, s): m.new_bool_var(f"c{course.id}b{b}d{d}s{s}")
@@ -79,7 +78,6 @@ def new_model(inp: SolverInput) -> TimetableModel:
             tm.start[course.id, b] = starts
             m.add_exactly_one(starts.values())
             for (d, s), x in starts.items():
-                ends[d, s + size - 1].append(x)
                 for p in range(s, s + size):
                     tm.busy[course.id][d, p].append(x)
             # Parts share this block's day/start by construction (rule 5); only
@@ -109,14 +107,12 @@ def new_model(inp: SolverInput) -> TimetableModel:
                 for k, x in starts.items():
                     m.add(sum(by_room[r][k] for r in cands) == x)
                 tm.room_start[part.id, b] = by_room
-        # Blocks of one Course may share a day but never overlap or touch: at
-        # least one free period between them (TECH_STACK §15 q10, 14.11.2026).
+        # Blocks of one Course may share a day and may be back to back; they only
+        # must not overlap. No gap rule: it is not a school regulation, so the
+        # solver does not invent one (decided 14.11.2026, TECH_STACK §15 q10).
         if len(course.block_sizes) > 1:
-            busy = tm.busy[course.id]
-            for (d, p), lits in busy.items():
+            for lits in tm.busy[course.id].values():
                 m.add_at_most_one(lits)
-                if ends[d, p] and (d, p + 1) in busy:
-                    m.add_at_most_one(ends[d, p] + busy[d, p + 1])
     return tm
 
 

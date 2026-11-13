@@ -38,8 +38,8 @@ def violations(inp, result) -> list[str]:
             if sorted(x[2] for x in mine) != sorted(c.block_sizes):
                 out.append(f"course {c.id} part {p.id}: block lengths {mine}")
             for (d1, s1, n1), (d2, s2, _) in pairwise(mine):
-                if d1 == d2 and s2 <= s1 + n1:  # sorted, so only neighbours matter
-                    out.append(f"course {c.id} part {p.id}: blocks touch on day {d1}")
+                if d1 == d2 and s2 < s1 + n1:  # sorted, so only neighbours matter
+                    out.append(f"course {c.id} part {p.id}: blocks overlap on day {d1}")
             if blocks is not None and mine != blocks:
                 out.append(f"course {c.id}: parts not at the same time")
             blocks = mine
