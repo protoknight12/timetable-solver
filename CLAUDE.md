@@ -57,7 +57,13 @@ uv run ruff check . && uv run ruff format --check .   # lint + format check (CI 
 uv add <pkg>                       # add a dependency; commit pyproject.toml and uv.lock together
 ```
 
-Migrations and seeding: added in BE-04.
+```bash
+uv run flask --app app db migrate -m "..."   # new migration after a model change (ask first, rule 7)
+uv run flask --app app db upgrade            # apply migrations
+uv run flask --app app seed [--reset]        # demo school + demo accounts (passwords from .env)
+uv run flask --app app create-user NAME --role admin|viewer
+uv run python -m schema                      # regenerate schema/constraint.schema.json after changing schema/
+```
 
 ## Stack (short)
 
@@ -72,7 +78,8 @@ Flask-Login · openpyxl · uv · ruff · pytest · GitHub Actions · Docker Comp
 - Theme is controlled by `data-bs-theme` on `<html>` (set in `base.html`, toggled by `static/js/theme.js`). Use Bootstrap
   theme-aware classes (`bg-body-tertiary`, `text-body`, ...) and never hard-code colors, so dark mode stays readable.
 - Routes live in `app/routes/` (blueprint `pages` for plain pages). Link with `url_for`, never hard-coded paths.
-- Forms that change data must include the CSRF token (`login.html` shows the pattern; real CSRF arrives with BE-05).
+- Forms that change data must include the CSRF token (`login.html` shows the pattern; Flask-WTF enforces it).
+- Routes that change data require the `admin` role; the auth tests walk the url_map to check this.
 - How to run and view the pages locally: README.md, section "Viewing the frontend".
 
 ## Visual style (keep every new page consistent)
