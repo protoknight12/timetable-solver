@@ -9,12 +9,6 @@ def test_login_page_shows_form():
     assert 'name="password"' in html
 
 
-def test_login_post_shows_form_until_be05():
-    client = create_app().test_client()
-    response = client.post("/login", data={"username": "a", "password": "b"})
-    assert response.status_code == 200
-
-
 def test_pages_extend_base_layout():
     client = create_app().test_client()
     for url in ("/", "/login"):
