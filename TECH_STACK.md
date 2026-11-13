@@ -147,7 +147,8 @@ other group just has no part).
 type, and the worker must refuse to solve and show those problems instead of silently ignoring them.
 
 **Limits.** Every lesson repeats weekly (no alternating weeks). Parts of one Course share the same block
-pattern. Two blocks of one Course never share a day (assumption, see §15).
+pattern. Two blocks of one Course may share a day, but need at least one free period between them (decided
+14.11.2026, see §15 q10).
 
 ---
 
@@ -307,7 +308,8 @@ SOLVER_TIME_LIMIT_S=60
 7. What should a teacher's maximum load per day be?
 8. Practice slots where both groups of a class appear in two lessons at once: weekly rotation, or truly parallel? (Parallel fits the model; rotation does not.)
 9. PE slots where one teacher has overlapping blocks for different classes: allowed, or an aSc export artifact?
-10. May one subject have two blocks on the same day? Current assumption: no.
+10. ~~May one subject have two blocks on the same day?~~ Decided 14.11.2026: yes, with at least one free
+    period between them (e.g. English 3, Math 2, English 2). The real seed's 8th-grade English needs this.
 11. When one group has no lesson (the "or nothing" case), are its free periods at the start or end of the day acceptable, and do they count as gaps? Current assumption: not gaps.
 
 **Team decisions [DECIDE]:**
