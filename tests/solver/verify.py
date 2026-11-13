@@ -84,7 +84,7 @@ def violations(inp, result) -> list[str]:
                     out.append(f"groups {a} and {b} clash at {s}")
     return out
     for con in inp.constraints:
-        if con.hard and (n := _measure(inp, result, con)):
+        if con.hard and (n := measure(inp, result, con)):
             out.append(f"constraint {con.id} ({con.type}) broken {n} time(s)")
     return out
 
@@ -92,7 +92,7 @@ def violations(inp, result) -> list[str]:
 def soft_penalty(inp, result) -> int:
     """Sum of weight x violations over the soft constraints (the expected objective)."""
     return sum(
-        con.weight * _measure(inp, result, con)
+        con.weight * measure(inp, result, con)
         for con in inp.constraints
         if not con.hard
     )
@@ -127,7 +127,7 @@ def _combos(inp, scope):
             yield c.id, {whole, *pick}
 
 
-def _measure(inp, result, con) -> int:
+def measure(inp, result, con) -> int:
     """How much ``con`` is violated: 0 = holds. Soft penalty = weight x this."""
     p, hard = con.params, con.hard
     parts = {x.id: x for c in inp.courses for x in c.parts}
