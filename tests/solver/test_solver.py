@@ -118,14 +118,17 @@ def test_more_periods_than_the_week_holds():
     assert status(make([1], [1, 2], three, classes=1)) == "INFEASIBLE"
 
 
-def test_blocks_of_one_course_never_share_a_day():
-    # Teacher 1 is busy all of one day with course 2, so course 1's two
-    # blocks would have to share the other day.
-    inp = make([1, 2], [1, 2], [([1, 1], [1], [1]), ([2], [2], [1])])
-    assert status(inp) == "INFEASIBLE"
-    assert (
-        status(make([1, 2, 3], [1, 2], [([1, 1], [1], [1]), ([2], [2], [1])])) in SOLVED
-    )
+def test_blocks_on_one_day_need_a_gap():
+    # One day: blocks 2 + 1 fit in 4 periods (with a gap) but not in 3,
+    # where they could only touch. status() checks the gap via verify.
+    assert status(make([1], [1, 2, 3, 4], [([2, 1], [1], [1])], classes=1)) in SOLVED
+    assert status(make([1], [1, 2, 3], [([2, 1], [1], [1])], classes=1)) == "INFEASIBLE"
+
+
+def test_gap_between_blocks_may_hold_another_course():
+    # English 3, Math 2, English 2 on one day of 7 periods (the agreed example).
+    courses = [([3, 2], [1], [1]), ([2], [1], [2])]
+    assert status(make([1], list(range(1, 8)), courses, classes=1)) in SOLVED
 
 
 def test_multi_period_block_is_consecutive():

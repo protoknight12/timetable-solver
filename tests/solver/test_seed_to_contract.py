@@ -65,10 +65,7 @@ def test_tiny_seed_converts():
 def test_real_seed_problems_are_documented():
     inp = seed_to_solver_input(load_seed())
     assert len(inp.courses) == 493
-    # The 8th-grade intensive English courses (18 periods/week) have 6-10
-    # blocks, and the reference puts two of them on one day. That breaks the
-    # "two blocks never share a day" assumption (TECH_STACK §15 q10).
-    assert [(p.code, p.path) for p in inp.problems()] == [
-        ("bad_blocks", f"courses[{i}].block_sizes")
-        for i in (431, 442, 452, 462, 473, 484)
-    ]
+    # Includes the 8th-grade intensive English courses with 6-10 blocks, valid
+    # since blocks may share a day (TECH_STACK §15 q10).
+    assert max(len(c.block_sizes) for c in inp.courses) == 10
+    assert inp.problems() == []

@@ -5,6 +5,7 @@ this only lets solver tests assert that a result is valid.
 """
 
 from collections import Counter, defaultdict
+from itertools import pairwise
 
 
 def violations(inp, result) -> list[str]:
@@ -30,8 +31,9 @@ def violations(inp, result) -> list[str]:
             mine = sorted((x.day, x.start_period, x.length) for x in by_part[p.id])
             if sorted(x[2] for x in mine) != sorted(c.block_sizes):
                 out.append(f"course {c.id} part {p.id}: block lengths {mine}")
-            if len({x[0] for x in mine}) != len(mine):
-                out.append(f"course {c.id} part {p.id}: two blocks on one day")
+            for (d1, s1, n1), (d2, s2, _) in pairwise(mine):
+                if d1 == d2 and s2 <= s1 + n1:  # sorted, so only neighbours matter
+                    out.append(f"course {c.id} part {p.id}: blocks touch on day {d1}")
             if blocks is not None and mine != blocks:
                 out.append(f"course {c.id}: parts not at the same time")
             blocks = mine

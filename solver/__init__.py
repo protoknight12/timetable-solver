@@ -57,7 +57,7 @@ def new_model(inp: SolverInput) -> TimetableModel:
     last = inp.periods[-1]
     rooms = inp.rooms
     for course in inp.courses:
-        per_day = defaultdict(list)
+        ends = defaultdict(list)  # (day, last period of a block) -> start literals
         for b, size in enumerate(course.block_sizes):
             starts = {
                 (d, s): m.new_bool_var(f"c{course.id}b{b}d{d}s{s}")
@@ -68,7 +68,7 @@ def new_model(inp: SolverInput) -> TimetableModel:
             tm.start[course.id, b] = starts
             m.add_exactly_one(starts.values())
             for (d, s), x in starts.items():
-                per_day[d].append(x)
+                ends[d, s + size - 1].append(x)
                 for p in range(s, s + size):
                     tm.busy[course.id][d, p].append(x)
             # Parts share this block's day/start by construction (rule 5); only
@@ -95,10 +95,14 @@ def new_model(inp: SolverInput) -> TimetableModel:
                 for k, x in starts.items():
                     m.add(sum(by_room[r][k] for r in cands) == x)
                 tm.room_start[part.id, b] = by_room
-        # ASSUMPTION (TECH_STACK §15 q10): two blocks of one Course never share a day.
-        for lits in per_day.values():
-            if len(lits) > 1 and len(course.block_sizes) > 1:
+        # Blocks of one Course may share a day but never overlap or touch: at
+        # least one free period between them (TECH_STACK §15 q10, 14.11.2026).
+        if len(course.block_sizes) > 1:
+            busy = tm.busy[course.id]
+            for (d, p), lits in busy.items():
                 m.add_at_most_one(lits)
+                if ends[d, p] and (d, p + 1) in busy:
+                    m.add_at_most_one(ends[d, p] + busy[d, p + 1])
     return tm
 
 
