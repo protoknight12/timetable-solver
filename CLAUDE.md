@@ -75,6 +75,23 @@ Flask-Login · openpyxl · uv · ruff · pytest · GitHub Actions · Docker Comp
 - Forms that change data must include the CSRF token (`login.html` shows the pattern; real CSRF arrives with BE-05).
 - How to run and view the pages locally: README.md, section "Viewing the frontend".
 
+## Visual style (keep every new page consistent)
+
+This documents what the existing pages already do (`base.html`, `index.html`, `login.html`). Match it; don't introduce a second look.
+
+- **Look:** clean, calm, utilitarian Bootstrap 5.3 defaults. Standard system font stack, no custom fonts, no custom palette, no gradients or heavy shadows.
+- **Color:** only Bootstrap theme variables. Brand/primary color is the default Bootstrap primary (blue): `btn-primary` for the one main action per page, `btn-outline-secondary` for secondary/utility actions, `bg-body-tertiary` for the navbar. Never hard-code hex colors or `bg-white`/`text-dark`/`bg-light`; they break dark mode. If a custom color is unavoidable, define it in `app.css` using `var(--bs-*)`.
+- **Light and dark:** every page must be readable in both. Check both before opening a PR. Default follows the OS, the toggle persists the choice.
+- **Layout:** content sits in `<main class="container py-4">`; the page below the navbar scrolls, the navbar does not change. Mobile first; the navbar collapses below `lg`. Use the Bootstrap grid (`row`/`col-*`), not fixed widths.
+- **Headings:** one `h1` per page. Page titles use Bootstrap heading classes (`h2` for pages like the home page, `h4` inside cards). Intro text uses `lead`.
+- **Cards and forms:** forms live in a `card shadow-sm` with `card-body p-4`. Inputs use `form-floating` with a Bulgarian label, `mb-3` spacing, correct `autocomplete`, `maxlength` and `required`. Submit button is `btn btn-primary w-100` inside narrow cards.
+- **Icons:** Bootstrap Icons only (`bi bi-*`), always next to a text label, never alone (exception: the navbar brand icon).
+- **Feedback:** flashed messages render as dismissible Bootstrap alerts in `base.html` (`success`, `danger`, `warning`, `info`). Don't build your own banners.
+- **Navigation:** the navbar entry for the current page gets `active` and `aria-current="page"`. Items for pages that don't exist yet are `disabled`.
+- **Accessibility:** every control has a label or `aria-label` (Bulgarian), keep visible focus outlines, and don't convey meaning by color alone.
+- **Text:** all visible text is correct literary Bulgarian, sentence case, short and direct ("Вход", "Запомни ме"). Buttons are verbs or short nouns, no exclamation marks except the welcome heading.
+- **CSS:** put custom rules in `app/static/css/app.css`, keep it small, prefer Bootstrap utilities. No inline `style=""`, no extra CSS framework.
+
 ## Tournament requirements that affect code
 
 - The app must be **online** during evaluation and defense, with **test accounts for every role**
