@@ -427,6 +427,10 @@ class LessonPlacement:
 @dataclass(frozen=True)
 class SolveResult:
     status: str
+    # Rows come in block order: for each course, the rows of one part appear in
+    # the order of ``Course.block_sizes``, so row i of a part is block i. Needed
+    # to match ``fixed_slot.blocks[i]``. Agreed 14.11.2026; no version bump
+    # because the JSON shape is unchanged.
     lessons: tuple[LessonPlacement, ...] = ()
     objective: int | None = None
     solve_time_s: float = 0.0
