@@ -7,6 +7,11 @@ Mapping:
 - text ids -> ints 1..n in file order; days 0..4 -> 1..5; periods from meta.periods.
 - every class gets a whole group; each distinct (class, label) becomes a split
   group; ``group: null`` means the whole class.
+- splits (TECH_STACK §5, group splits): labels with "група" ("Първа група", "Втора група") form the
+  split "групи"; every other label is a language ("Немски", "Испански",
+  "Китайски") and forms the split "езици". ASSUMPTION: a student is in at most
+  one language group, and language groups cut across Група 1 / Група 2. This
+  matches the reference timetable, where the two never run at the same time.
 - each curriculum item -> one Course with one part. The file merges parallel
   lessons into separate items, so parallel parts cannot be recovered from it.
 - a room is required only when ALL reference placements of the item use rooms
@@ -35,6 +40,11 @@ SEED = Path(__file__).resolve().parents[1] / "seeds" / "example_school.json"
 GYM_CAPACITY = 3
 
 
+def split_of(label: str) -> str:
+    """Split name for a seed group label (see the module docstring)."""
+    return "групи" if "група" in label.lower() else "езици"
+
+
 def _key(item: dict) -> tuple:
     """Identity of a curriculum item, as build_seed.py groups activities."""
     groups = tuple(sorted((c["class"], c["group"] or "") for c in item["classes"]))
@@ -59,7 +69,9 @@ def seed_to_solver_input(seed: dict) -> SolverInput:
             k = (c["class"], c["group"])
             if k not in group_id:
                 group_id[k] = len(group_id) + 1
-                groups.append(StudentGroup(group_id[k], klass[k[0]], False, k[1]))
+                groups.append(
+                    StudentGroup(group_id[k], klass[k[0]], False, k[1], split_of(k[1]))
+                )
 
     placed_types = {}
     for a in seed["reference_timetable"]:

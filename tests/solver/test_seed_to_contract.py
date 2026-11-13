@@ -1,5 +1,5 @@
 from schema.contract import Course, CoursePart, Room, StudentGroup
-from tools.seed_to_contract import load_seed, seed_to_solver_input
+from tools.seed_to_contract import load_seed, seed_to_solver_input, split_of
 
 TINY = {
     "meta": {"days": ["Пон", "Вт"], "periods": [{"number": 1}, {"number": 2}]},
@@ -52,8 +52,8 @@ def test_tiny_seed_converts():
     assert inp.classes[0].grade == 8
     assert inp.groups == (
         StudentGroup(1, 1, True, "цял клас"),
-        StudentGroup(2, 1, False, "Първа група"),
-        StudentGroup(3, 1, False, "Втора група"),
+        StudentGroup(2, 1, False, "Първа група", "групи"),
+        StudentGroup(3, 1, False, "Втора група", "групи"),
     )
     assert inp.rooms == (Room(1, "regular"), Room(2, "lab"), Room(3, "gym", 3))
     assert inp.courses == (
@@ -69,3 +69,18 @@ def test_real_seed_problems_are_documented():
     # since blocks may share a day (TECH_STACK §15 q10).
     assert max(len(c.block_sizes) for c in inp.courses) == 10
     assert inp.problems() == []
+
+
+def test_split_names():
+    assert split_of("Първа група") == split_of("Втора група") == "групи"
+    assert split_of("Китайски") == split_of("Немски") == split_of("Испански") == "езици"
+
+
+def test_real_seed_has_classes_with_two_splits():
+    # 8А-8Г have Група 1/2 and a language group: the reason for group splits.
+    inp = seed_to_solver_input(load_seed())
+    splits = {}
+    for g in inp.groups:
+        if not g.is_whole:
+            splits.setdefault(g.class_id, set()).add(g.split)
+    assert sum(1 for s in splits.values() if s == {"групи", "езици"}) == 11

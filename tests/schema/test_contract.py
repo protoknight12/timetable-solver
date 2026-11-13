@@ -75,7 +75,7 @@ def test_parallel_parts_with_disjoint_split_groups_are_fine(data):
         lambda d: d["courses"][0]["parts"][0].update(group_ids=1),
         lambda d: d["courses"][0]["parts"][0].update(room="1"),
         lambda d: d["constraints"][0].update(params=[]),
-        lambda d: d.update(contract_version=2),
+        lambda d: d.update(contract_version=1),
     ],
     ids=[
         "missing_key",
@@ -138,6 +138,12 @@ def test_bad_shape_is_rejected(data, mutate):
             lambda d: course(d, 3)["parts"][1].update(group_ids=[1]),
             "conflicting_groups",
         ),
+        # Група 2 moved to another split: it may now share students with Група 1.
+        (
+            lambda d: d["groups"][2].update(split="езици"),
+            "conflicting_groups",
+        ),
+        (lambda d: d["groups"][0].update(split="групи"), "whole_group_split"),
         (
             lambda d: course(d, 3)["parts"][1].update(group_ids=[2]),
             "conflicting_groups",

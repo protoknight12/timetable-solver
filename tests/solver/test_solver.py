@@ -95,6 +95,34 @@ def test_same_split_group_twice_is_infeasible():
     assert status(inp) == "INFEASIBLE"
 
 
+# Class 1: Група 1 / Група 2 (split "групи") and a Chinese group (split "езици").
+TWO_SPLITS = [
+    {"id": 1, "class_id": 1, "is_whole": True},
+    {"id": 2, "class_id": 1, "is_whole": False, "split": "групи"},
+    {"id": 3, "class_id": 1, "is_whole": False, "split": "групи"},
+    {"id": 4, "class_id": 1, "is_whole": False, "split": "езици"},
+]
+
+
+def test_groups_of_different_splits_never_run_at_once():
+    # A Chinese student is also in Група 1 or Група 2 (TECH_STACK §5, group splits).
+    one_slot = make(
+        [1], [1], [([1], [2], [1]), ([1], [4], [2])], groups=TWO_SPLITS, classes=1
+    )
+    assert status(one_slot) == "INFEASIBLE"
+    two_slots = make(
+        [1], [1, 2], [([1], [2], [1]), ([1], [4], [2])], groups=TWO_SPLITS, classes=1
+    )
+    assert status(two_slots) in SOLVED
+
+
+def test_groups_of_one_split_still_run_at_once_next_to_another_split():
+    # Група 1 and Група 2 together in period 1, Chinese alone in period 2.
+    courses = [([1], [2], [1]), ([1], [3], [2]), ([1], [4], [3])]
+    assert status(make([1], [1, 2], courses, groups=TWO_SPLITS, classes=1)) in SOLVED
+    assert status(make([1], [1], courses, groups=TWO_SPLITS, classes=1)) == "INFEASIBLE"
+
+
 def test_gym_capacity():
     gym = [{"id": 1, "type": "gym", "concurrent_capacity": 3}]
     pe = [([1], [c], [c], "gym") for c in range(1, 5)]

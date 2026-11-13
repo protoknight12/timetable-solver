@@ -65,12 +65,15 @@ def violations(inp, result) -> list[str]:
         for (r, s), n in room_use.items()
         if n > rooms[r].concurrent_capacity
     ]
+    # Two groups clash if same class and (either is whole, same group, or
+    # different splits). Re-implemented here on purpose (not imported).
+    busy = defaultdict(list)  # (class, slot) -> group ids, one entry per lesson
     for (g, s), n in group_use.items():
-        grp = groups[g]
-        whole = next(
-            x.id for x in groups.values() if x.class_id == grp.class_id and x.is_whole
-        )
-        extra = 0 if g == whole else group_use[whole, s]
-        if n + extra > 1:
-            out.append(f"group {g} conflicts at {s}")
+        busy[groups[g].class_id, s] += [g] * n
+    for (_, s), gids in busy.items():
+        for i, a in enumerate(gids):
+            for b in gids[i + 1 :]:
+                ga, gb = groups[a], groups[b]
+                if ga.is_whole or gb.is_whole or a == b or ga.split != gb.split:
+                    out.append(f"groups {a} and {b} clash at {s}")
     return out
