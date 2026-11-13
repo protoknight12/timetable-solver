@@ -1,12 +1,10 @@
 from flask import Flask
 
+from app.routes.pages import bp as pages_bp
+
 
 def create_app() -> Flask:
     app = Flask(__name__)
-
-    @app.get("/")
-    def index():
-        # Placeholder until FE-02 adds the real layout.
-        return "<h1>SATurn</h1><p>Приложението работи.</p>"
+    app.register_blueprint(pages_bp)
 
     return app
