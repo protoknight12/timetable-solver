@@ -1,0 +1,70 @@
+{
+  "contract_version": 1,
+  "days": [1, 2, 3, 4, 5],
+  "periods": [1, 2, 3, 4, 5, 6, 7],
+  "teachers": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}, {"id": 5}],
+  "subjects": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}, {"id": 5}, {"id": 6}],
+  "classes": [
+    {"id": 1, "name": "9А", "grade": 9},
+    {"id": 2, "name": "9Б", "grade": 9}
+  ],
+  "groups": [
+    {"id": 1, "class_id": 1, "is_whole": true, "name": "цял клас"},
+    {"id": 2, "class_id": 1, "is_whole": false, "name": "Група 1"},
+    {"id": 3, "class_id": 1, "is_whole": false, "name": "Група 2"},
+    {"id": 4, "class_id": 2, "is_whole": true, "name": "цял клас"}
+  ],
+  "rooms": [
+    {"id": 1, "type": "regular"},
+    {"id": 2, "type": "lab"},
+    {"id": 3, "type": "lab"},
+    {"id": 4, "type": "gym", "concurrent_capacity": 3}
+  ],
+  "courses": [
+    {
+      "id": 1, "label": "Math 9А", "periods_per_week": 3, "block_sizes": [1, 1, 1],
+      "parts": [
+        {"id": 1, "subject_id": 1, "group_ids": [1], "teacher_ids": [1]}
+      ]
+    },
+    {
+      "id": 2, "label": "German, joint 9А + 9Б", "periods_per_week": 2, "block_sizes": [1, 1],
+      "parts": [
+        {"id": 2, "subject_id": 2, "group_ids": [1, 4], "teacher_ids": [2]}
+      ]
+    },
+    {
+      "id": 3, "label": "OS practice OR DB practice", "periods_per_week": 2, "block_sizes": [2],
+      "parts": [
+        {"id": 3, "subject_id": 3, "group_ids": [2], "teacher_ids": [3],
+         "needs_room": true, "room_type": "lab"},
+        {"id": 4, "subject_id": 4, "group_ids": [3], "teacher_ids": [4],
+         "needs_room": true, "room_type": "lab"}
+      ]
+    },
+    {
+      "id": 4, "label": "Integrated systems OR nothing", "periods_per_week": 2, "block_sizes": [2],
+      "parts": [
+        {"id": 5, "subject_id": 5, "group_ids": [2], "teacher_ids": [3],
+         "needs_room": true, "allowed_room_ids": [2]}
+      ]
+    },
+    {
+      "id": 5, "label": "PE 9Б, two teachers", "periods_per_week": 2, "block_sizes": [2],
+      "parts": [
+        {"id": 6, "subject_id": 6, "group_ids": [4], "teacher_ids": [1, 5],
+         "needs_room": true, "room_type": "gym"}
+      ]
+    }
+  ],
+  "constraints": [
+    {"id": 1, "type": "fixed_slot", "hard": true,
+     "params": {"course_id": 3, "blocks": [{"day": 5, "start_period": 1}]}},
+    {"id": 2, "type": "fixed_slot", "hard": true,
+     "params": {"course_id": 4, "blocks": [{"day": 1, "start_period": 1}]}},
+    {"id": 3, "type": "teacher_available_days", "hard": true,
+     "params": {"teacher_id": 2, "days": [2, 4]}},
+    {"id": 4, "type": "no_gaps", "hard": false, "weight": 5,
+     "params": {"scope": {"grade": 9}}}
+  ]
+}

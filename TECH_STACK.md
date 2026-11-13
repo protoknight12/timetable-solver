@@ -113,23 +113,41 @@ The app must work end to end **with the LLM switched off**. Manual constraint en
 
 ---
 
-## 5. Data model (draft) **[DECIDE]**
+## 5. Data model (agreed 13.11.2026, TEAM-03)
 
-Draft only. Both developers must agree before the first migration.
+The solver/checker contract is code: [`schema/contract.py`](schema/contract.py), with a full example in
+[`schema/examples/split_practice.json`](schema/examples/split_practice.json). The DB models (BE-04) mirror it.
+
+**Core idea.** A `Course` is one scheduled unit (periods per week split into blocks); the solver gives each
+block a day and a start period. A `CoursePart` is what one set of student groups does during that unit. All
+parts of a Course happen at the same time, which covers joint lessons (one part, groups from several classes),
+parallel split lessons ("ОС практика OR БД практика": two parts) and "one half has nothing" (one part; the
+other group just has no part).
 
 | Entity | Key fields |
 |---|---|
 | `Teacher` | id, display name (anonymized in seeds) |
-| `Subject` | id, name, optional required room type |
-| `TeacherSubject` | teacher, subject, `can_teach`, `can_substitute` |
+| `Subject` | id, name, default room type (nullable) |
 | `SchoolClass` | id, name (e.g. "10А"), grade |
-| `Room` | id, name, type (regular, computer lab, gym, …), capacity |
-| `TimeSlot` | day (1–5), period number |
-| `CurriculumItem` | class, subject, lessons per week, assigned teacher |
+| `StudentGroup` | id, class, name, `is_whole`. Every class has exactly one whole-class group ("цял клас"); splits add more ("Група 1") |
+| `Room` | id, name, type, `concurrent_capacity` (default 1; sports hall 3) |
+| `Period` | number, start time, end time. Days are 1–5 |
+| `Course` | id, periods per week, `block_sizes` (e.g. `[1,1,1]`, `[2,1]`, `[2]`), optional label |
+| `CoursePart` | id, course, subject, `needs_room`, room type, allowed rooms |
+| `CoursePartGroup` / `CoursePartTeacher` | many-to-many; all listed teachers are present at once |
 | `Constraint` | id, `type`, `params` (JSONB), `hard`/`soft`, `weight`, `status` (proposed / confirmed / rejected), `source` (manual / llm), original text |
-| `SolveJob` | id, status, started/finished, solver status, objective value, error |
-| `Lesson` | job, class, subject, teacher, room, time slot |
+| `SolveJob` | id, status, started/finished, solver status, objective value, error, `base_job_id` (nullable, for minimal-change re-solve #39) |
+| `Lesson` | job, course, part, day, start period, length, room. One row per part per block |
 | `Violation` | job, constraint type, involved entities, message key |
+
+`TeacherSubject` (can teach / can substitute) is dropped until substitutions exist (after the tournament).
+
+**Broken references.** Constraint params hold ids inside JSONB, so the database cannot enforce them.
+`SolverInput.problems()` reports constraints that point at a missing teacher, subject, course, class or room
+type, and the worker must refuse to solve and show those problems instead of silently ignoring them.
+
+**Limits.** Every lesson repeats weekly (no alternating weeks). Parts of one Course share the same block
+pattern. Two blocks of one Course never share a day (assumption, see §15).
 
 ---
 
@@ -164,7 +182,9 @@ Initial generic constraint types (not tied to any regulation):
 | `no_gaps` (soft or hard) | No empty periods between a class's lessons |
 | `teacher_max_lessons_per_day` | Teacher teaches at most N lessons per day |
 
-Built-in hard rules (always on, not stored as constraints): a teacher, a class and a room can each be in only one place per slot; every `CurriculumItem` gets exactly its weekly lesson count.
+Built-in hard rules (always on, not stored as constraints): a teacher is in at most one part-block per slot; two groups of the same class conflict if either is the whole class or they are the same group, and conflicting groups never share a slot; a room holds at most `concurrent_capacity` part-blocks per slot; every `Course` gets exactly its `block_sizes`, each block being consecutive periods on one day; a part that needs a room gets one matching its room type and allowed rooms.
+
+Extra type added with the data model: `fixed_slot` pins every block of a Course, e.g. a practice that must be on Friday periods 1–2. Params: `course_id`, `blocks: [{day, start_period}]`, one entry per block in `block_sizes` order.
 
 ---
 
@@ -285,11 +305,15 @@ SOLVER_TIME_LIMIT_S=60
 5. Are there limits on lessons per day per grade, or on how heavy subjects are spread across the week?
 6. How do group splits work (e.g. foreign languages, IT split into two groups)?
 7. What should a teacher's maximum load per day be?
+8. Practice slots where both groups of a class appear in two lessons at once: weekly rotation, or truly parallel? (Parallel fits the model; rotation does not.)
+9. PE slots where one teacher has overlapping blocks for different classes: allowed, or an aSc export artifact?
+10. May one subject have two blocks on the same day? Current assumption: no.
+11. When one group has no lesson (the "or nothing" case), are its free periods at the start or end of the day acceptable, and do they count as gaps? Current assumption: not gaps.
 
 **Team decisions [DECIDE]:**
 
 1. License.
-2. Data model and constraint format (sections 5–6).
+2. ~~Data model and constraint format (sections 5–6).~~ Agreed 13.11.2026 (TEAM-03).
 3. Tailwind or Bootstrap.
 4. Default solver time limit.
 5. Is the tournament demo run on a laptop (offline-capable) or a hosted server?
