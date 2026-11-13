@@ -40,6 +40,15 @@ docker compose up --build    # http://localhost:8000
 ```
 
 For local development without Docker: `uv sync`, then `uv run pytest`.
+
+Database (PostgreSQL via `DATABASE_URL`; without it the app uses a throwaway in-memory SQLite):
+
+```bash
+uv run flask --app app db upgrade   # create/update the schema
+uv run flask --app app seed         # load the demo school into an empty DB (--reset replaces it)
+```
+
+DB tests run on SQLite by default; set `TEST_DATABASE_URL` to run them on PostgreSQL (CI does).
 Configuration variables are documented in [.env.example](.env.example).
 
 ## Viewing the frontend
