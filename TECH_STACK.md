@@ -148,9 +148,8 @@ other group just has no part).
 type, and the worker must refuse to solve and show those problems instead of silently ignoring them.
 
 **Limits.** Every lesson repeats weekly (no alternating weeks). Parts of one Course share the same block
-pattern. Two blocks of one Course may share a day.
-**Assumption, not confirmed:** the solver currently requires at least one free period between them, but the
-real seed has one counterexample. See §15 q10.
+pattern. Two blocks of one Course may share a day, even back to back; they only must not overlap. There is
+no gap rule, because it is not a school regulation (decided 14.11.2026, §15 q10, PR #55).
 
 ---
 
@@ -312,17 +311,20 @@ SOLVER_TIME_LIMIT_S=60
 7. What should a teacher's maximum load per day be?
 8. Practice slots where both groups of a class appear in two lessons at once: weekly rotation, or truly parallel? (Parallel fits the model; rotation does not.)
 9. PE slots where one teacher has overlapping blocks for different classes: allowed, or an aSc export artifact?
-10. May one subject have two blocks on the same day? The real seed's 8th-grade English needs it, so the solver
-    allows it. **Open:** must there be a free period between them? The solver currently enforces one
-    (e.g. English 3, Math 2, English 2), but the real timetable has one case with the blocks back to back.
+10. ~~May one subject have two blocks on the same day, and must there be a free period between them?~~
+    Decided 14.11.2026: yes, same day is allowed, and there is **no** gap rule (it is not a regulation; the real
+    timetable has a back-to-back case). PR #55. If stacking turns out to be a problem, add a soft constraint
+    (`max_same_subject_per_day`), not a built-in rule.
 11. When one group has no lesson (the "or nothing" case), are its free periods at the start or end of the day acceptable, and do they count as gaps? Current assumption: not gaps.
-12. Is it acceptable that `seeds/example_school.json` keeps the real school's subjects, rooms and bell times (teacher and class names are generated)? Decide with the team and the supervisor; options: keep with permission, anonymize further, or keep it local only.
+12. ~~Real school details in `seeds/example_school.json`?~~ Decided 14.11.2026: anonymize further. Rooms renamed,
+    generic bell times, permuted days in the reference timetable (`tools/asc_import/anonymize.py`, PR #56).
+    Subjects and structure are kept.
 
 **Team decisions [DECIDE]:**
 
 1. License.
 2. ~~Data model and constraint format (sections 5–6).~~ Agreed 13.11.2026 (TEAM-03).
-   Contract v2 (`StudentGroup.split`, PR #49) and the same-day block rule (PR #48) were added on 14.11 and still need Hristian's explicit OK.
+   Contract v2 (`StudentGroup.split`, PR #49) and the same-day block rule (PR #48, gap rule dropped in #55) were added on 14.11 and still need Hristian's explicit OK.
 3. ~~Tailwind or Bootstrap.~~ Bootstrap 5.3.
 4. ~~Default solver time limit.~~ 60 s.
 5. ~~Laptop or hosted demo?~~ Hosted VPS with a public HTTPS URL (required by the rules), plus an offline laptop copy and a recorded video as backup.
