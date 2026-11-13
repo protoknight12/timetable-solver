@@ -1,16 +1,22 @@
-"""Test-only re-check of the built-in rules on a SolveResult.
+"""Test-only re-check of the built-in rules and user constraints on a SolveResult.
 
 Deliberately separate from checker/ (owned by the other developer, CLAUDE.md):
 this only lets solver tests assert that a result is valid.
 """
 
 from collections import Counter, defaultdict
-from itertools import pairwise
+from itertools import pairwise, product
 
 
 def violations(inp, result) -> list[str]:
     out = []
     parts = {p.id: (c, p) for c in inp.courses for p in c.parts}
+    promoted = {  # parts a hard room_type_required makes need a room
+        pid
+        for c in inp.constraints
+        if c.hard and c.type == "room_type_required"
+        for pid in _matching(inp, c.params)
+    }
     groups = {g.id: g for g in inp.groups}
     rooms = {r.id: r for r in inp.rooms}
     last = inp.periods[-1]
@@ -38,7 +44,7 @@ def violations(inp, result) -> list[str]:
                 out.append(f"course {c.id}: parts not at the same time")
             blocks = mine
             for x in by_part[p.id]:
-                if p.needs_room != (x.room_id is not None):
+                if (p.needs_room or p.id in promoted) != (x.room_id is not None):
                     out.append(f"{x}: room given iff needs_room")
                 elif x.room_id is not None:
                     r = rooms[x.room_id]
@@ -77,3 +83,98 @@ def violations(inp, result) -> list[str]:
                 if ga.is_whole or gb.is_whole or a == b or ga.split != gb.split:
                     out.append(f"groups {a} and {b} clash at {s}")
     return out
+    for con in inp.constraints:
+        if con.hard and (n := _measure(inp, result, con)):
+            out.append(f"constraint {con.id} ({con.type}) broken {n} time(s)")
+    return out
+
+
+def soft_penalty(inp, result) -> int:
+    """Sum of weight x violations over the soft constraints (the expected objective)."""
+    return sum(
+        con.weight * _measure(inp, result, con)
+        for con in inp.constraints
+        if not con.hard
+    )
+
+
+def _matching(inp, params):
+    return {
+        p.id
+        for c in inp.courses
+        for p in c.parts
+        if c.id == params.get("course_id") or p.subject_id == params.get("subject_id")
+    }
+
+
+def _combos(inp, scope):
+    """(class id, set of group ids of one student combination) in the scope."""
+    grade = {c.id: c.grade for c in inp.classes}
+    for c in inp.classes:
+        if not (
+            scope == "all"
+            or scope.get("class_id") == c.id
+            or ("grade" in scope and scope["grade"] == grade[c.id])
+        ):
+            continue
+        mine = [g for g in inp.groups if g.class_id == c.id]
+        splits = {}
+        for g in mine:
+            if not g.is_whole:
+                splits.setdefault(g.split, []).append(g.id)
+        whole = next(g.id for g in mine if g.is_whole)
+        for pick in product(*splits.values()):
+            yield c.id, {whole, *pick}
+
+
+def _measure(inp, result, con) -> int:
+    """How much ``con`` is violated: 0 = holds. Soft penalty = weight x this."""
+    p, hard = con.params, con.hard
+    parts = {x.id: x for c in inp.courses for x in c.parts}
+    rows = [(les, parts[les.part_id]) for les in result.lessons]
+    periods = lambda les: range(les.start_period, les.start_period + les.length)
+    if con.type in ("teacher_available_days", "teacher_unavailable_slots"):
+        if con.type == "teacher_available_days":
+            bad = lambda d, q: d not in p["days"]
+        else:
+            slots = {(s["day"], s["period"]) for s in p["slots"]}
+            bad = lambda d, q: (d, q) in slots
+        return sum(
+            bad(les.day, q)
+            for les, part in rows
+            if p["teacher_id"] in part.teacher_ids
+            for q in periods(les)
+        )
+    if con.type == "room_type_required":
+        rooms = {r.id: r.type for r in inp.rooms}
+        mine = _matching(inp, p)
+        # soft: only part-blocks that have a room; hard: every one must have it
+        return sum(
+            (les.room_id is None and hard)
+            or (les.room_id is not None and rooms[les.room_id] != p["room_type"])
+            for les, part in rows
+            if part.id in mine
+        )
+    if con.type == "fixed_slot":
+        course = next(c for c in inp.courses if c.id == p["course_id"])
+        mine = [les for les, part in rows if part.id == course.parts[0].id]
+        # blocks[i] is block i; result rows come in block order (one per block)
+        return sum(
+            (les.day, les.start_period) != (b["day"], b["start_period"])
+            for les, b in zip(mine, p["blocks"], strict=True)
+        )
+    # The rest are per student combination and day.
+    total = 0
+    for _, gids in _combos(inp, p["scope"]):
+        for d in inp.days:
+            seen = {
+                q
+                for les, part in rows
+                if les.day == d and gids & set(part.group_ids)
+                for q in periods(les)
+            }
+            if con.type == "max_lessons_per_day":
+                total += max(0, len(seen) - p["max"])
+            elif seen:  # no_gaps: free periods between first and last lesson
+                total += max(seen) - min(seen) + 1 - len(seen)
+    return total

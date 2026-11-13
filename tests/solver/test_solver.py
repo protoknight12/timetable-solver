@@ -5,7 +5,7 @@ import pytest
 
 from schema.contract import ContractError, SolverInput, load_solver_input
 from solver import solve
-from tests.solver.verify import violations
+from tests.solver.verify import soft_penalty, violations
 
 EXAMPLE = (
     Path(__file__).resolve().parents[2] / "schema" / "examples" / "split_practice.json"
@@ -60,8 +60,8 @@ def status(inp):
 def test_example_solves_and_every_rule_holds(example):
     res = solve(example, time_limit_s=10)
     assert res.status in SOLVED
-    assert res.objective is None
     assert violations(example, res) == []
+    assert res.objective == soft_penalty(example, res) == 0  # has a soft no_gaps
     # one placement per part per block
     assert len(res.lessons) == sum(
         len(c.block_sizes) * len(c.parts) for c in example.courses
