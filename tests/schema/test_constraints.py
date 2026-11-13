@@ -146,5 +146,5 @@ def test_to_solver_output_passes_contract_checks():
 
 def test_committed_schema_is_fresh():
     assert SCHEMA_FILE.read_text(encoding="utf-8") == _render_schema(), (
-        "run: uv run python -m schema.constraints"
+        "run: uv run python -m schema"
     )
