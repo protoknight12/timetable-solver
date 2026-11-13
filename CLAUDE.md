@@ -66,6 +66,15 @@ PostgreSQL 16 (constraints as JSONB) · Alembic · Redis + RQ · OR-Tools CP-SAT
 of truth for the constraint format; the LLM's JSON Schema is generated from it, never hand-written) ·
 Flask-Login · openpyxl · uv · ruff · pytest · GitHub Actions · Docker Compose (`web`, `worker`, `db`, `redis`).
 
+## Frontend conventions
+
+- Server-rendered Jinja2 pages that extend `app/templates/base.html`; Bootstrap 5.3 from CDN (no build step); HTMX only where a page needs it.
+- Theme is controlled by `data-bs-theme` on `<html>` (set in `base.html`, toggled by `static/js/theme.js`). Use Bootstrap
+  theme-aware classes (`bg-body-tertiary`, `text-body`, ...) and never hard-code colors, so dark mode stays readable.
+- Routes live in `app/routes/` (blueprint `pages` for plain pages). Link with `url_for`, never hard-coded paths.
+- Forms that change data must include the CSRF token (`login.html` shows the pattern; real CSRF arrives with BE-05).
+- How to run and view the pages locally: README.md, section "Viewing the frontend".
+
 ## Tournament requirements that affect code
 
 - The app must be **online** during evaluation and defense, with **test accounts for every role**
