@@ -15,6 +15,10 @@ The model (TECH_STACK.md section 5):
   exactly the same time, by construction.
 - A ``StudentGroup`` belongs to one class. Every class has exactly one
   ``is_whole`` group ("цял клас"); splits add non-whole groups ("Група 1").
+  Each non-whole group names its ``split`` (e.g. "групи", "езици"). Groups in
+  the same split never share students, so they may have lessons at the same
+  time. Groups in different splits of one class may share students, so they
+  conflict, like the whole class does with every group.
   Groups that are not in any part of a Course simply have no lesson then.
 
 This file only describes and validates data. It does not implement timetable
@@ -31,7 +35,7 @@ from dataclasses import asdict, dataclass
 from itertools import combinations
 from typing import Any
 
-CONTRACT_VERSION = 1
+CONTRACT_VERSION = 2  # 2: StudentGroup.split
 
 SOLVE_STATUSES = ("OPTIMAL", "FEASIBLE", "INFEASIBLE", "UNKNOWN", "MODEL_INVALID")
 
@@ -188,15 +192,20 @@ class StudentGroup:
     class_id: int
     is_whole: bool
     name: str = ""
+    # Which split of the class this group belongs to ("групи", "езици").
+    # Empty for the whole-class group. Groups of one class with the same split
+    # are disjoint; groups with different splits overlap (TECH_STACK §5, group splits).
+    split: str = ""
 
     @classmethod
     def from_dict(cls, d: Any, path: str) -> StudentGroup:
-        _obj(d, path, {"id", "class_id", "is_whole"}, {"name"})
+        _obj(d, path, {"id", "class_id", "is_whole"}, {"name", "split"})
         return cls(
             id=_int(d["id"], f"{path}.id"),
             class_id=_int(d["class_id"], f"{path}.class_id"),
             is_whole=_bool(d["is_whole"], f"{path}.is_whole"),
             name=_str(d.get("name", ""), f"{path}.name"),
+            split=_str(d.get("split", ""), f"{path}.split"),
         )
 
 
@@ -467,6 +476,17 @@ def _duplicates(ids) -> list[int]:
     return sorted(i for i, n in Counter(ids).items() if n > 1)
 
 
+def _groups_conflict(a: StudentGroup, b: StudentGroup) -> bool:
+    """True if the two groups may share students, so they cannot run at once.
+
+    Used only for validating a single Course here; the solver and the checker
+    implement the same rule on their own.
+    """
+    if a.class_id != b.class_id:
+        return False
+    return a.is_whole or b.is_whole or a.id == b.id or a.split != b.split
+
+
 def _check_input(inp: SolverInput) -> list[Problem]:
     out: list[Problem] = []
 
@@ -509,6 +529,13 @@ def _check_input(inp: SolverInput) -> list[Problem]:
         if g.class_id not in class_ids:
             add("unknown_reference", f"groups[{i}].class_id", f"no class {g.class_id}")
     whole_count = Counter(g.class_id for g in inp.groups if g.is_whole)
+    for i, g in enumerate(inp.groups):
+        if g.is_whole and g.split:
+            add(
+                "whole_group_split",
+                f"groups[{i}].split",
+                "the whole class has no split",
+            )
     for i, c in enumerate(inp.classes):
         if whole_count[c.id] != 1:
             add(
@@ -595,8 +622,7 @@ def _check_course(
         groups[g] for p in course.parts for g in p.group_ids if g in groups
     ]
     for a, b in combinations(course_groups, 2):
-        same_class = a.class_id == b.class_id
-        if same_class and (a.is_whole or b.is_whole or a.id == b.id):
+        if _groups_conflict(a, b):
             add(
                 "conflicting_groups",
                 f"{path}.parts",

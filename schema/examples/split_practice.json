@@ -1,5 +1,5 @@
 {
-  "contract_version": 1,
+  "contract_version": 2,
   "days": [1, 2, 3, 4, 5],
   "periods": [1, 2, 3, 4, 5, 6, 7],
   "teachers": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}, {"id": 5}],
@@ -10,8 +10,8 @@
   ],
   "groups": [
     {"id": 1, "class_id": 1, "is_whole": true, "name": "цял клас"},
-    {"id": 2, "class_id": 1, "is_whole": false, "name": "Група 1"},
-    {"id": 3, "class_id": 1, "is_whole": false, "name": "Група 2"},
+    {"id": 2, "class_id": 1, "is_whole": false, "name": "Група 1", "split": "групи"},
+    {"id": 3, "class_id": 1, "is_whole": false, "name": "Група 2", "split": "групи"},
     {"id": 4, "class_id": 2, "is_whole": true, "name": "цял клас"}
   ],
   "rooms": [

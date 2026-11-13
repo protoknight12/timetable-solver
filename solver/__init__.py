@@ -19,6 +19,7 @@ from __future__ import annotations
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
+from itertools import product
 
 from ortools.sat.python import cp_model
 
@@ -118,7 +119,16 @@ def add_teacher_rule(tm: TimetableModel) -> None:
 
 
 def add_group_rule(tm: TimetableModel) -> None:
-    """Rule 3: per class and slot, whole + any one split group <= 1."""
+    """Rule 3: no student is in two lessons at once.
+
+    A student of a class is in the whole-class group plus at most one group of
+    each split (TECH_STACK §5, group splits). Groups of the same split are disjoint; groups of
+    different splits overlap. So for every combination "one group per split"
+    (the cartesian product), the courses of the whole class and of those
+    groups may use each slot at most once. A split that does not cover the
+    whole class needs no "no group" option: that case is a subset of a
+    combination that is already constrained.
+    """
     groups = {g.id: g for g in tm.inp.groups}
     courses_of = defaultdict(set)
     for c in tm.inp.courses:
@@ -126,13 +136,13 @@ def add_group_rule(tm: TimetableModel) -> None:
             for gid in part.group_ids:
                 courses_of[gid].add(c.id)
     whole = {g.class_id: g.id for g in groups.values() if g.is_whole}
-    splits = defaultdict(list)
+    splits = defaultdict(lambda: defaultdict(list))  # class -> split -> groups
     for g in groups.values():
         if not g.is_whole:
-            splits[g.class_id].append(g.id)
+            splits[g.class_id][g.split].append(g.id)
     for class_id, w in whole.items():
-        for g in splits[class_id] or [None]:
-            cids = courses_of[w] | (courses_of[g] if g is not None else set())
+        for combo in product(*splits[class_id].values()):
+            cids = set(courses_of[w]).union(*(courses_of[g] for g in combo))
             _at_most(tm, sorted(cids), 1)
 
 

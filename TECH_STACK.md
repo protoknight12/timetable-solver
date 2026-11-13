@@ -129,7 +129,7 @@ other group just has no part).
 | `Teacher` | id, display name (anonymized in seeds) |
 | `Subject` | id, name, default room type (nullable) |
 | `SchoolClass` | id, name (e.g. "10А"), grade |
-| `StudentGroup` | id, class, name, `is_whole`. Every class has exactly one whole-class group ("цял клас"); splits add more ("Група 1") |
+| `StudentGroup` | id, class, name, `is_whole`, `split`. Every class has exactly one whole-class group ("цял клас"); splits add more ("Група 1"). `split` names the way the class is divided ("групи", "езици"): groups of the same split never share students, groups of different splits may (a Chinese student is also in Група 1 or 2) |
 | `Room` | id, name, type, `concurrent_capacity` (default 1; sports hall 3) |
 | `Period` | number, start time, end time. Days are 1–5 |
 | `Course` | id, periods per week, `block_sizes` (e.g. `[1,1,1]`, `[2,1]`, `[2]`), optional label |
@@ -183,7 +183,7 @@ Initial generic constraint types (not tied to any regulation):
 | `no_gaps` (soft or hard) | No empty periods between a class's lessons |
 | `teacher_max_lessons_per_day` | Teacher teaches at most N lessons per day |
 
-Built-in hard rules (always on, not stored as constraints): a teacher is in at most one part-block per slot; two groups of the same class conflict if either is the whole class or they are the same group, and conflicting groups never share a slot; a room holds at most `concurrent_capacity` part-blocks per slot; every `Course` gets exactly its `block_sizes`, each block being consecutive periods on one day; a part that needs a room gets one matching its room type and allowed rooms.
+Built-in hard rules (always on, not stored as constraints): a teacher is in at most one part-block per slot; two groups of the same class conflict if either is the whole class, they are the same group, or they belong to different splits, and conflicting groups never share a slot; a room holds at most `concurrent_capacity` part-blocks per slot; every `Course` gets exactly its `block_sizes`, each block being consecutive periods on one day; a part that needs a room gets one matching its room type and allowed rooms.
 
 Extra type added with the data model: `fixed_slot` pins every block of a Course, e.g. a practice that must be on Friday periods 1–2. Params: `course_id`, `blocks: [{day, start_period}]`, one entry per block in `block_sizes` order.
 
