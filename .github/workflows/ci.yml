@@ -8,6 +8,20 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: saturn
+          POSTGRES_PASSWORD: saturn
+          POSTGRES_DB: saturn_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U saturn"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # DB tests run on PostgreSQL here; locally they fall back to SQLite.
+      TEST_DATABASE_URL: postgresql+psycopg://saturn:saturn@localhost:5432/saturn_test
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
