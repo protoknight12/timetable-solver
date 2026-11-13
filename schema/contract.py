@@ -582,8 +582,8 @@ def _check_course(
         add(
             "bad_blocks", f"{path}.block_sizes", "a block is longer than the school day"
         )
-    # Two blocks of one Course may share a day, with at least one free period
-    # between them (decided 14.11.2026, TECH_STACK §15 q10). Whether they fit
+    # Two blocks of one Course may share a day, even back to back (no gap rule,
+    # decided 14.11.2026, TECH_STACK §15 q10). Whether they fit
     # is the solver's job, not a shape check.
     if not course.parts:
         add("empty_course", f"{path}.parts", "a course needs at least one part")
@@ -769,11 +769,12 @@ def _check_fixed_slot(p, path, inp, add) -> None:
                 f"a {size}-period block starting at period {start} ends after the day",
             )
         placed.append((day, start, start + size - 1))
-    # Same rule as for courses: blocks on one day need a free period between them.
+    # Blocks of one course on one day may be back to back but must not overlap
+    # (no gap rule, decided 14.11.2026, TECH_STACK §15 q10).
     for (d1, s1, e1), (d2, s2, e2) in combinations(placed, 2):
-        if d1 == d2 and s1 <= e2 + 1 and s2 <= e1 + 1:
+        if d1 == d2 and s1 <= e2 and s2 <= e1:
             add(
                 "out_of_range",
                 f"{path}.params.blocks",
-                "two blocks of one course on one day overlap or touch",
+                "two blocks of one course on one day overlap",
             )

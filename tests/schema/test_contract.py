@@ -270,9 +270,9 @@ def constraint(d, constraint_id):
                     "params": {
                         "course_id": 1,
                         "blocks": [
-                            # same day and touching: no free period between
+                            # two blocks on the same period: they overlap
                             {"day": 2, "start_period": 1},
-                            {"day": 2, "start_period": 2},
+                            {"day": 2, "start_period": 1},
                             {"day": 4, "start_period": 1},
                         ],
                     },
@@ -317,7 +317,7 @@ def test_fixed_slot_pins_every_block_of_a_multi_block_course(data):
     assert codes(data) == set()
 
 
-def test_blocks_may_share_a_day_with_a_gap(data):
+def test_blocks_may_share_a_day_back_to_back(data):
     course(data, 1).update(periods_per_week=6, block_sizes=[1] * 6)
     data["constraints"].append(
         {
@@ -326,8 +326,9 @@ def test_blocks_may_share_a_day_with_a_gap(data):
             "hard": True,
             "params": {
                 "course_id": 1,
+                # with a gap on day 2, back to back on day 4 (no gap rule)
                 "blocks": [{"day": 2, "start_period": p} for p in (1, 3, 5, 7)]
-                + [{"day": 4, "start_period": 1}, {"day": 4, "start_period": 3}],
+                + [{"day": 4, "start_period": 1}, {"day": 4, "start_period": 2}],
             },
         }
     )

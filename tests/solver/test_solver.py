@@ -146,11 +146,12 @@ def test_more_periods_than_the_week_holds():
     assert status(make([1], [1, 2], three, classes=1)) == "INFEASIBLE"
 
 
-def test_blocks_on_one_day_need_a_gap():
-    # One day: blocks 2 + 1 fit in 4 periods (with a gap) but not in 3,
-    # where they could only touch. status() checks the gap via verify.
-    assert status(make([1], [1, 2, 3, 4], [([2, 1], [1], [1])], classes=1)) in SOLVED
-    assert status(make([1], [1, 2, 3], [([2, 1], [1], [1])], classes=1)) == "INFEASIBLE"
+def test_blocks_on_one_day_may_be_back_to_back():
+    # One day of 3 periods: blocks 2 + 1 only fit back to back. There is no gap
+    # rule (not a school regulation, TECH_STACK §15 q10).
+    assert status(make([1], [1, 2, 3], [([2, 1], [1], [1])], classes=1)) in SOLVED
+    # They still must not overlap: 2 + 2 does not fit in 3 periods.
+    assert status(make([1], [1, 2, 3], [([2, 2], [1], [1])], classes=1)) == "INFEASIBLE"
 
 
 def test_gap_between_blocks_may_hold_another_course():
