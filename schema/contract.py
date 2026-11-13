@@ -551,10 +551,9 @@ def _check_course(
         add(
             "bad_blocks", f"{path}.block_sizes", "a block is longer than the school day"
         )
-    # ASSUMPTION (open question for the supervisor): two blocks of one Course
-    # never share a day, so a Course cannot have more blocks than school days.
-    if len(course.block_sizes) > len(inp.days):
-        add("bad_blocks", f"{path}.block_sizes", "more blocks than school days")
+    # Two blocks of one Course may share a day, with at least one free period
+    # between them (decided 14.11.2026, TECH_STACK §15 q10). Whether they fit
+    # is the solver's job, not a shape check.
     if not course.parts:
         add("empty_course", f"{path}.parts", "a course needs at least one part")
 
@@ -721,7 +720,7 @@ def _check_fixed_slot(p, path, inp, add) -> None:
         )
         return
     last_period = inp.periods[-1] if inp.periods else 0
-    used_days = []
+    placed = []
     for bi, (b, size) in enumerate(zip(blocks, course.block_sizes, strict=True)):
         if not isinstance(b, dict):
             continue
@@ -739,11 +738,12 @@ def _check_fixed_slot(p, path, inp, add) -> None:
                 f"{path}.params.blocks[{bi}]",
                 f"a {size}-period block starting at period {start} ends after the day",
             )
-        used_days.append(day)
-    # Same assumption as for courses: two blocks of one Course never share a day.
-    if len(set(used_days)) != len(used_days):
-        add(
-            "out_of_range",
-            f"{path}.params.blocks",
-            "two blocks of one course are pinned to the same day",
-        )
+        placed.append((day, start, start + size - 1))
+    # Same rule as for courses: blocks on one day need a free period between them.
+    for (d1, s1, e1), (d2, s2, e2) in combinations(placed, 2):
+        if d1 == d2 and s1 <= e2 + 1 and s2 <= e1 + 1:
+            add(
+                "out_of_range",
+                f"{path}.params.blocks",
+                "two blocks of one course on one day overlap or touch",
+            )

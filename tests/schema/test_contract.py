@@ -117,10 +117,6 @@ def test_bad_shape_is_rejected(data, mutate):
         (lambda d: course(d, 1).update(block_sizes=[]), "bad_blocks"),
         (lambda d: course(d, 1).update(block_sizes=[0, 3]), "bad_blocks"),
         (
-            lambda d: course(d, 1).update(periods_per_week=6, block_sizes=[1] * 6),
-            "bad_blocks",
-        ),
-        (
             lambda d: course(d, 3).update(periods_per_week=8, block_sizes=[8]),
             "bad_blocks",
         ),
@@ -268,8 +264,9 @@ def constraint(d, constraint_id):
                     "params": {
                         "course_id": 1,
                         "blocks": [
+                            # same day and touching: no free period between
                             {"day": 2, "start_period": 1},
-                            {"day": 2, "start_period": 3},
+                            {"day": 2, "start_period": 2},
                             {"day": 4, "start_period": 1},
                         ],
                     },
@@ -308,6 +305,23 @@ def test_fixed_slot_pins_every_block_of_a_multi_block_course(data):
                     {"day": 3, "start_period": 3},
                     {"day": 5, "start_period": 3},
                 ],
+            },
+        }
+    )
+    assert codes(data) == set()
+
+
+def test_blocks_may_share_a_day_with_a_gap(data):
+    course(data, 1).update(periods_per_week=6, block_sizes=[1] * 6)
+    data["constraints"].append(
+        {
+            "id": 9,
+            "type": "fixed_slot",
+            "hard": True,
+            "params": {
+                "course_id": 1,
+                "blocks": [{"day": 2, "start_period": p} for p in (1, 3, 5, 7)]
+                + [{"day": 4, "start_period": 1}, {"day": 4, "start_period": 3}],
             },
         }
     )
