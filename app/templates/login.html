@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Вход{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-sm-8 col-md-6 col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h4 mb-4 text-center">Вход в системата</h1>
+
+        <form method="post" action="{{ url_for('pages.login') }}" novalidate>
+        
+          {% if csrf_token is defined %}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {% endif %}
+          <div class="form-floating mb-3">
+            <input type="text" class="form-control" id="username" name="username"
+                   placeholder="Потребителско име" autocomplete="username"
+                   maxlength="64" required autofocus>
+            <label for="username">Потребителско име</label>
+          </div>
+
+          <div class="form-floating mb-3">
+            <input type="password" class="form-control" id="password" name="password"
+                   placeholder="Парола" autocomplete="current-password"
+                   maxlength="128" required>
+            <label for="password">Парола</label>
+          </div>
+
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="remember" name="remember" value="1">
+            <label class="form-check-label" for="remember">Запомни ме</label>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100">Вход</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
