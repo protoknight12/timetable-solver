@@ -233,8 +233,50 @@ def constraint(d, constraint_id):
             "unknown_reference",
         ),
         (lambda d: constraint(d, 3)["params"].update(days=[6]), "out_of_range"),
-        (lambda d: constraint(d, 1)["params"].update(day=7), "out_of_range"),
-        (lambda d: constraint(d, 1)["params"].update(start_period=12), "out_of_range"),
+        # fixed_slot: one {day, start_period} per block of the course.
+        (
+            lambda d: constraint(d, 1)["params"].update(
+                blocks=[{"day": 7, "start_period": 1}]
+            ),
+            "out_of_range",
+        ),
+        (
+            lambda d: constraint(d, 1)["params"].update(
+                blocks=[{"day": 5, "start_period": 12}]
+            ),
+            "out_of_range",
+        ),
+        (
+            # Course 3 is a 2-period block; starting at the last period overflows.
+            lambda d: constraint(d, 1)["params"].update(
+                blocks=[{"day": 5, "start_period": 7}]
+            ),
+            "out_of_range",
+        ),
+        (
+            lambda d: constraint(d, 1)["params"].update(
+                blocks=[{"day": 5, "start_period": 1}, {"day": 4, "start_period": 1}]
+            ),
+            "fixed_slot_block_count",
+        ),
+        (
+            lambda d: d["constraints"].append(
+                {
+                    "id": 9,
+                    "type": "fixed_slot",
+                    "hard": True,
+                    "params": {
+                        "course_id": 1,
+                        "blocks": [
+                            {"day": 2, "start_period": 1},
+                            {"day": 2, "start_period": 3},
+                            {"day": 4, "start_period": 1},
+                        ],
+                    },
+                }
+            ),
+            "out_of_range",
+        ),
         (
             lambda d: d["constraints"].append(
                 {
@@ -251,6 +293,25 @@ def constraint(d, constraint_id):
 def test_bad_constraints_are_reported(data, mutate, expected):
     mutate(data)
     assert expected in codes(data)
+
+
+def test_fixed_slot_pins_every_block_of_a_multi_block_course(data):
+    data["constraints"].append(
+        {
+            "id": 9,
+            "type": "fixed_slot",
+            "hard": True,
+            "params": {
+                "course_id": 1,
+                "blocks": [
+                    {"day": 1, "start_period": 3},
+                    {"day": 3, "start_period": 3},
+                    {"day": 5, "start_period": 3},
+                ],
+            },
+        }
+    )
+    assert codes(data) == set()
 
 
 def test_all_problems_are_reported_at_once(data):

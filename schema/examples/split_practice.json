@@ -59,9 +59,9 @@
   ],
   "constraints": [
     {"id": 1, "type": "fixed_slot", "hard": true,
-     "params": {"course_id": 3, "day": 5, "start_period": 1}},
+     "params": {"course_id": 3, "blocks": [{"day": 5, "start_period": 1}]}},
     {"id": 2, "type": "fixed_slot", "hard": true,
-     "params": {"course_id": 4, "day": 1, "start_period": 1}},
+     "params": {"course_id": 4, "blocks": [{"day": 1, "start_period": 1}]}},
     {"id": 3, "type": "teacher_available_days", "hard": true,
      "params": {"teacher_id": 2, "days": [2, 4]}},
     {"id": 4, "type": "no_gaps", "hard": false, "weight": 5,

@@ -687,18 +687,6 @@ def _check_constraint(
             add(
                 "out_of_range", f"{path}.params.days", f"days {bad} are not school days"
             )
-    if "day" in p and p["day"] not in days:
-        add(
-            "out_of_range",
-            f"{path}.params.day",
-            f"day {p['day']!r} is not a school day",
-        )
-    if "start_period" in p and p["start_period"] not in periods:
-        add(
-            "out_of_range",
-            f"{path}.params.start_period",
-            f"no period {p['start_period']!r}",
-        )
     if isinstance(p.get("slots"), list):
         for si, s in enumerate(p["slots"]):
             if isinstance(s, dict) and (
@@ -709,3 +697,53 @@ def _check_constraint(
                     f"{path}.params.slots[{si}]",
                     "slot is outside the school week",
                 )
+
+    if con.type == "fixed_slot":
+        _check_fixed_slot(p, path, inp, add)
+
+
+def _check_fixed_slot(p, path, inp, add) -> None:
+    """fixed_slot pins every block of a Course: params.blocks[i] = {day, start_period}.
+
+    blocks[i] belongs to course.block_sizes[i], so the list must have one entry
+    per block and each block must fit in the school day.
+    """
+    course = next((c for c in inp.courses if c.id == p.get("course_id")), None)
+    blocks = p.get("blocks")
+    if course is None or not isinstance(blocks, list):
+        return  # unknown course already reported; shape is BE-03's job
+    if len(blocks) != len(course.block_sizes):
+        add(
+            "fixed_slot_block_count",
+            f"{path}.params.blocks",
+            f"course {course.id} has {len(course.block_sizes)} blocks, "
+            f"got {len(blocks)} positions",
+        )
+        return
+    last_period = inp.periods[-1] if inp.periods else 0
+    used_days = []
+    for bi, (b, size) in enumerate(zip(blocks, course.block_sizes, strict=True)):
+        if not isinstance(b, dict):
+            continue
+        day, start = b.get("day"), b.get("start_period")
+        if day not in inp.days or start not in inp.periods:
+            add(
+                "out_of_range",
+                f"{path}.params.blocks[{bi}]",
+                "block is outside the school week",
+            )
+            continue
+        if start + size - 1 > last_period:
+            add(
+                "out_of_range",
+                f"{path}.params.blocks[{bi}]",
+                f"a {size}-period block starting at period {start} ends after the day",
+            )
+        used_days.append(day)
+    # Same assumption as for courses: two blocks of one Course never share a day.
+    if len(set(used_days)) != len(used_days):
+        add(
+            "out_of_range",
+            f"{path}.params.blocks",
+            "two blocks of one course are pinned to the same day",
+        )

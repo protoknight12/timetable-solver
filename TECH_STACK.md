@@ -184,7 +184,7 @@ Initial generic constraint types (not tied to any regulation):
 
 Built-in hard rules (always on, not stored as constraints): a teacher is in at most one part-block per slot; two groups of the same class conflict if either is the whole class or they are the same group, and conflicting groups never share a slot; a room holds at most `concurrent_capacity` part-blocks per slot; every `Course` gets exactly its `block_sizes`, each block being consecutive periods on one day; a part that needs a room gets one matching its room type and allowed rooms.
 
-Extra type added with the data model: `fixed_slot` (`course_id`, `day`, `start_period`) pins a Course, e.g. a practice that must be on Friday periods 1–2.
+Extra type added with the data model: `fixed_slot` pins every block of a Course, e.g. a practice that must be on Friday periods 1–2. Params: `course_id`, `blocks: [{day, start_period}]`, one entry per block in `block_sizes` order.
 
 ---
 
