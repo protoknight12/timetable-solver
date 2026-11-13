@@ -7,9 +7,9 @@ it). Output contains no real person names and no real class names: teachers
 get generated names, classes get generic grade/letter names. The real->fake
 mapping is held in memory only and is never written anywhere.
 
-Room codes, subject names, period times and the timetable structure are kept
-as-is: they are what makes the dataset realistic, and none of them names a
-person.
+Subject names and the timetable structure are kept: they are what makes the
+dataset realistic. Room codes, bell times and the real days are then hidden by
+the second pass in ``anonymize.py``, which runs automatically below.
 """
 
 import json
@@ -17,6 +17,8 @@ import random
 import re
 import sys
 from collections import Counter, defaultdict
+
+from anonymize import anonymize  # same folder; run this file as a script
 
 DAY_NAMES = ["Понеделник", "Вторник", "Сряда", "Четвъртък", "Петък"]
 
@@ -389,7 +391,7 @@ def build(pages, rng_seed=20261204):
 
 if __name__ == "__main__":
     with open(sys.argv[1], encoding="utf-8") as f:
-        data = build(json.load(f))
+        data = anonymize(build(json.load(f)))
     with open(sys.argv[2], "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=1)
         f.write("\n")
