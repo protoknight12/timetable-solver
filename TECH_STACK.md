@@ -3,7 +3,7 @@
 > **Name:** SATurn (decided 12.11.2026).
 > **Project:** AI-assisted school timetable maker for the National Autumn IT Tournament "Джон Атанасов" (December 2026, Sofia).
 > **Team:** two students + a teacher supervisor.
-> **Status:** planning. **Feature freeze: 26.11.2026.**
+> **Status:** in development (data contract, constraint models, DB models, auth and solver core merged on 14.11.2026). **Feature freeze: 26.11.2026.**
 
 Items marked **[DECIDE]** still need agreement between both developers.
 Items marked **[QUESTION]** are unknowns about real school rules. Do not guess them in code.
@@ -72,10 +72,11 @@ The app must work end to end **with the LLM switched off**. Manual constraint en
 | Constraint format | Pydantic v2 | One source of truth: validates LLM output, generates the JSON Schema given to the LLM, documents the format |
 | LLM access | Anthropic Python SDK, tool use / structured output | Forces LLM output into the Pydantic schema; invalid output is dropped before an admin sees it |
 | Interactivity | HTMX + a little Alpine.js | Job status polling, confirm/reject buttons, small grid edits without a JS build |
-| Styling | Tailwind via CDN **[DECIDE]** (or Bootstrap) | No build step |
+| Styling | Bootstrap 5.3 + Bootstrap Icons via CDN (decided, used since FE-02) | No build step; built-in dark mode via `data-bs-theme` |
 | Auth | Flask-Login | Already familiar from earlier projects |
+| Forms / security | Flask-WTF (CSRF), Flask-Limiter (rate limits, Redis storage) | The jury scores CSRF and rate limiting (BE-05) |
 | Excel export | openpyxl | Schools will want the timetable as a spreadsheet |
-| PDF export | WeasyPrint | Printable timetables. Nice-to-have; cut first if short on time |
+| ~~PDF export~~ | ~~WeasyPrint~~ | Cut until after the tournament (#35) |
 | Packaging | uv + `pyproject.toml` | Fast, reproducible installs |
 | Lint / format | ruff | One tool for both |
 | Tests | pytest | |
@@ -147,12 +148,12 @@ other group just has no part).
 type, and the worker must refuse to solve and show those problems instead of silently ignoring them.
 
 **Limits.** Every lesson repeats weekly (no alternating weeks). Parts of one Course share the same block
-pattern. Two blocks of one Course may share a day, but need at least one free period between them (decided
-14.11.2026, see §15 q10).
+pattern. Two blocks of one Course may share a day, even back to back; they only must not overlap. There is
+no gap rule, because it is not a school regulation (decided 14.11.2026, §15 q10, PR #55).
 
 ---
 
-## 6. Constraint format **[DECIDE]**
+## 6. Constraint format (agreed 13.11.2026, TEAM-03; implemented in `schema/constraints.py`, BE-03)
 
 - Each constraint is a Pydantic model with a fixed `type` literal and typed `params`.
 - The JSON Schema for the LLM is **generated** from these models, never hand-written.
@@ -171,7 +172,7 @@ Example:
 }
 ```
 
-Initial generic constraint types (not tied to any regulation):
+Generic constraint types (not tied to any regulation). The first five plus `fixed_slot` are implemented in the solver (BE-07); the other two are Could (TEAM-11):
 
 | Type | Meaning |
 |---|---|
@@ -202,9 +203,9 @@ Extra type added with the data model: `fixed_slot` pins every block of a Course,
 
 ## 8. Solver
 
-- Boolean decision variables: `x[curriculum_item, slot]` (and room assignment where needed).
+- Decision variables: one start variable per Course block (day + start period), plus room assignment per part where needed. Implemented in `solver/` (BE-06, BE-07).
 - Hard constraints as CP-SAT constraints; soft constraints as weighted penalty terms in a minimized objective.
-- Default time limit: 60 s **[DECIDE]**; configurable per job.
+- Default time limit: 60 s (`SOLVER_TIME_LIMIT_S`); configurable per job.
 - Return: status (`OPTIMAL`, `FEASIBLE`, `INFEASIBLE`, `UNKNOWN`), lessons, objective value, solve time.
 - **Infeasible results must be explained.** Attach an assumption literal to each user constraint and use CP-SAT's `sufficient_assumptions_for_infeasibility()` to report which constraints conflict.
 - Input and output are plain dataclasses or dicts. No DB access.
@@ -212,6 +213,8 @@ Extra type added with the data model: `fixed_slot` pins every block of a Course,
 ---
 
 ## 9. Checker
+
+> **Status:** not started (`checker/` is empty). Owner: Hristian (FE-04). Until it exists, the solver tests use their own verification, written by the solver's author, so they are not independent.
 
 - Input: the same plain data the solver got + the solver's lessons.
 - Re-checks every built-in rule and every confirmed constraint, using its own code.
@@ -279,7 +282,7 @@ SOLVER_TIME_LIMIT_S=60
 
 **MVP (must ship):** data entry → constraints (form + LLM) → solve → checker report → grid view → one export.
 
-**After the tournament:** substitutions, drag-and-drop editing, PDF export (if cut), multiple schools, teacher-facing views.
+**After the tournament:** substitutions, drag-and-drop editing, PDF export (cut, #35), multiple schools, teacher-facing views.
 
 ---
 
@@ -308,14 +311,20 @@ SOLVER_TIME_LIMIT_S=60
 7. What should a teacher's maximum load per day be?
 8. Practice slots where both groups of a class appear in two lessons at once: weekly rotation, or truly parallel? (Parallel fits the model; rotation does not.)
 9. PE slots where one teacher has overlapping blocks for different classes: allowed, or an aSc export artifact?
-10. ~~May one subject have two blocks on the same day?~~ Decided 14.11.2026: yes, with at least one free
-    period between them (e.g. English 3, Math 2, English 2). The real seed's 8th-grade English needs this.
+10. ~~May one subject have two blocks on the same day, and must there be a free period between them?~~
+    Decided 14.11.2026: yes, same day is allowed, and there is **no** gap rule (it is not a regulation; the real
+    timetable has a back-to-back case). PR #55. If stacking turns out to be a problem, add a soft constraint
+    (`max_same_subject_per_day`), not a built-in rule.
 11. When one group has no lesson (the "or nothing" case), are its free periods at the start or end of the day acceptable, and do they count as gaps? Current assumption: not gaps.
+12. ~~Real school details in `seeds/example_school.json`?~~ Decided 14.11.2026: anonymize further. Rooms renamed,
+    generic bell times, permuted days in the reference timetable (`tools/asc_import/anonymize.py`, PR #56).
+    Subjects and structure are kept.
 
 **Team decisions [DECIDE]:**
 
 1. License.
 2. ~~Data model and constraint format (sections 5–6).~~ Agreed 13.11.2026 (TEAM-03).
-3. Tailwind or Bootstrap.
-4. Default solver time limit.
-5. Is the tournament demo run on a laptop (offline-capable) or a hosted server?
+   Contract v2 (`StudentGroup.split`, PR #49) and the same-day block rule (PR #48, gap rule dropped in #55) were added on 14.11 and still need Hristian's explicit OK.
+3. ~~Tailwind or Bootstrap.~~ Bootstrap 5.3.
+4. ~~Default solver time limit.~~ 60 s.
+5. ~~Laptop or hosted demo?~~ Hosted VPS with a public HTTPS URL (required by the rules), plus an offline laptop copy and a recorded video as backup.

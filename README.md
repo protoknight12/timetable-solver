@@ -2,7 +2,8 @@
 
 AI-assisted school timetable maker, built for the National Autumn IT Tournament "Джон Атанасов" (December 2026, Sofia).
 
-> **Status:** planning. Feature freeze: **26.11.2026**.
+> **Status:** in development. Merged so far: data contract, constraint models, DB models, login with roles, solver core.
+> Not yet: checker, background jobs, LLM, data entry pages, deploy. Feature freeze: **26.11.2026**.
 
 ## Core principle
 
@@ -16,9 +17,10 @@ AI-assisted school timetable maker, built for the National Autumn IT Tournament 
 
 The app must work end to end with the LLM switched off.
 
-## Planned stack
+## Stack
 
-Python 3.12, Flask, SQLAlchemy 2.x, PostgreSQL 16, Redis + RQ, OR-Tools CP-SAT, Pydantic v2, Docker Compose.
+Python 3.12, Flask, SQLAlchemy 2.x, PostgreSQL 16, Redis + RQ, OR-Tools CP-SAT, Pydantic v2, Flask-Login,
+Flask-WTF, Flask-Limiter, Bootstrap 5.3, Docker Compose.
 Full details and open decisions: [TECH_STACK.md](TECH_STACK.md).
 
 ## Repository layout
@@ -28,8 +30,10 @@ Full details and open decisions: [TECH_STACK.md](TECH_STACK.md).
 | `app/` | Flask app. The only place that touches the database |
 | `schema/` | Pydantic constraint models (no Flask/DB imports) |
 | `solver/` | CP-SAT model (no Flask/DB imports) |
-| `checker/` | Independent verifier (no Flask/DB imports) |
+| `checker/` | Independent verifier (no Flask/DB imports). Not started yet (FE-04) |
 | `seeds/` | Anonymized demo data only |
+| `migrations/` | Alembic migrations |
+| `tools/` | Seed conversion and the solver benchmark (`tools/bench_solver.py`, not run in CI) |
 | `tests/` | Tests for checker, solver and app |
 
 ## Getting started
@@ -46,7 +50,11 @@ Database (PostgreSQL via `DATABASE_URL`; without it the app uses a throwaway in-
 ```bash
 uv run flask --app app db upgrade   # create/update the schema
 uv run flask --app app seed         # load the demo school into an empty DB (--reset replaces it)
+uv run flask --app app create-user NAME --role admin|viewer [--password-env VAR]
 ```
+
+`flask seed` also creates the demo accounts `admin` (Администратор) and `preglad` (Преглед) when
+`DEMO_ADMIN_PASSWORD` / `DEMO_VIEWER_PASSWORD` are set in `.env`; otherwise it skips them.
 
 DB tests run on SQLite by default; set `TEST_DATABASE_URL` to run them on PostgreSQL (CI does).
 Configuration variables are documented in [.env.example](.env.example).
@@ -68,6 +76,7 @@ uv run flask --app app run --debug    # http://127.0.0.1:5000
 |---|---|
 | `/` | Home: welcome text and a "Вход" button |
 | `/login` | Login form (username, password, "Запомни ме") |
+| `/logout` | POST only, from the navbar |
 
 **With Docker:** `docker compose up --build`, then open http://localhost:8000 (gunicorn, no auto-reload).
 
@@ -79,7 +88,8 @@ Things to try:
 
 Current limits:
 
-- Login is a placeholder until BE-05: submitting the form just shows the form again. Nothing is authenticated yet.
+- Login works (BE-05): roles `admin` (Администратор, may change data) and `viewer` (Преглед, read only),
+  CSRF on every form, and login attempts limited to 5 per minute. Create an account first (see above).
 - The "Разписание" menu item is disabled until its page exists.
 - Bootstrap and Bootstrap Icons load from the jsDelivr CDN, so the pages look unstyled without an internet connection.
 
