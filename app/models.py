@@ -9,10 +9,12 @@ from __future__ import annotations
 
 from datetime import datetime, time
 
+from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -38,6 +40,9 @@ JsonType = JSON().with_variant(JSONB, "postgresql")
 
 CONSTRAINT_STATUSES = ("proposed", "confirmed", "rejected")
 CONSTRAINT_SOURCES = ("manual", "llm")
+
+# UI names: admin = "Администратор", viewer = "Преглед".
+ROLES = ("admin", "viewer")
 
 course_part_groups = Table(
     "course_part_groups",
@@ -223,3 +228,16 @@ class Violation(Base):
     type: Mapped[str] = mapped_column(String(60))
     entity_ids: Mapped[dict | list] = mapped_column(JsonType)
     message_key: Mapped[str] = mapped_column(String(120))
+
+
+class User(UserMixin, Base):
+    __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint("role IN ('admin', 'viewer')", name="ck_users_role"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(256))
+    role: Mapped[str] = mapped_column(String(20))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

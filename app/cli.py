@@ -10,6 +10,7 @@ from flask.cli import with_appcontext
 from sqlalchemy import func, select, text
 
 from app import models as m
+from app.auth import create_demo_users
 from tools.seed_to_contract import SEED, load_seed, seed_to_solver_input
 
 # Tables that hold school data. `flask seed --reset` empties exactly these.
@@ -152,3 +153,4 @@ def seed_command(path: str | None, reset: bool) -> None:
     load_school(load_seed(Path(path) if path else SEED))
     m.db.session.commit()
     click.echo("Seeded the demo school.")
+    create_demo_users()

@@ -23,6 +23,8 @@ def app():
     app = create_app(
         {
             "TESTING": True,
+            "WTF_CSRF_ENABLED": False,  # test_auth.py turns it back on where it matters
+            "LOGIN_RATE_LIMIT": "1000 per minute",
             "SQLALCHEMY_DATABASE_URI": os.environ.get("TEST_DATABASE_URL")
             or "sqlite://",
         }
@@ -31,6 +33,22 @@ def app():
         _wipe()
         yield app
         _wipe()
+
+
+@pytest.fixture
+def make_client(migrated):
+    """Factory: a test client logged in as a new user of the given role (or anonymous)."""
+    from app.auth import create_user
+
+    def make(role: str | None = None):
+        client = migrated.test_client()
+        if role:
+            create_user(f"user-{role}", "test-password-1", role)
+            data = {"username": f"user-{role}", "password": "test-password-1"}
+            assert client.post("/login", data=data).status_code == 302
+        return client
+
+    return make
 
 
 @pytest.fixture

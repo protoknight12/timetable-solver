@@ -7,6 +7,8 @@ from flask_migrate import Migrate
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
+from app.auth import create_user_command, csrf, limiter, login_manager
+from app.errors import register_error_pages
 from app.models import db
 from app.routes.pages import bp as pages_bp
 
@@ -29,16 +31,31 @@ def create_app(config: dict | None = None) -> Flask:
         # Without DATABASE_URL: throwaway in-memory SQLite (tests, frontend work).
         SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL") or "sqlite://",
         SCHOOL_DAYS=5,
+        LOGIN_RATE_LIMIT="5 per minute",
+        # Redis in production; if it is down, fall back to per-process memory.
+        RATELIMIT_STORAGE_URI=os.environ.get("REDIS_URL") or "memory://",
+        RATELIMIT_IN_MEMORY_FALLBACK_ENABLED=True,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
     )
     if config:
         app.config.update(config)
+    # Secure cookies need HTTPS: off only in debug and tests (or when set explicitly).
+    if "SESSION_COOKIE_SECURE" not in (config or {}):
+        app.config["SESSION_COOKIE_SECURE"] = not (app.debug or app.testing)
 
     db.init_app(app)
     migrate.init_app(app, db)
+    csrf.init_app(app)
+    limiter.init_app(app)
+    login_manager.init_app(app)
+    login_manager.login_view = "pages.login"
+    register_error_pages(app)
 
     from app.cli import seed_command
 
     app.cli.add_command(seed_command)
+    app.cli.add_command(create_user_command)
     app.register_blueprint(pages_bp)
 
     return app
