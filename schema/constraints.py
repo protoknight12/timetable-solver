@@ -14,7 +14,7 @@ Like contract.py, this module must never import Flask, SQLAlchemy or app/.
 
 Regenerate the committed schema file after any change here:
 
-    uv run python -m schema.constraints
+    uv run python -m schema
 """
 
 from __future__ import annotations
@@ -242,8 +242,3 @@ def constraint_json_schema() -> dict[str, Any]:
 
 def _render_schema() -> str:
     return json.dumps(constraint_json_schema(), indent=2, ensure_ascii=False) + "\n"
-
-
-if __name__ == "__main__":
-    SCHEMA_FILE.write_text(_render_schema(), encoding="utf-8", newline="\n")
-    print(f"wrote {SCHEMA_FILE}")
