@@ -1,0 +1,2782 @@
+{
+  "meta": {
+    "description": "Made-up demo school: 12 classes, 25 teachers, 5 days x 7 periods.",
+    "days": [
+      "Понеделник",
+      "Вторник",
+      "Сряда",
+      "Четвъртък",
+      "Петък"
+    ],
+    "periods": [
+      {
+        "number": 1,
+        "start": "7:30",
+        "end": "8:15"
+      },
+      {
+        "number": 2,
+        "start": "8:25",
+        "end": "9:10"
+      },
+      {
+        "number": 3,
+        "start": "9:20",
+        "end": "10:05"
+      },
+      {
+        "number": 4,
+        "start": "10:25",
+        "end": "11:10"
+      },
+      {
+        "number": 5,
+        "start": "11:20",
+        "end": "12:05"
+      },
+      {
+        "number": 6,
+        "start": "12:15",
+        "end": "13:00"
+      },
+      {
+        "number": 7,
+        "start": "13:10",
+        "end": "13:55"
+      }
+    ],
+    "assumptions": [],
+    "known_quirks": [],
+    "anonymized": true
+  },
+  "teachers": [
+    {
+      "id": "T01",
+      "name": "Иван Иванов"
+    },
+    {
+      "id": "T02",
+      "name": "Петър Петров"
+    },
+    {
+      "id": "T03",
+      "name": "Мария Маринова"
+    },
+    {
+      "id": "T04",
+      "name": "Георги Георгиев"
+    },
+    {
+      "id": "T05",
+      "name": "Николай Николов"
+    },
+    {
+      "id": "T06",
+      "name": "Елена Еленова"
+    },
+    {
+      "id": "T07",
+      "name": "Димитър Димитров"
+    },
+    {
+      "id": "T08",
+      "name": "Светлана Светлова"
+    },
+    {
+      "id": "T09",
+      "name": "Александър Александров"
+    },
+    {
+      "id": "T10",
+      "name": "Виктор Викторов"
+    },
+    {
+      "id": "T11",
+      "name": "Борис Борисов"
+    },
+    {
+      "id": "T12",
+      "name": "Васил Василев"
+    },
+    {
+      "id": "T13",
+      "name": "Йордан Йорданов"
+    },
+    {
+      "id": "T14",
+      "name": "Калина Калинова"
+    },
+    {
+      "id": "T15",
+      "name": "Любомир Любенов"
+    },
+    {
+      "id": "T16",
+      "name": "Милена Миленова"
+    },
+    {
+      "id": "T17",
+      "name": "Огнян Огнянов"
+    },
+    {
+      "id": "T18",
+      "name": "Пламен Пламенов"
+    },
+    {
+      "id": "T19",
+      "name": "Радослав Радев"
+    },
+    {
+      "id": "T20",
+      "name": "Симеон Симеонов"
+    },
+    {
+      "id": "T21",
+      "name": "Тихомир Тихов"
+    },
+    {
+      "id": "T22",
+      "name": "Цветан Цветанов"
+    },
+    {
+      "id": "T23",
+      "name": "Юлиан Юлиев"
+    },
+    {
+      "id": "T24",
+      "name": "Яна Янева"
+    },
+    {
+      "id": "T25",
+      "name": "Добромир Добрев"
+    }
+  ],
+  "classes": [
+    {
+      "id": "C01",
+      "name": "8А",
+      "grade": 8,
+      "profile": null,
+      "class_teacher": "T01"
+    },
+    {
+      "id": "C02",
+      "name": "8Б",
+      "grade": 8,
+      "profile": null,
+      "class_teacher": "T02"
+    },
+    {
+      "id": "C03",
+      "name": "8В",
+      "grade": 8,
+      "profile": null,
+      "class_teacher": "T03"
+    },
+    {
+      "id": "C04",
+      "name": "9А",
+      "grade": 9,
+      "profile": null,
+      "class_teacher": "T04"
+    },
+    {
+      "id": "C05",
+      "name": "9Б",
+      "grade": 9,
+      "profile": null,
+      "class_teacher": "T05"
+    },
+    {
+      "id": "C06",
+      "name": "9В",
+      "grade": 9,
+      "profile": null,
+      "class_teacher": "T06"
+    },
+    {
+      "id": "C07",
+      "name": "10А",
+      "grade": 10,
+      "profile": null,
+      "class_teacher": "T07"
+    },
+    {
+      "id": "C08",
+      "name": "10Б",
+      "grade": 10,
+      "profile": null,
+      "class_teacher": "T08"
+    },
+    {
+      "id": "C09",
+      "name": "10В",
+      "grade": 10,
+      "profile": null,
+      "class_teacher": "T09"
+    },
+    {
+      "id": "C10",
+      "name": "11А",
+      "grade": 11,
+      "profile": null,
+      "class_teacher": "T10"
+    },
+    {
+      "id": "C11",
+      "name": "11Б",
+      "grade": 11,
+      "profile": null,
+      "class_teacher": "T11"
+    },
+    {
+      "id": "C12",
+      "name": "11В",
+      "grade": 11,
+      "profile": null,
+      "class_teacher": "T12"
+    }
+  ],
+  "subjects": [
+    {
+      "id": "S01",
+      "name": "Български език и литература"
+    },
+    {
+      "id": "S02",
+      "name": "Математика"
+    },
+    {
+      "id": "S03",
+      "name": "Английски език"
+    },
+    {
+      "id": "S04",
+      "name": "Немски език"
+    },
+    {
+      "id": "S05",
+      "name": "История и цивилизации"
+    },
+    {
+      "id": "S06",
+      "name": "География и икономика"
+    },
+    {
+      "id": "S07",
+      "name": "Биология и здравно образование"
+    },
+    {
+      "id": "S08",
+      "name": "Физика и астрономия"
+    },
+    {
+      "id": "S09",
+      "name": "Химия и опазване на околната среда"
+    },
+    {
+      "id": "S10",
+      "name": "Философия"
+    },
+    {
+      "id": "S11",
+      "name": "Физическо възпитание и спорт"
+    },
+    {
+      "id": "S12",
+      "name": "Увод в програмирането"
+    },
+    {
+      "id": "S13",
+      "name": "Информационни технологии"
+    },
+    {
+      "id": "S14",
+      "name": "Програмиране"
+    },
+    {
+      "id": "S15",
+      "name": "Операционни системи"
+    },
+    {
+      "id": "S16",
+      "name": "Обектно-ориентирано програмиране"
+    },
+    {
+      "id": "S17",
+      "name": "Компютърни мрежи"
+    },
+    {
+      "id": "S18",
+      "name": "Бази данни"
+    },
+    {
+      "id": "S19",
+      "name": "Софтуерно инженерство"
+    },
+    {
+      "id": "S20",
+      "name": "Интернет програмиране"
+    },
+    {
+      "id": "S21",
+      "name": "Час на класа"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "R01",
+      "name": "Стая 1",
+      "type": "regular"
+    },
+    {
+      "id": "R02",
+      "name": "Стая 2",
+      "type": "regular"
+    },
+    {
+      "id": "R03",
+      "name": "Стая 3",
+      "type": "regular"
+    },
+    {
+      "id": "R04",
+      "name": "Стая 4",
+      "type": "regular"
+    },
+    {
+      "id": "R05",
+      "name": "Стая 5",
+      "type": "regular"
+    },
+    {
+      "id": "R06",
+      "name": "Стая 6",
+      "type": "regular"
+    },
+    {
+      "id": "R07",
+      "name": "Стая 7",
+      "type": "regular"
+    },
+    {
+      "id": "R08",
+      "name": "Стая 8",
+      "type": "regular"
+    },
+    {
+      "id": "R09",
+      "name": "Стая 9",
+      "type": "regular"
+    },
+    {
+      "id": "R10",
+      "name": "Стая 10",
+      "type": "regular"
+    },
+    {
+      "id": "R11",
+      "name": "Стая 11",
+      "type": "regular"
+    },
+    {
+      "id": "R12",
+      "name": "Стая 12",
+      "type": "regular"
+    },
+    {
+      "id": "L01",
+      "name": "Лаборатория 1",
+      "type": "lab"
+    },
+    {
+      "id": "L02",
+      "name": "Лаборатория 2",
+      "type": "lab"
+    },
+    {
+      "id": "G01",
+      "name": "Физкултурен салон 1",
+      "type": "gym"
+    }
+  ],
+  "curriculum": [
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T01",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T01",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T01",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C04",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T01",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C05",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T02",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C06",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T02",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C07",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T02",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C08",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T02",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C09",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T03",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C10",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T03",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C11",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T03",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C12",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T03",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T04",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T04",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T04",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C04",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T04",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C05",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T05",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C06",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T05",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C07",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T05",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C08",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T05",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C09",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T06",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C10",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T06",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C11",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T06",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C12",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T06",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T07",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T07",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T07",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C04",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T07",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C05",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T08",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C06",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T08",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C07",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T08",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C08",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T08",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C09",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T09",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C10",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T09",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C11",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T09",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C12",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T09",
+      "periods_per_week": 4,
+      "blocks": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S04",
+      "teacher": "T10",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S04",
+      "teacher": "T10",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S04",
+      "teacher": "T10",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C04",
+          "group": null
+        }
+      ],
+      "subject": "S04",
+      "teacher": "T10",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C05",
+          "group": null
+        }
+      ],
+      "subject": "S04",
+      "teacher": "T10",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C06",
+          "group": null
+        }
+      ],
+      "subject": "S04",
+      "teacher": "T10",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T11",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T11",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T11",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C04",
+          "group": null
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T11",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C05",
+          "group": null
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T11",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C06",
+          "group": null
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T11",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C07",
+          "group": null
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T11",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C08",
+          "group": null
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T11",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C09",
+          "group": null
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T11",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C10",
+          "group": null
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T11",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C11",
+          "group": null
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T11",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C12",
+          "group": null
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T11",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T12",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T12",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T12",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C04",
+          "group": null
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T12",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C05",
+          "group": null
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T12",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C06",
+          "group": null
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T12",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C07",
+          "group": null
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T12",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C08",
+          "group": null
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T12",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C09",
+          "group": null
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T12",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S07",
+      "teacher": "T13",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S07",
+      "teacher": "T13",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S07",
+      "teacher": "T13",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C04",
+          "group": null
+        }
+      ],
+      "subject": "S07",
+      "teacher": "T13",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C05",
+          "group": null
+        }
+      ],
+      "subject": "S07",
+      "teacher": "T13",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C06",
+          "group": null
+        }
+      ],
+      "subject": "S07",
+      "teacher": "T13",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C07",
+          "group": null
+        }
+      ],
+      "subject": "S07",
+      "teacher": "T13",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C08",
+          "group": null
+        }
+      ],
+      "subject": "S07",
+      "teacher": "T13",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C09",
+          "group": null
+        }
+      ],
+      "subject": "S07",
+      "teacher": "T13",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S08",
+      "teacher": "T14",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S08",
+      "teacher": "T14",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S08",
+      "teacher": "T14",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C04",
+          "group": null
+        }
+      ],
+      "subject": "S08",
+      "teacher": "T14",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C05",
+          "group": null
+        }
+      ],
+      "subject": "S08",
+      "teacher": "T14",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C06",
+          "group": null
+        }
+      ],
+      "subject": "S08",
+      "teacher": "T14",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C07",
+          "group": null
+        }
+      ],
+      "subject": "S08",
+      "teacher": "T14",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C08",
+          "group": null
+        }
+      ],
+      "subject": "S08",
+      "teacher": "T14",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C09",
+          "group": null
+        }
+      ],
+      "subject": "S08",
+      "teacher": "T14",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S09",
+      "teacher": "T15",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S09",
+      "teacher": "T15",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S09",
+      "teacher": "T15",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C04",
+          "group": null
+        }
+      ],
+      "subject": "S09",
+      "teacher": "T15",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C05",
+          "group": null
+        }
+      ],
+      "subject": "S09",
+      "teacher": "T15",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C06",
+          "group": null
+        }
+      ],
+      "subject": "S09",
+      "teacher": "T15",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C07",
+          "group": null
+        }
+      ],
+      "subject": "S09",
+      "teacher": "T15",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C08",
+          "group": null
+        }
+      ],
+      "subject": "S09",
+      "teacher": "T15",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C09",
+          "group": null
+        }
+      ],
+      "subject": "S09",
+      "teacher": "T15",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C07",
+          "group": null
+        }
+      ],
+      "subject": "S10",
+      "teacher": "T16",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C08",
+          "group": null
+        }
+      ],
+      "subject": "S10",
+      "teacher": "T16",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C09",
+          "group": null
+        }
+      ],
+      "subject": "S10",
+      "teacher": "T16",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C10",
+          "group": null
+        }
+      ],
+      "subject": "S10",
+      "teacher": "T16",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C11",
+          "group": null
+        }
+      ],
+      "subject": "S10",
+      "teacher": "T16",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C12",
+          "group": null
+        }
+      ],
+      "subject": "S10",
+      "teacher": "T16",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S11",
+      "teacher": "T17",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S11",
+      "teacher": "T17",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S11",
+      "teacher": "T17",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C04",
+          "group": null
+        }
+      ],
+      "subject": "S11",
+      "teacher": "T17",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C05",
+          "group": null
+        }
+      ],
+      "subject": "S11",
+      "teacher": "T17",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C06",
+          "group": null
+        }
+      ],
+      "subject": "S11",
+      "teacher": "T17",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C07",
+          "group": null
+        }
+      ],
+      "subject": "S11",
+      "teacher": "T18",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C08",
+          "group": null
+        }
+      ],
+      "subject": "S11",
+      "teacher": "T18",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C09",
+          "group": null
+        }
+      ],
+      "subject": "S11",
+      "teacher": "T18",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C10",
+          "group": null
+        }
+      ],
+      "subject": "S11",
+      "teacher": "T18",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C11",
+          "group": null
+        }
+      ],
+      "subject": "S11",
+      "teacher": "T18",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C12",
+          "group": null
+        }
+      ],
+      "subject": "S11",
+      "teacher": "T18",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S12",
+      "teacher": "T19",
+      "periods_per_week": 3,
+      "blocks": [
+        2,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S12",
+      "teacher": "T19",
+      "periods_per_week": 3,
+      "blocks": [
+        2,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S12",
+      "teacher": "T19",
+      "periods_per_week": 3,
+      "blocks": [
+        2,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S13",
+      "teacher": "T20",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S13",
+      "teacher": "T21",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S13",
+      "teacher": "T20",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S13",
+      "teacher": "T21",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S13",
+      "teacher": "T20",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S13",
+      "teacher": "T21",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C04",
+          "group": null
+        }
+      ],
+      "subject": "S14",
+      "teacher": "T19",
+      "periods_per_week": 4,
+      "blocks": [
+        2,
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C05",
+          "group": null
+        }
+      ],
+      "subject": "S14",
+      "teacher": "T19",
+      "periods_per_week": 4,
+      "blocks": [
+        2,
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C06",
+          "group": null
+        }
+      ],
+      "subject": "S14",
+      "teacher": "T19",
+      "periods_per_week": 4,
+      "blocks": [
+        2,
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C04",
+          "group": null
+        }
+      ],
+      "subject": "S15",
+      "teacher": "T25",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C05",
+          "group": null
+        }
+      ],
+      "subject": "S15",
+      "teacher": "T25",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C06",
+          "group": null
+        }
+      ],
+      "subject": "S15",
+      "teacher": "T25",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C07",
+          "group": null
+        }
+      ],
+      "subject": "S16",
+      "teacher": "T22",
+      "periods_per_week": 4,
+      "blocks": [
+        2,
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C08",
+          "group": null
+        }
+      ],
+      "subject": "S16",
+      "teacher": "T22",
+      "periods_per_week": 4,
+      "blocks": [
+        2,
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C09",
+          "group": null
+        }
+      ],
+      "subject": "S16",
+      "teacher": "T22",
+      "periods_per_week": 4,
+      "blocks": [
+        2,
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C07",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S17",
+      "teacher": "T20",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C07",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S17",
+      "teacher": "T21",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C08",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S17",
+      "teacher": "T20",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C08",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S17",
+      "teacher": "T21",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C09",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S17",
+      "teacher": "T20",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C09",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S17",
+      "teacher": "T21",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C10",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S18",
+      "teacher": "T23",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C10",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S18",
+      "teacher": "T24",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C11",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S18",
+      "teacher": "T23",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C11",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S18",
+      "teacher": "T24",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C12",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S18",
+      "teacher": "T23",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C12",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S18",
+      "teacher": "T24",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C10",
+          "group": null
+        }
+      ],
+      "subject": "S19",
+      "teacher": "T25",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C11",
+          "group": null
+        }
+      ],
+      "subject": "S19",
+      "teacher": "T25",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C12",
+          "group": null
+        }
+      ],
+      "subject": "S19",
+      "teacher": "T25",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C10",
+          "group": null
+        }
+      ],
+      "subject": "S20",
+      "teacher": "T22",
+      "periods_per_week": 3,
+      "blocks": [
+        2,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C11",
+          "group": null
+        }
+      ],
+      "subject": "S20",
+      "teacher": "T22",
+      "periods_per_week": 3,
+      "blocks": [
+        2,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C12",
+          "group": null
+        }
+      ],
+      "subject": "S20",
+      "teacher": "T22",
+      "periods_per_week": 3,
+      "blocks": [
+        2,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S21",
+      "teacher": "T01",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S21",
+      "teacher": "T02",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S21",
+      "teacher": "T03",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C04",
+          "group": null
+        }
+      ],
+      "subject": "S21",
+      "teacher": "T04",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C05",
+          "group": null
+        }
+      ],
+      "subject": "S21",
+      "teacher": "T05",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C06",
+          "group": null
+        }
+      ],
+      "subject": "S21",
+      "teacher": "T06",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C07",
+          "group": null
+        }
+      ],
+      "subject": "S21",
+      "teacher": "T07",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C08",
+          "group": null
+        }
+      ],
+      "subject": "S21",
+      "teacher": "T08",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C09",
+          "group": null
+        }
+      ],
+      "subject": "S21",
+      "teacher": "T09",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C10",
+          "group": null
+        }
+      ],
+      "subject": "S21",
+      "teacher": "T10",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C11",
+          "group": null
+        }
+      ],
+      "subject": "S21",
+      "teacher": "T11",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C12",
+          "group": null
+        }
+      ],
+      "subject": "S21",
+      "teacher": "T12",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    }
+  ],
+  "reference_timetable": []
+}

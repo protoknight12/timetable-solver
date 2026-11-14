@@ -1,0 +1,198 @@
+{
+  "meta": {
+    "description": "Deliberately impossible: teacher T01 has 6 full-day blocks in a 5-day week.",
+    "days": [
+      "Понеделник",
+      "Вторник",
+      "Сряда",
+      "Четвъртък",
+      "Петък"
+    ],
+    "periods": [
+      {
+        "number": 1,
+        "start": "7:30",
+        "end": "8:15"
+      },
+      {
+        "number": 2,
+        "start": "8:25",
+        "end": "9:10"
+      },
+      {
+        "number": 3,
+        "start": "9:20",
+        "end": "10:05"
+      },
+      {
+        "number": 4,
+        "start": "10:25",
+        "end": "11:10"
+      },
+      {
+        "number": 5,
+        "start": "11:20",
+        "end": "12:05"
+      },
+      {
+        "number": 6,
+        "start": "12:15",
+        "end": "13:00"
+      },
+      {
+        "number": 7,
+        "start": "13:10",
+        "end": "13:55"
+      }
+    ],
+    "assumptions": [],
+    "known_quirks": [],
+    "anonymized": true,
+    "expected_status": "INFEASIBLE"
+  },
+  "teachers": [
+    {
+      "id": "T01",
+      "name": "Иван Иванов"
+    },
+    {
+      "id": "T02",
+      "name": "Петър Петров"
+    }
+  ],
+  "classes": [
+    {
+      "id": "C01",
+      "name": "8А",
+      "grade": 8,
+      "profile": null,
+      "class_teacher": "T01"
+    },
+    {
+      "id": "C02",
+      "name": "8Б",
+      "grade": 8,
+      "profile": null,
+      "class_teacher": "T02"
+    }
+  ],
+  "subjects": [
+    {
+      "id": "S01",
+      "name": "Математика"
+    },
+    {
+      "id": "S02",
+      "name": "Български език и литература"
+    },
+    {
+      "id": "S03",
+      "name": "Час на класа"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "R01",
+      "name": "Стая 1",
+      "type": "regular"
+    },
+    {
+      "id": "R02",
+      "name": "Стая 2",
+      "type": "regular"
+    }
+  ],
+  "curriculum": [
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T01",
+      "periods_per_week": 21,
+      "blocks": [
+        7,
+        7,
+        7
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T01",
+      "periods_per_week": 21,
+      "blocks": [
+        7,
+        7,
+        7
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T02",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T02",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T01",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T02",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    }
+  ],
+  "reference_timetable": []
+}
