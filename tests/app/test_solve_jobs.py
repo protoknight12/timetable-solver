@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pytest
 from sqlalchemy import func, select
 
@@ -81,7 +83,10 @@ def test_constraint_on_deleted_teacher_fails_without_solving(migrated, monkeypat
     run_solve(job_id)
     job = db.session.get(m.SolveJob, job_id)
     assert job.status == "failed" and job.error and job.finished_at
-    assert "Прегледайте" in job.error
+    assert job.error == (
+        "Някои ограничения сочат към изтрити или несъществуващи данни. "
+        "Прегледайте ограниченията."
+    )
     assert _count(m.Lesson, job_id) == 0
 
 
@@ -155,6 +160,26 @@ def test_admin_starts_a_job_and_a_second_is_refused(make_client, migrated, queue
         assert "Вече се изгражда график" in r.get_data(as_text=True)
     assert len(queued) == 1
     assert db.session.scalar(select(func.count()).select_from(m.SolveJob)) == 1
+
+
+def test_stale_job_is_failed_and_a_new_one_starts(make_client, migrated, queued):
+    old = m.SolveJob(status="running", time_limit_s=60, created_at=datetime(2000, 1, 1))
+    db.session.add(old)
+    db.session.commit()
+    make_client("admin").post("/solve")
+    db.session.refresh(old)
+    assert old.status == "failed" and old.finished_at
+    assert old.error == "Изчислението беше прекъснато. Стартирайте го отново."
+    assert len(queued) == 1 and queued[0][0] != old.id
+
+
+def test_fresh_running_job_still_blocks(make_client, migrated, queued):
+    fresh = m.SolveJob(status="running", time_limit_s=60)
+    db.session.add(fresh)
+    db.session.commit()
+    make_client("admin").post("/solve")
+    db.session.refresh(fresh)
+    assert fresh.status == "running" and queued == []
 
 
 def test_enqueue_failure_fails_the_job(make_client, migrated):
