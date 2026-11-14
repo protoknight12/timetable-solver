@@ -170,7 +170,8 @@ def impossible_school():
         ("Български език и литература", [1, 1], [2], None),
     ]
     seed = make_school(
-        "Deliberately impossible: teacher T01 has 6 full-day blocks in a 5-day week.",        7,
+        "Deliberately impossible: teacher T01 has 6 full-day blocks in a 5-day week.",
+        7,
         ["8А", "8Б"],
         plan,
         make_rooms(regular=2, labs=0, gyms=0),
