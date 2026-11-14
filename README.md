@@ -3,7 +3,7 @@
 AI-assisted school timetable maker, built for the National Autumn IT Tournament "Джон Атанасов" (December 2026, Sofia).
 
 > **Status:** in development. Merged so far: data contract, constraint models, DB models, login with roles, solver core.
-> Not yet: checker, background jobs, LLM, data entry pages, deploy. Feature freeze: **26.11.2026**.
+> Not yet: background jobs, LLM, data entry pages, deploy. Feature freeze: **26.11.2026**.
 
 ## Core principle
 
@@ -30,7 +30,7 @@ Full details and open decisions: [TECH_STACK.md](TECH_STACK.md).
 | `app/` | Flask app. The only place that touches the database |
 | `schema/` | Pydantic constraint models (no Flask/DB imports) |
 | `solver/` | CP-SAT model (no Flask/DB imports) |
-| `checker/` | Independent verifier (no Flask/DB imports). Not started yet (FE-04) |
+| `checker/` | Independent verifier: `check(solver_input, result)` returns violations (no Flask/DB/solver imports) |
 | `seeds/` | Anonymized demo data only |
 | `migrations/` | Alembic migrations |
 | `tools/` | Seed conversion and the solver benchmark (`tools/bench_solver.py`, not run in CI) |
