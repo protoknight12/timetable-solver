@@ -24,6 +24,7 @@ from sqlalchemy import (
     Time,
     func,
     text,
+    true,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -228,6 +229,9 @@ class Violation(Base):
     type: Mapped[str] = mapped_column(String(60))
     entity_ids: Mapped[dict | list] = mapped_column(JsonType)
     message_key: Mapped[str] = mapped_column(String(120))
+    hard: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    # No FK: a constraint may be deleted after the job that reported on it.
+    constraint_id: Mapped[int | None]
 
 
 class User(UserMixin, Base):

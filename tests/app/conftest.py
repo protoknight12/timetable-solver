@@ -3,6 +3,7 @@
 import os
 
 import pytest
+from flask import g
 from flask_migrate import upgrade
 from sqlalchemy import text
 
@@ -29,6 +30,9 @@ def app():
             or "sqlite://",
         }
     )
+    # The fixture's long-lived app context is shared by every request, so
+    # Flask-Login's per-request user cache in `g` would leak between clients.
+    app.before_request(lambda: g.pop("_login_user", None) and None)
     with app.app_context():
         _wipe()
         yield app
