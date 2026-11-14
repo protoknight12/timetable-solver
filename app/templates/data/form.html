@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ heading }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h4 mb-4">{{ heading }}</h1>
+
+        <form method="post">
+          {{ form.hidden_tag() }}
+          {% for field in form if field.type != 'CSRFTokenField' %}
+            {% set kw = {'list': 'room-types'} if types is not none and field.name in ('type', 'default_room_type') else {} %}
+            <div class="form-floating mb-3">
+              {{ field(class_='form-control' ~ (' is-invalid' if field.errors else ''),
+                       placeholder=field.label.text, autocomplete='off', **kw) }}
+              {{ field.label }}
+              {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            </div>
+          {% endfor %}
+          {% if types is not none %}
+            <datalist id="room-types">{% for t in types %}<option value="{{ t }}">{% endfor %}</datalist>
+          {% endif %}
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Запази</button>
+            <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Отказ</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% if extra and item %}{% include extra %}{% endif %}
+  </div>
+</div>
+{% endblock %}
