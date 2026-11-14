@@ -1,0 +1,555 @@
+{
+  "meta": {
+    "description": "Tiny made-up school for fast tests: 3 classes, 5 days x 5 periods.",
+    "days": [
+      "Понеделник",
+      "Вторник",
+      "Сряда",
+      "Четвъртък",
+      "Петък"
+    ],
+    "periods": [
+      {
+        "number": 1,
+        "start": "7:30",
+        "end": "8:15"
+      },
+      {
+        "number": 2,
+        "start": "8:25",
+        "end": "9:10"
+      },
+      {
+        "number": 3,
+        "start": "9:20",
+        "end": "10:05"
+      },
+      {
+        "number": 4,
+        "start": "10:25",
+        "end": "11:10"
+      },
+      {
+        "number": 5,
+        "start": "11:20",
+        "end": "12:05"
+      }
+    ],
+    "assumptions": [],
+    "known_quirks": [],
+    "anonymized": true
+  },
+  "teachers": [
+    {
+      "id": "T01",
+      "name": "Иван Иванов"
+    },
+    {
+      "id": "T02",
+      "name": "Петър Петров"
+    },
+    {
+      "id": "T03",
+      "name": "Мария Маринова"
+    },
+    {
+      "id": "T05",
+      "name": "Николай Николов"
+    },
+    {
+      "id": "T06",
+      "name": "Елена Еленова"
+    },
+    {
+      "id": "T07",
+      "name": "Димитър Димитров"
+    },
+    {
+      "id": "T08",
+      "name": "Светлана Светлова"
+    },
+    {
+      "id": "T09",
+      "name": "Александър Александров"
+    }
+  ],
+  "classes": [
+    {
+      "id": "C01",
+      "name": "8А",
+      "grade": 8,
+      "profile": null,
+      "class_teacher": "T01"
+    },
+    {
+      "id": "C02",
+      "name": "8Б",
+      "grade": 8,
+      "profile": null,
+      "class_teacher": "T02"
+    },
+    {
+      "id": "C03",
+      "name": "8В",
+      "grade": 8,
+      "profile": null,
+      "class_teacher": "T03"
+    }
+  ],
+  "subjects": [
+    {
+      "id": "S01",
+      "name": "Български език и литература"
+    },
+    {
+      "id": "S02",
+      "name": "Математика"
+    },
+    {
+      "id": "S03",
+      "name": "Английски език"
+    },
+    {
+      "id": "S04",
+      "name": "Физическо възпитание и спорт"
+    },
+    {
+      "id": "S05",
+      "name": "Информационни технологии"
+    },
+    {
+      "id": "S06",
+      "name": "Програмиране"
+    },
+    {
+      "id": "S07",
+      "name": "Час на класа"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "R01",
+      "name": "Стая 1",
+      "type": "regular"
+    },
+    {
+      "id": "R02",
+      "name": "Стая 2",
+      "type": "regular"
+    },
+    {
+      "id": "R03",
+      "name": "Стая 3",
+      "type": "regular"
+    },
+    {
+      "id": "L01",
+      "name": "Лаборатория 1",
+      "type": "lab"
+    },
+    {
+      "id": "G01",
+      "name": "Физкултурен салон 1",
+      "type": "gym"
+    }
+  ],
+  "curriculum": [
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T01",
+      "periods_per_week": 3,
+      "blocks": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T01",
+      "periods_per_week": 3,
+      "blocks": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S01",
+      "teacher": "T01",
+      "periods_per_week": 3,
+      "blocks": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T02",
+      "periods_per_week": 3,
+      "blocks": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T02",
+      "periods_per_week": 3,
+      "blocks": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S02",
+      "teacher": "T02",
+      "periods_per_week": 3,
+      "blocks": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T03",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T03",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S03",
+      "teacher": "T03",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S04",
+      "teacher": "T05",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S04",
+      "teacher": "T05",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S04",
+      "teacher": "T05",
+      "periods_per_week": 2,
+      "blocks": [
+        1,
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T06",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T07",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T06",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T07",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T06",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S05",
+      "teacher": "T07",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T08",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T09",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T08",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T09",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": "Първа група"
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T08",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": "Втора група"
+        }
+      ],
+      "subject": "S06",
+      "teacher": "T09",
+      "periods_per_week": 2,
+      "blocks": [
+        2
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C01",
+          "group": null
+        }
+      ],
+      "subject": "S07",
+      "teacher": "T01",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C02",
+          "group": null
+        }
+      ],
+      "subject": "S07",
+      "teacher": "T02",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    },
+    {
+      "classes": [
+        {
+          "class": "C03",
+          "group": null
+        }
+      ],
+      "subject": "S07",
+      "teacher": "T03",
+      "periods_per_week": 1,
+      "blocks": [
+        1
+      ]
+    }
+  ],
+  "reference_timetable": []
+}
