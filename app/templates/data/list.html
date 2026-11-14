@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ e.plural }}{% endblock %}
+
+{% block content %}
+{% set is_admin = current_user.role == 'admin' %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h2 mb-0">{{ e.plural }}</h1>
+  {% if is_admin %}
+    <a class="btn btn-primary" href="{{ e.url('new') }}"><i class="bi bi-plus-lg"></i> {{ e.add_label }}</a>
+  {% endif %}
+</div>
+
+{% if items %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          {% for header, _ in e.columns %}<th scope="col">{{ header }}</th>{% endfor %}
+          {% if is_admin %}<th scope="col" class="text-end">Действия</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          {% set item_id = item.number if e.key == 'periods' else item.id %}
+          <tr>
+            {% for _, getter in e.columns %}<td>{{ getter(item) }}</td>{% endfor %}
+            {% if is_admin %}
+              <td class="text-end"><div class="d-flex flex-wrap gap-1 justify-content-end">
+                <a class="btn btn-outline-secondary btn-sm" href="{{ e.url('edit', item_id=item_id) }}"><i class="bi bi-pencil"></i> Редактирай</a>
+                <a class="btn btn-outline-danger btn-sm" href="{{ e.url('delete', item_id=item_id) }}"><i class="bi bi-trash"></i> Изтрий</a></div>
+              </td>
+            {% endif %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="text-body-secondary">Все още няма добавени записи.</p>
+{% endif %}
+{% endblock %}

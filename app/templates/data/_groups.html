@@ -1,0 +1,31 @@
+<div class="card shadow-sm mt-4">
+  <div class="card-body p-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <h2 class="h4 mb-0">Групи</h2>
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('data.groups_new', class_id=item.id) }}"><i class="bi bi-plus-lg"></i> Добави група</a>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr><th scope="col">Име</th><th scope="col">Разделяне</th><th scope="col" class="text-end">Действия</th></tr>
+        </thead>
+        <tbody>
+          {% for group in item.groups|sort(attribute='id')|sort(attribute='is_whole', reverse=true) %}
+            <tr>
+              <td>{{ group.name }}</td>
+              <td>{{ group.split or '—' }}</td>
+              <td class="text-end"><div class="d-flex flex-wrap gap-1 justify-content-end">
+                {% if group.is_whole %}
+                  <span class="text-body-secondary">Не се променя</span>
+                {% else %}
+                  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('data.groups_edit', group_id=group.id) }}"><i class="bi bi-pencil"></i> Редактирай</a>
+                  <a class="btn btn-outline-danger btn-sm" href="{{ url_for('data.groups_delete', group_id=group.id) }}"><i class="bi bi-trash"></i> Изтрий</a>
+                {% endif %}</div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

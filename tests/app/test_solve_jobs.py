@@ -84,8 +84,9 @@ def test_constraint_on_deleted_teacher_fails_without_solving(migrated, monkeypat
     job = db.session.get(m.SolveJob, job_id)
     assert job.status == "failed" and job.error and job.finished_at
     assert job.error == (
-        "Някои ограничения сочат към изтрити или несъществуващи данни. "
-        "Прегледайте ограниченията."
+        "Входните данни не са пълни или съдържат грешки (например изтрити "
+        "записи или пропуск в учебните часове). "
+        "Прегледайте данните и ограниченията."
     )
     assert _count(m.Lesson, job_id) == 0
 

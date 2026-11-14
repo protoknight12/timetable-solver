@@ -40,7 +40,21 @@
              {% if request.endpoint == 'pages.index' %}aria-current="page"{% endif %}
              href="{{ url_for('pages.index') }}">Начало</a>
         </li>
-       
+        {% if current_user.is_authenticated %}
+          {% set data_pages = [('teachers', 'Учители'), ('subjects', 'Предмети'), ('rooms', 'Стаи'),
+                               ('classes', 'Класове'), ('periods', 'Учебни часове')] %}
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle {% if active in data_pages|map('first') %}active{% endif %}"
+               href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Данни</a>
+            <ul class="dropdown-menu">
+              {% for key, label in data_pages %}
+                <li><a class="dropdown-item {% if active == key %}active{% endif %}"
+                       {% if active == key %}aria-current="page"{% endif %}
+                       href="{{ url_for('data.' ~ key ~ '_list') }}">{{ label }}</a></li>
+              {% endfor %}
+            </ul>
+          </li>
+        {% endif %}
         <li class="nav-item"><span class="nav-link disabled">Разписание</span></li>
       </ul>
 

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ heading }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h4 mb-4">{{ heading }}</h1>
+        {% if refusal %}
+          <div class="alert alert-warning" role="alert">{{ refusal }}</div>
+          <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Назад</a>
+        {% else %}
+          {% if note %}<p class="text-body-secondary">{{ note }}</p>{% endif %}
+          <p>Сигурни ли сте, че искате да изтриете „{{ name }}“? Действието не може да бъде отменено.</p>
+          <form method="post" class="d-flex gap-2">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger"><i class="bi bi-trash"></i> Изтрий</button>
+            <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Отказ</a>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
