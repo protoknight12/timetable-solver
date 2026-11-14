@@ -1,7 +1,7 @@
 """FE-05a: data entry pages for teachers, subjects, rooms, classes, groups and periods."""
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 
 from app.models import (
     Course,
@@ -58,8 +58,11 @@ CASES = {
 
 
 def _rows(model):
+    # Order by primary key: PostgreSQL has no default row order (an UPDATE can
+    # move a row to the end), SQLite happens to return insertion order.
     db.session.expire_all()
-    return db.session.scalars(select(model)).all()
+    pk = inspect(model).primary_key
+    return db.session.scalars(select(model).order_by(*pk)).all()
 
 
 def _pk(row):
