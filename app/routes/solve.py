@@ -6,7 +6,7 @@ from flask import Blueprint, abort, current_app, flash, jsonify, redirect, url_f
 from flask_login import current_user, login_required
 from redis import Redis
 from rq import Queue
-from sqlalchemy import func, select
+from sqlalchemy import DateTime, func, select, type_coerce
 
 from app.auth import admin_required, limiter
 from app.jobs import run_solve
@@ -34,13 +34,25 @@ def _enqueue(job_id: int, timeout_s: int) -> None:
     key_func=lambda: str(current_user.get_id()),
 )
 def start():
-    # shortcut: check-then-insert can race, and a crashed worker leaves a job
-    # "running" that blocks new solves; admin-only plus the rate limit make the
-    # race unlikely, and a stuck job is cleared by hand until a reaper exists.
-    busy = db.session.scalar(
-        select(SolveJob.id).where(SolveJob.status.in_(("queued", "running")))
-    )
-    if busy:
+    # A job still queued/running well past its RQ timeout lost its worker: fail
+    # it so it cannot block new solves. Ages use the database clock, the same
+    # one that wrote created_at. shortcut: check-then-insert can still race;
+    # admin-only plus the rate limit make that unlikely.
+    db_now = db.session.scalar(select(type_coerce(func.now(), DateTime)))
+    db_now = db_now.replace(tzinfo=None)  # PostgreSQL returns an aware value
+    active = db.session.scalars(
+        select(SolveJob).where(SolveJob.status.in_(("queued", "running")))
+    ).all()
+    fresh = False
+    for stale in active:
+        limit = stale.time_limit_s or current_app.config["SOLVER_TIME_LIMIT_S"]
+        if (db_now - stale.created_at).total_seconds() > limit + TIMEOUT_MARGIN_S + 60:
+            stale.status, stale.finished_at = "failed", func.now()
+            stale.error = "Изчислението беше прекъснато. Стартирайте го отново."
+        else:
+            fresh = True
+    db.session.commit()
+    if fresh:
         flash("Вече се изгражда график. Изчакайте края на изчислението.", "warning")
         return redirect(url_for("pages.index"))
     limit = current_app.config["SOLVER_TIME_LIMIT_S"]
