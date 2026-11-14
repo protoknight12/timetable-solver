@@ -13,7 +13,7 @@ from wtforms.validators import (
     Optional,
 )
 
-from app.models import Period, Room, db
+from app.models import Room, db
 
 REQUIRED = "Полето е задължително."
 
@@ -118,10 +118,10 @@ class RoomForm(DataForm):
 class ClassForm(DataForm):
     name = _name("Име (например 10А)", 40)
     grade = BgIntegerField(
-        "Випуск (1–12, по избор)",
+        "Година на обучение (1–12, по избор)",
         validators=[
             Optional(),
-            NumberRange(1, 12, "Випускът трябва да е между 1 и 12."),
+            NumberRange(1, 12, "Годината на обучение трябва да е между 1 и 12."),
         ],
     )
 
@@ -132,25 +132,12 @@ class GroupForm(DataForm):
 
 
 class PeriodForm(DataForm):
-    # Upper bound is only a sanity limit, not a school rule.
-    number = BgIntegerField(
-        "Номер",
-        validators=[
-            InputRequired(REQUIRED),
-            NumberRange(1, 20, "Номерът трябва да е между 1 и 20."),
-        ],
-    )
     start_time = BgTimeField(
         "Начало", format=["%H:%M", "%H:%M:%S"], validators=[InputRequired(REQUIRED)]
     )
     end_time = BgTimeField(
         "Край", format=["%H:%M", "%H:%M:%S"], validators=[InputRequired(REQUIRED)]
     )
-
-    def validate_number(self, field):
-        taken = None if field.data is None else db.session.get(Period, field.data)
-        if taken is not None and taken is not self.obj:
-            raise ValidationError("Вече има час с този номер.")
 
     def validate_end_time(self, field):
         start = self.start_time.data
