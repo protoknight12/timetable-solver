@@ -55,6 +55,13 @@
             </ul>
           </li>
         {% endif %}
+        {% if current_user.is_authenticated and current_user.role == 'admin' %}
+          <li class="nav-item">
+            <a class="nav-link {% if active == 'users' %}active{% endif %}"
+               {% if active == 'users' %}aria-current="page"{% endif %}
+               href="{{ url_for('users.list_users') }}">Потребители</a>
+          </li>
+        {% endif %}
         <li class="nav-item"><span class="nav-link disabled">Разписание</span></li>
       </ul>
 
@@ -66,11 +73,25 @@
             <span id="theme-label">Тъмна тема</span>
           </button>
         </li>
-       <li class="nav-item">
-          <a class="btn btn-primary btn-sm px-3"
-             {% if request.endpoint == 'pages.login' %}aria-current="page"{% endif %}
-              href="{{ url_for('pages.login') }}">Вход</a>
+        {% if current_user.is_authenticated %}
+          <li class="nav-item">
+            <form method="post" action="{{ url_for('pages.logout') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-right"></i> Изход</button>
+            </form>
           </li>
+        {% else %}
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'pages.register' %}active{% endif %}"
+               {% if request.endpoint == 'pages.register' %}aria-current="page"{% endif %}
+               href="{{ url_for('pages.register') }}">Регистрация</a>
+          </li>
+          <li class="nav-item">
+            <a class="btn btn-primary btn-sm px-3"
+               {% if request.endpoint == 'pages.login' %}aria-current="page"{% endif %}
+               href="{{ url_for('pages.login') }}">Вход</a>
+          </li>
+        {% endif %}
       </ul>
     </div>
   </div>

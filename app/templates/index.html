@@ -7,7 +7,9 @@
     <p class="lead"> Опишете изискванията към разписанието с думи, потвърдете предложените ограничения
     и системата ще състави разписание, което ги спазва.
     </p>
-    <a class="btn btn-primary btn-lg" href="{{ url_for('pages.login') }}" role="button">Вход</a>
+    {% if not current_user.is_authenticated %}
+      <a class="btn btn-primary btn-lg" href="{{ url_for('pages.login') }}" role="button">Вход</a>
+    {% endif %}
     
   </div>
 {% endblock %}
