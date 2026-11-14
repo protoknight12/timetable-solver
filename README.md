@@ -77,6 +77,7 @@ uv run flask --app app run --debug    # http://127.0.0.1:5000
 | `/` | Home: welcome text and a "Вход" button |
 | `/login` | Login form (username, password, "Запомни ме") |
 | `/logout` | POST only, from the navbar |
+| `/data/teachers/`, `/data/subjects/`, `/data/rooms/`, `/data/classes/`, `/data/periods/` | Data lists (navbar "Данни"); admins also get add/edit/delete. Extra groups of a class are on its edit page |
 
 **With Docker:** `docker compose up --build`, then open http://localhost:8000 (gunicorn, no auto-reload).
 

@@ -25,9 +25,9 @@
           <tr>
             {% for _, getter in e.columns %}<td>{{ getter(item) }}</td>{% endfor %}
             {% if is_admin %}
-              <td class="text-end text-nowrap">
+              <td class="text-end"><div class="d-flex flex-wrap gap-1 justify-content-end">
                 <a class="btn btn-outline-secondary btn-sm" href="{{ e.url('edit', item_id=item_id) }}"><i class="bi bi-pencil"></i> Редактирай</a>
-                <a class="btn btn-outline-danger btn-sm" href="{{ e.url('delete', item_id=item_id) }}"><i class="bi bi-trash"></i> Изтрий</a>
+                <a class="btn btn-outline-danger btn-sm" href="{{ e.url('delete', item_id=item_id) }}"><i class="bi bi-trash"></i> Изтрий</a></div>
               </td>
             {% endif %}
           </tr>

@@ -151,7 +151,10 @@ def _add_whole_group(school_class: SchoolClass) -> None:
 
 
 def _extra_groups(school_class: SchoolClass) -> str:
-    return ", ".join(g.name for g in school_class.groups if not g.is_whole) or "—"
+    extras = sorted(
+        (g for g in school_class.groups if not g.is_whole), key=lambda g: g.id
+    )
+    return ", ".join(g.name for g in extras) or "—"
 
 
 ENTITIES = (
