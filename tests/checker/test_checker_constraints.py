@@ -132,3 +132,33 @@ def test_malformed_params_are_reported():
     assert run(c, [ONE], lesson(1, 1, 1, 1)) == [
         v("teacher_available_days", "invalid_constraint_params", cid=9)
     ]
+
+
+def split_run(constraint, a_periods, b_periods):
+    """Groups 2 and 3 (one split) of class 1, one 1-period course per period."""
+    cs, ls = [], []
+    for cid, gid, ps in ((1, 2, a_periods), (2, 3, b_periods)):
+        cs.append(course(cid, [1] * len(ps), part(cid, [gid], [cid])))
+        ls += [lesson(cid, cid, 1, p) for p in ps]
+    return check(school(cs, [constraint], periods=(1, 2, 3, 4)), solved(*ls))
+
+
+def test_max_lessons_is_counted_per_student_combination():
+    c = con(7, "max_lessons_per_day", {"scope": {"class_id": 1}, "max": 2})
+    assert split_run(c, [1, 2], [3, 4]) == []  # 4 in the class, 2 for each student
+    assert split_run(c, [1, 2, 3], [4]) == [
+        v("max_lessons_per_day", "too_many_lessons", ("class", 1), ("day", 1), cid=7)
+    ]
+
+
+def test_no_gaps_is_counted_per_student_combination():
+    c = con(7, "no_gaps", {"scope": {"class_id": 1}})
+    # the class as a whole is busy in 1-4, but group 2's students have a gap
+    assert split_run(c, [1, 4], [2, 3]) == [
+        v("no_gaps", "gap_in_day", ("class", 1), ("day", 1), cid=7)
+    ]
+    assert split_run(c, [1, 2], [3, 4]) == []
+    assert split_run(c, [2, 3], [1, 4]) == [  # free periods at the edges are no gap
+        v("no_gaps", "gap_in_day", ("class", 1), ("day", 1), cid=7)
+    ]
+    assert split_run(c, [2, 3], [2, 3]) == []

@@ -10,9 +10,14 @@ A3. A row's index among the rows of one part is its block index (contract note,
     agreed 14.11.2026).
 A4. All parts of a Course run at the same time (contract docstring), so block i
     of every part must have the same day and start period.
-A5. ``no_gaps`` and ``max_lessons_per_day`` look at the class as a whole: a period
-    counts as occupied when any group of the class has a lesson in it. Gaps that
-    only one split group has are not detected (TECH_STACK section 6: "a class's lessons").
+A5. ``no_gaps`` and ``max_lessons_per_day`` are counted per student combination:
+    the whole-class group plus one group from each split of the class (groups of
+    one split never share students, groups of different splits may). A period is
+    busy for a combination when any of its groups has a lesson then. A class with
+    no splits has one combination. Max: busy periods per day (a 2-period block
+    counts 2). Gap: a free period with a busy one before and after it on the same
+    day; free periods at the start or end of the day are not gaps. One violation
+    per class and day, however many combinations break the rule.
 A6. ``room_type_required`` needs a room of that type on every affected row, even
     if the part says ``needs_room = false``.
 A7. A room id on a part that does not need a room is allowed, and it still uses
@@ -24,7 +29,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from itertools import combinations
+from itertools import combinations, product
 
 from pydantic import ValidationError
 
@@ -90,8 +95,8 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
             add("references", "unknown_part", ents)
             continue
         if lesson.room_id is not None and lesson.room_id not in rooms:
+            # Still counted below, so it does not also look like a missing block.
             add("references", "unknown_room", [("room", lesson.room_id)])
-            continue
         rows.append((lesson, course, part))
 
     by_part: dict[tuple[int, int], list[LessonPlacement]] = defaultdict(list)
@@ -169,11 +174,13 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
     # --- rooms: capacity, and a matching room where one is needed ----------
     room_use: dict[tuple[int, int, int], int] = defaultdict(int)
     for lesson, course, part in rows:
-        if lesson.room_id is not None:
+        if lesson.room_id in rooms:
             for day, period in _slots(lesson):
                 room_use[(lesson.room_id, day, period)] += 1
-        if not part.needs_room:
-            continue
+        if not part.needs_room or (
+            lesson.room_id is not None and lesson.room_id not in rooms
+        ):
+            continue  # an unknown room is already reported
         ents = [("course", course.id), ("part", part.id)]
         room = rooms.get(lesson.room_id)
         if room is None:
@@ -188,11 +195,23 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
             add("room_capacity", "room_over_capacity", ents)
 
     # --- user constraints --------------------------------------------------
-    occupied = defaultdict(set)  # (class_id, day) -> periods with a lesson
+    group_busy = defaultdict(set)  # (group_id, day) -> periods with a lesson
     for lesson, _, part in rows:
-        for class_id in {groups[g].class_id for g in part.group_ids if g in groups}:
+        for g in part.group_ids:
             for day, period in _slots(lesson):
-                occupied[(class_id, day)].add(period)
+                group_busy[(g, day)].add(period)
+
+    def class_days(class_id: int):
+        """Yield (day, busy periods) for every student combination of the class."""
+        mine = [g for g in inp.groups if g.class_id == class_id]
+        splits = defaultdict(list)
+        for g in mine:
+            if not g.is_whole:
+                splits[g.split].append(g.id)
+        whole = [g.id for g in mine if g.is_whole]
+        for pick in product(*splits.values()):
+            for day in inp.days:
+                yield day, set().union(*(group_busy[(g, day)] for g in whole + [*pick]))
 
     def scoped_classes(scope) -> list[int]:
         if scope == "all":
@@ -260,15 +279,18 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
                         )
         elif con.type == "max_lessons_per_day":
             for class_id in scoped_classes(params.scope):
-                for day in inp.days:
-                    if len(occupied[(class_id, day)]) > params.max:
-                        viol("too_many_lessons", [("class", class_id), ("day", day)])
+                bad = {d for d, busy in class_days(class_id) if len(busy) > params.max}
+                for day in sorted(bad):
+                    viol("too_many_lessons", [("class", class_id), ("day", day)])
         elif con.type == "no_gaps":
             for class_id in scoped_classes(params.scope):
-                for day in inp.days:
-                    busy = occupied[(class_id, day)]
-                    if busy and len(busy) < max(busy) - min(busy) + 1:
-                        viol("gap_in_day", [("class", class_id), ("day", day)])
+                bad = {
+                    d
+                    for d, busy in class_days(class_id)
+                    if busy and len(busy) < max(busy) - min(busy) + 1
+                }
+                for day in sorted(bad):
+                    viol("gap_in_day", [("class", class_id), ("day", day)])
         elif con.type == "fixed_slot":
             course = courses.get(params.course_id)
             for part in course.parts if course else ():

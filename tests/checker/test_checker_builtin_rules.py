@@ -19,12 +19,10 @@ def test_unknown_references():
         lesson(1, 1, 1, 1),
         lesson(9, 1, 1, 1),
         lesson(1, 9, 1, 1),
-        lesson(1, 1, 2, 1, room=9),
     )
     assert check(school([ONE]), bad) == [
         v("references", "unknown_course", ("course", 9)),
         v("references", "unknown_part", ("course", 1), ("part", 9)),
-        v("references", "unknown_room", ("room", 9)),
     ]
 
 
@@ -142,4 +140,10 @@ def test_room_must_match_type_and_allowed_rooms():
     assert check(school([only]), solved(lesson(1, 1, 1, 1, room=2))) == []
     assert check(school([only]), solved(lesson(1, 1, 1, 1, room=3))) == [
         v("room_match", "room_mismatch", ("course", 1), ("part", 1), ("room", 3))
+    ]
+
+
+def test_unknown_room_is_not_also_a_missing_block():
+    assert check(school([ONE]), solved(lesson(1, 1, 1, 1, room=9))) == [
+        v("references", "unknown_room", ("room", 9))
     ]

@@ -32,10 +32,10 @@ GROUPS = (
 ROOMS = (Room(1, "lab"), Room(2, "regular"), Room(3, "gym", 2))
 
 
-def school(courses, constraints=()):
+def school(courses, constraints=(), periods=(1, 2, 3)):
     return SolverInput(
         days=(1, 2),
-        periods=(1, 2, 3),
+        periods=periods,
         teachers=(Teacher(1), Teacher(2)),
         subjects=(Subject(1), Subject(2)),
         classes=(SchoolClass(1, "8А", 8), SchoolClass(2, "8Б", 8)),
