@@ -31,6 +31,11 @@ def create_app(config: dict | None = None) -> Flask:
         # Without DATABASE_URL: throwaway in-memory SQLite (tests, frontend work).
         SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL") or "sqlite://",
         SCHOOL_DAYS=5,
+        SOLVER_TIME_LIMIT_S=int(os.environ.get("SOLVER_TIME_LIMIT_S") or 60),
+        SOLVE_RATE_LIMIT="5 per minute",
+        REDIS_URL=os.environ.get("REDIS_URL") or "redis://localhost:6379/0",
+        # Tests replace this with a callable(job_id, timeout_s); None means RQ.
+        SOLVE_ENQUEUE=None,
         LOGIN_RATE_LIMIT="5 per minute",
         # Redis in production; if it is down, fall back to per-process memory.
         RATELIMIT_STORAGE_URI=os.environ.get("REDIS_URL") or "memory://",
@@ -56,6 +61,9 @@ def create_app(config: dict | None = None) -> Flask:
 
     app.cli.add_command(seed_command)
     app.cli.add_command(create_user_command)
+    from app.routes.solve import bp as solve_bp
+
     app.register_blueprint(pages_bp)
+    app.register_blueprint(solve_bp)
 
     return app
