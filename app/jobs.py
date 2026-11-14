@@ -46,10 +46,14 @@ def _run(job_id: int) -> None:
         problems = inp.problems()
         if problems:
             # Never solve with broken references (e.g. a deleted teacher).
+            log.warning(
+                "solve job %s: broken references: %s",
+                job_id,
+                "; ".join(f"{p.code} {p.path}" for p in problems),
+            )
             _fail(
                 job,
-                "Ограниченията сочат към изтрити или несъществуващи данни "
-                f"({len(problems)} проблема, напр. {problems[0].path}). "
+                "Някои ограничения сочат към изтрити или несъществуващи данни. "
                 "Прегледайте ограниченията.",
             )
             return
