@@ -75,7 +75,7 @@ def test_session_cookie_flags(migrated):
 
 
 # Endpoints every role may POST to. Anything else that writes needs @admin_required.
-PUBLIC_WRITE_ENDPOINTS = {"pages.login", "pages.logout"}
+PUBLIC_WRITE_ENDPOINTS = {"pages.login", "pages.logout", "pages.register"}
 
 
 def _write_urls(app):

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Нов потребител{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h4 mb-4">Нов потребител</h1>
+        <form method="post">
+          {{ form.hidden_tag() }}
+          {% for field in form if field.type != 'CSRFTokenField' %}
+            <div class="form-floating mb-3">
+              {% if field.type == 'SelectField' %}
+                {{ field(class_='form-select' ~ (' is-invalid' if field.errors else '')) }}
+              {% else %}
+                {{ field(class_='form-control' ~ (' is-invalid' if field.errors else ''),
+                         placeholder=field.label.text,
+                         autocomplete=('off' if field.name == 'username' else 'new-password')) }}
+              {% endif %}
+              {{ field.label }}
+              {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            </div>
+          {% endfor %}
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Запази</button>
+            <a class="btn btn-outline-secondary" href="{{ url_for('users.list_users') }}">Отказ</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -4,16 +4,26 @@ from __future__ import annotations
 
 from flask_wtf import FlaskForm
 from sqlalchemy import select
-from wtforms import IntegerField, StringField, TimeField, ValidationError
+from wtforms import (
+    IntegerField,
+    PasswordField,
+    SelectChoice,
+    SelectField,
+    StringField,
+    TimeField,
+    ValidationError,
+)
 from wtforms.validators import (
     DataRequired,
+    EqualTo,
     InputRequired,
     Length,
     NumberRange,
     Optional,
+    Regexp,
 )
 
-from app.models import Room, db
+from app.models import ROLES, Room, User, db
 
 REQUIRED = "Полето е задължително."
 
@@ -143,3 +153,44 @@ class PeriodForm(DataForm):
         start = self.start_time.data
         if start and field.data and field.data <= start:
             raise ValidationError("Краят трябва да е след началото.")
+
+
+class RegisterForm(DataForm):
+    username = StringField(
+        "Потребителско име",
+        filters=[_strip],
+        validators=[
+            DataRequired(REQUIRED),
+            Length(3, 64, "Между 3 и 64 знака."),
+            Regexp(
+                r"^[\w.\-]+$",
+                message="Само букви, цифри, точка, тире и долна черта.",
+            ),
+        ],
+    )
+    password = PasswordField(
+        "Парола",
+        validators=[DataRequired(REQUIRED), Length(8, 128, "Между 8 и 128 знака.")],
+    )
+    confirm = PasswordField(
+        "Повторете паролата",
+        validators=[
+            DataRequired(REQUIRED),
+            EqualTo("password", "Паролите не съвпадат."),
+        ],
+    )
+
+    def validate_username(self, field):
+        if db.session.scalar(select(User).where(User.username == field.data)):
+            raise ValidationError("Потребителското име е заето.")
+
+
+ROLE_LABELS = {"admin": "Администратор", "viewer": "Преглед"}
+
+
+class UserCreateForm(RegisterForm):
+    role = SelectField(
+        "Роля",
+        choices=[SelectChoice(r, ROLE_LABELS[r]) for r in ROLES],
+        default="viewer",
+    )
