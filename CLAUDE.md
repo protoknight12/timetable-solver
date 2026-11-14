@@ -15,7 +15,7 @@ The app must work end to end with `LLM_ENABLED=false`.
 
 1. Never let an LLM place lessons. LLM output is only a *proposed* constraint and needs admin confirmation.
 2. `solver/`, `checker/` and `schema/` never import Flask, SQLAlchemy or anything from `app/`. Plain data in, plain data out.
-3. `checker/` never imports from `solver/`. It re-implements every rule on its own.
+3. `checker/` never imports or copies code from `solver/`. It re-implements every rule from the spec on its own.
 4. Tests go in the same change as the code. A solver change without a checker test is not done.
 5. No secrets, real names or real school data in the repo. Use the anonymized data in `seeds/`.
 6. No new constraint type, table or dependency without stating why. Prefer what is already in the stack.
@@ -37,7 +37,7 @@ The app must work end to end with `LLM_ENABLED=false`.
   "SATurn backlog" (views: All tasks, Backend, Frontend). Numbers follow build order.
 - Each issue lists owner, due date, estimate, dependencies and a "Done when" checklist. Work to that checklist.
 - Stay inside the task you were given. If it needs work from another owner's area, say so instead of doing it.
-- The checker is deliberately written by a different person than the solver. Keep it that way.
+- The checker is deliberately written separately from the solver: never import or copy solver code into it, so a solver bug cannot be mirrored there.
 
 ## Workflow
 

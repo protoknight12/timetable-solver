@@ -214,7 +214,7 @@ Extra type added with the data model: `fixed_slot` pins every block of a Course,
 
 ## 9. Checker
 
-> **Status:** not started (`checker/` is empty). Owner: Hristian (FE-04). Until it exists, the solver tests use their own verification, written by the solver's author, so they are not independent.
+> **Status:** implemented in `checker/` (FE-04): `check(solver_input, result) -> list[Violation]`. It is written separately from the solver: it imports only the standard library and `schema/`, and it does not reuse or copy any solver code. Assumptions it makes are listed at the top of `checker/core.py`.
 
 - Input: the same plain data the solver got + the solver's lessons.
 - Re-checks every built-in rule and every confirmed constraint, using its own code.
