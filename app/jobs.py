@@ -45,16 +45,17 @@ def _run(job_id: int) -> None:
         inp = build_solver_input(db.session)
         problems = inp.problems()
         if problems:
-            # Never solve with broken references (e.g. a deleted teacher).
+            # Never solve with broken input (deleted records, a gap in the periods...).
             log.warning(
-                "solve job %s: broken references: %s",
+                "solve job %s: input problems: %s",
                 job_id,
                 "; ".join(f"{p.code} {p.path}" for p in problems),
             )
             _fail(
                 job,
-                "Някои ограничения сочат към изтрити или несъществуващи данни. "
-                "Прегледайте ограниченията.",
+                "Входните данни не са пълни или съдържат грешки (например изтрити "
+                "записи или пропуск в учебните часове). "
+                "Прегледайте данните и ограниченията.",
             )
             return
         limit = job.time_limit_s or current_app.config["SOLVER_TIME_LIMIT_S"]

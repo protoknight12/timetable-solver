@@ -1,7 +1,7 @@
 """FE-05a: data entry pages for teachers, subjects, rooms, classes, groups and periods."""
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import inspect, select
 
 from app.models import (
     Course,
@@ -49,17 +49,20 @@ CASES = {
     ),
     "periods": (
         Period,
-        {"number": "1", "start_time": "08:00", "end_time": "08:40"},
-        {"number": "1", "start_time": "08:00", "end_time": "08:45"},
-        {"number": "1", "start_time": "09:00", "end_time": "08:00"},
+        {"start_time": "08:00", "end_time": "08:40"},
+        {"start_time": "08:00", "end_time": "08:45"},
+        {"start_time": "09:00", "end_time": "08:00"},
         "end_time",
     ),
 }
 
 
 def _rows(model):
+    # Order by primary key: PostgreSQL has no default row order (an UPDATE can
+    # move a row to the end), SQLite happens to return insertion order.
     db.session.expire_all()
-    return db.session.scalars(select(model)).all()
+    pk = inspect(model).primary_key
+    return db.session.scalars(select(model).order_by(*pk)).all()
 
 
 def _pk(row):
@@ -104,14 +107,51 @@ def test_invalid_input_shows_error_and_saves_nothing(admin, key):
     assert after is row and _pk(after) == _pk(row)
 
 
-def test_period_numbers_are_unique_and_values_are_trimmed(admin):
-    _, create, *_ = CASES["periods"]
-    admin.post("/data/periods/new", data=create)
-    r = admin.post("/data/periods/new", data=create)
-    assert "Вече има час с този номер" in r.get_data(as_text=True)
-    assert len(_rows(Period)) == 1
+def test_values_are_trimmed(admin):
     admin.post("/data/teachers/new", data={"name": "  Георги  "})
     assert _rows(Teacher)[0].name == "Георги"
+
+
+def _numbers():
+    return sorted(p.number for p in _rows(Period))
+
+
+def _add_period(admin, start="08:00", end="08:40", **extra):
+    return admin.post(
+        "/data/periods/new", data={"start_time": start, "end_time": end, **extra}
+    )
+
+
+def test_periods_get_consecutive_numbers_and_only_the_last_can_go(admin):
+    for _ in range(3):
+        _add_period(admin, number="9")  # a posted number is ignored
+    assert _numbers() == [1, 2, 3]
+
+    # Editing changes the times, never the number; the number is shown read-only.
+    page = admin.get("/data/periods/2/edit").get_data(as_text=True)
+    assert "readonly" in page and 'name="number"' not in page
+    admin.post(
+        "/data/periods/2/edit",
+        data={"start_time": "09:00", "end_time": "09:45", "number": "7"},
+    )
+    assert _numbers() == [1, 2, 3]
+    assert _rows(Period)[1].end_time.strftime("%H:%M") == "09:45"
+
+    refusal = "Може да се изтрие само последният учебен час"
+    assert refusal in admin.get("/data/periods/2/delete").get_data(as_text=True)
+    r = admin.post("/data/periods/2/delete", follow_redirects=True)
+    assert refusal in r.get_data(as_text=True) and _numbers() == [1, 2, 3]
+
+    admin.post("/data/periods/3/delete")
+    assert _numbers() == [1, 2]
+    _add_period(admin)  # the freed number is reused: still 1..n
+    assert _numbers() == [1, 2, 3]
+    admin.post("/data/periods/3/delete")
+    admin.post("/data/periods/2/delete")
+    admin.post("/data/periods/1/delete")
+    assert _numbers() == []
+    _add_period(admin)
+    assert _numbers() == [1]
 
 
 def test_room_type_reuses_existing_spelling(admin):
@@ -252,28 +292,29 @@ def test_used_teacher_subject_group_class_and_room_are_not_deleted(admin, course
     assert len(_rows(StudentGroup)) == 2
 
 
-def test_room_used_by_a_lesson_is_not_deleted(admin, course):
+def test_room_in_past_lessons_can_be_deleted_after_a_notice(admin, course):
     room = _rows(Room)[0]
     part = db.session.scalars(select(CoursePart)).one()
     part.allowed_room_ids = None
     job = SolveJob(status="done")
     db.session.add(job)
     db.session.flush()
-    db.session.add(
-        Lesson(
-            job_id=job.id,
-            course_id=part.course_id,
-            part_id=part.id,
-            day=0,
-            start_period=1,
-            length=1,
-            room_id=room.id,
-        )
+    lesson = Lesson(
+        job_id=job.id,
+        course_id=part.course_id,
+        part_id=part.id,
+        day=0,
+        start_period=1,
+        length=1,
+        room_id=room.id,
     )
+    db.session.add(lesson)
     db.session.commit()
-    r = admin.post(f"/data/rooms/{room.id}/delete", follow_redirects=True)
-    assert "в генерирано разписание" in r.get_data(as_text=True)
-    assert db.session.scalar(select(func.count()).select_from(Room)) == 1
+    page = admin.get(f"/data/rooms/{room.id}/delete").get_data(as_text=True)
+    assert "там тя ще остане без стая" in page and 'class="btn btn-danger"' in page
+    admin.post(f"/data/rooms/{room.id}/delete")
+    db.session.expire_all()
+    assert _rows(Room) == [] and db.session.get(Lesson, lesson.id).room_id is None
 
 
 def test_unused_rows_delete_even_when_others_are_used(admin, course):

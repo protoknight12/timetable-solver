@@ -64,7 +64,7 @@ def _in_courses(stmt) -> list[str]:
         return []
     names = ", ".join(_course_name(c) for c in courses[:SHOWN_COURSES])
     more = len(courses) - SHOWN_COURSES
-    return [f"в учебната програма ({names}{f' и още {more}' if more > 0 else ''})"]
+    return [f"в учебния план ({names}{f' и още {more}' if more > 0 else ''})"]
 
 
 def _course_parts():
@@ -99,13 +99,19 @@ def class_usages(school_class: SchoolClass) -> list[str]:
     return _group_usages([g.id for g in school_class.groups])
 
 
-def room_usages(room: Room) -> list[str]:
-    found = []
+def room_note(room: Room) -> str | None:
+    # Lesson.room_id is ON DELETE SET NULL, so past lessons do not block deletion.
     lessons = db.session.scalar(
         select(func.count()).select_from(Lesson).where(Lesson.room_id == room.id)
     )
     if lessons:
-        found.append(f"в генерирано разписание ({lessons} ч.)")
+        return (
+            "Стаята присъства в вече генерирани разписания; там тя ще остане без стая."
+        )
+
+
+def room_usages(room: Room) -> list[str]:
+    found = []
     # allowed_room_ids is JSON (may hold JSON null), so scan in Python.
     allowed = db.session.execute(
         _course_parts()
@@ -117,7 +123,7 @@ def room_usages(room: Room) -> list[str]:
         names = ", ".join(
             _course_name(c) for c in list(courses.values())[:SHOWN_COURSES]
         )
-        found.append(f"като позволена стая в учебната програма ({names})")
+        found.append(f"като позволена стая в учебния план ({names})")
     return found
 
 
@@ -141,9 +147,31 @@ class Entity:
     after_create: Callable | None = None
     extra_template: str | None = None  # shown under the form when editing
     with_room_types: bool = False
+    # Full refusal text for rows that may never be deleted (beats usages).
+    block: Callable | None = None
+    # Informational line on the delete confirmation page.
+    note: Callable | None = None
+    # (label, value) shown read-only above the form fields when editing.
+    fixed: Callable | None = None
 
     def url(self, action: str, **values) -> str:
         return url_for(f"data.{self.key}_{action}", **values)
+
+
+def _next_period(period: Period) -> None:
+    # shortcut: two simultaneous creates can pick the same number; the primary
+    # key rejects one and _save() reports it. Fine for a handful of admins.
+    last = db.session.scalar(select(func.max(Period.number)))
+    period.number = (last or 0) + 1
+
+
+def _period_block(period: Period) -> str | None:
+    # The solver input rejects gaps in the numbering ("bad_time_grid").
+    if period.number != db.session.scalar(select(func.max(Period.number))):
+        return (
+            "Може да се изтрие само последният учебен час, "
+            "за да няма пропуски в номерацията."
+        )
 
 
 def _add_whole_group(school_class: SchoolClass) -> None:
@@ -205,6 +233,7 @@ ENTITIES = (
         (Room.name, Room.id),
         room_usages,
         with_room_types=True,
+        note=room_note,
     ),
     Entity(
         "classes",
@@ -217,7 +246,7 @@ ENTITIES = (
         "",
         (
             ("Име", lambda c: c.name),
-            ("Випуск", lambda c: c.grade or "—"),
+            ("Година на обучение", lambda c: c.grade or "—"),
             ("Групи", _extra_groups),
         ),
         (SchoolClass.grade, SchoolClass.name, SchoolClass.id),
@@ -242,14 +271,15 @@ ENTITIES = (
         (Period.number,),
         lambda period: [],
         label=lambda p: f"Час {p.number}",
+        after_create=_next_period,
+        block=_period_block,
+        fixed=lambda p: ("Номер", p.number),
     ),
 )
 
 
-def _refuse(item_name: str, where: list[str]) -> None:
-    flash(
-        f"„{item_name}“ не може да се изтрие: използва се {'; '.join(where)}.", "danger"
-    )
+def _refusal(item_name: str, where: list[str]) -> str:
+    return f"„{item_name}“ не може да се изтрие: използва се {'; '.join(where)}."
 
 
 def _save() -> bool:
@@ -277,12 +307,15 @@ def register(e: Entity) -> None:
         item = None if creating else db.get_or_404(e.model, item_id)
         form = e.form(obj=item)
         if form.validate_on_submit():
-            if item is None:
+            if creating:
                 item = e.model()
-                db.session.add(item)
             form.populate_obj(item)
-            if creating and e.after_create:
-                e.after_create(item)
+            if creating:
+                if e.after_create:
+                    e.after_create(item)
+                db.session.add(
+                    item
+                )  # after the hook: its queries must not flush a half-built row
             if _save():
                 verb = "добавен" if creating else "запазен"
                 flash(f"{e.the} е {verb}{e.ending}.", "success")
@@ -295,16 +328,18 @@ def register(e: Entity) -> None:
             active=e.key,
             types=room_types() if e.with_room_types else None,
             extra=e.extra_template,
-            item=item,
+            item=None if creating else item,
+            fixed=e.fixed(item) if e.fixed and not creating else None,
         )
 
     @admin_required
     def delete_view(item_id):
         item = db.get_or_404(e.model, item_id)
         name, where = e.label(item), e.usages(item)
+        refusal = (e.block and e.block(item)) or (where and _refusal(name, where))
         if request.method == "POST":
-            if where:
-                _refuse(name, where)
+            if refusal:
+                flash(refusal, "danger")
             else:
                 db.session.delete(item)
                 if _save():
@@ -314,7 +349,8 @@ def register(e: Entity) -> None:
             "data/delete.html",
             heading=f"Изтриване на {e.singular}",
             name=name,
-            where=where,
+            refusal=refusal,
+            note=e.note(item) if e.note else None,
             cancel_url=e.url("list"),
             active=e.key,
         )
@@ -388,7 +424,7 @@ def groups_delete(group_id):
     where = group_usages(group)
     if request.method == "POST":
         if where:
-            _refuse(group.name, where)
+            flash(_refusal(group.name, where), "danger")
         else:
             db.session.delete(group)
             if _save():
@@ -398,7 +434,8 @@ def groups_delete(group_id):
         "data/delete.html",
         heading="Изтриване на група",
         name=group.name,
-        where=where,
+        refusal=where and _refusal(group.name, where),
+        note=None,
         cancel_url=url_for("data.classes_edit", item_id=group.class_id),
         active="classes",
     )

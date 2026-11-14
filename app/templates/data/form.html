@@ -10,6 +10,12 @@
 
         <form method="post">
           {{ form.hidden_tag() }}
+          {% if fixed %}
+            <div class="form-floating mb-3">
+              <input type="text" class="form-control" id="fixed" value="{{ fixed[1] }}" placeholder="{{ fixed[0] }}" readonly>
+              <label for="fixed">{{ fixed[0] }}</label>
+            </div>
+          {% endif %}
           {% for field in form if field.type != 'CSRFTokenField' %}
             {% set kw = {'list': 'room-types'} if types is not none and field.name in ('type', 'default_room_type') else {} %}
             <div class="form-floating mb-3">
