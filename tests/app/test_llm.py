@@ -75,11 +75,13 @@ def test_valid_proposal_is_saved_as_proposed(admin, monkeypatch):
         "Иванова само в петък",
     )
     assert c.params == {"teacher_id": teacher.id, "days": [5]}
-    # forced tool, schema generated from the models, names sent as context
+    # tool schema generated from the models, school names sent as a cached block
     kw = calls[0]
-    assert kw["tool_choice"] == {"type": "tool", "name": llm.TOOL}
+    assert "tool_choice" not in kw  # forced tool use is rejected by Sonnet 5.5
     assert "FixedSlot" in kw["tools"][0]["input_schema"]["$defs"]
-    assert teacher.name in kw["messages"][0]["content"]
+    school, request = kw["messages"][0]["content"]
+    assert teacher.name in school["text"] and school["cache_control"]
+    assert "Иванова" in request["text"]
 
 
 def test_unknown_name_and_invalid_params_are_not_saved(admin, monkeypatch):
