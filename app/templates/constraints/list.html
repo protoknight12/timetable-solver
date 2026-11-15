@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Ограничения{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h2 mb-0">Ограничения</h1>
+  {% if current_user.role == 'admin' %}
+    <div class="dropdown">
+      <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-plus-lg"></i> Добави ограничение
+      </button>
+      <ul class="dropdown-menu">
+        {% for kind, form in forms.items() %}
+          <li><a class="dropdown-item" href="{{ url_for('constraints.new', kind=kind) }}">{{ form.label }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+</div>
+<p class="lead">Решаващият алгоритъм използва само потвърдените ограничения.</p>
+
+{% if rows %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th scope="col">№</th>
+          <th scope="col">Ограничение</th>
+          <th scope="col">Вид</th>
+          <th scope="col">Състояние</th>
+          {% if current_user.role == 'admin' %}<th scope="col" class="text-end">Действия</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for c, label, desc in rows %}{% include "constraints/_row.html" %}{% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="text-body-secondary">Все още няма добавени ограничения.</p>
+{% endif %}
+{% endblock %}

@@ -63,6 +63,13 @@
                href="{{ url_for('users.list_users') }}">Потребители</a>
           </li>
         {% endif %}
+        {% if current_user.is_authenticated %}
+          <li class="nav-item">
+            <a class="nav-link {% if active == 'constraints' %}active{% endif %}"
+               {% if active == 'constraints' %}aria-current="page"{% endif %}
+               href="{{ url_for('constraints.list_view') }}">Ограничения</a>
+          </li>
+        {% endif %}
         <li class="nav-item"><span class="nav-link disabled">Разписание</span></li>
       </ul>
 
@@ -112,6 +119,7 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"></script>
 <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 </body>
 </html>

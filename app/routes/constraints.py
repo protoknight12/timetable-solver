@@ -1,0 +1,186 @@
+"""Constraint list, manual entry and confirm / reject / delete (FE-06).
+
+Anyone logged in may read the list; every write route is ``@admin_required``.
+
+Assumptions:
+- a constraint typed in by the admin is saved as ``confirmed`` at once (the admin
+  is the confirmer); LLM proposals (BE-09) arrive as ``proposed`` rows;
+- a rejected constraint can be confirmed again, a confirmed one rejected;
+- shortcut: deleting has no confirmation page without JavaScript (HTMX asks via
+  ``hx-confirm``); upgrade if the jury tests without JS.
+"""
+
+from __future__ import annotations
+
+import json
+
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask_login import login_required
+from sqlalchemy import select
+
+from app.auth import admin_required
+from app.constraint_forms import DAY_NAMES, FORMS, _course_name
+from app.forms import room_types
+from app.models import Constraint, Course, SchoolClass, Subject, Teacher, db
+
+bp = Blueprint("constraints", __name__, url_prefix="/constraints")
+
+STATUS_ORDER = {"proposed": 0, "confirmed": 1, "rejected": 2}
+STATUS_LABELS = {
+    "proposed": ("Предложено", "warning"),
+    "confirmed": ("Потвърдено", "success"),
+    "rejected": ("Отхвърлено", "danger"),
+}
+
+
+def _names() -> dict[str, dict[int, str]]:
+    def of(model, label=lambda r: r.name):
+        return {r.id: label(r) for r in db.session.scalars(select(model))}
+
+    return {
+        "teacher": of(Teacher),
+        "subject": of(Subject),
+        "class": of(SchoolClass),
+        "course": of(Course, _course_name),
+    }
+
+
+def describe(c: Constraint, names: dict[str, dict[int, str]]) -> str:
+    """One Bulgarian line for the list. Malformed params (e.g. from an LLM) show as JSON."""
+
+    def name(kind, i):
+        return names[kind].get(i, f"№{i} (изтрит)")
+
+    def day(d):
+        return DAY_NAMES.get(d, str(d))
+
+    def scope(s):
+        if s == "all":
+            return "Всички класове"
+        return (
+            f"Клас {name('class', s['class_id'])}"
+            if "class_id" in s
+            else f"{s['grade']}. клас"
+        )
+
+    p = c.params
+    try:
+        match c.type:
+            case "teacher_available_days":
+                days = ", ".join(day(d) for d in p["days"])
+                return f"{name('teacher', p['teacher_id'])}: работи само в {days}"
+            case "teacher_unavailable_slots":
+                slots = ", ".join(
+                    f"{day(s['day'])}, {s['period']}. час" for s in p["slots"]
+                )
+                return f"{name('teacher', p['teacher_id'])}: не може в {slots}"
+            case "room_type_required":
+                who = (
+                    f"Предмет {name('subject', p['subject_id'])}"
+                    if p.get("subject_id")
+                    else name("course", p["course_id"])
+                )
+                return f"{who}: стая от тип „{p['room_type']}“"
+            case "max_lessons_per_day":
+                return f"{scope(p['scope'])}: най-много {p['max']} часа на ден"
+            case "no_gaps":
+                return f"{scope(p['scope'])}: без прозорци"
+            case "fixed_slot":
+                blocks = ", ".join(
+                    f"{day(b['day'])}, от {b['start_period']}. час" for b in p["blocks"]
+                )
+                return f"{name('course', p['course_id'])}: {blocks}"
+    except (KeyError, TypeError, AttributeError):
+        pass
+    return json.dumps(p, ensure_ascii=False)
+
+
+def _label(c: Constraint) -> str:
+    form = FORMS.get(c.type)
+    return form.label if form else c.type
+
+
+def _row(c: Constraint) -> str:
+    return render_template(
+        "constraints/_row.html",
+        c=c,
+        label=_label(c),
+        desc=describe(c, _names()),
+        statuses=STATUS_LABELS,
+    )
+
+
+@bp.get("/")
+@login_required
+def list_view():
+    items = sorted(
+        db.session.scalars(select(Constraint)).all(),
+        key=lambda c: (STATUS_ORDER.get(c.status, 3), c.id),
+    )
+    names = _names()
+    rows = [(c, _label(c), describe(c, names)) for c in items]
+    return render_template(
+        "constraints/list.html",
+        rows=rows,
+        forms=FORMS,
+        statuses=STATUS_LABELS,
+        active="constraints",
+    )
+
+
+@bp.route("/new/<kind>", methods=["GET", "POST"])
+@admin_required
+def new(kind):
+    if kind not in FORMS:
+        abort(404)
+    form = FORMS[kind]()
+    if form.validate_on_submit():
+        c = Constraint(
+            type=kind,
+            hard=form.hard.data,
+            weight=None if form.hard.data else form.weight.data,
+            params=form.params(),
+            status="confirmed",
+            source="manual",
+        )
+        db.session.add(c)
+        db.session.commit()
+        flash("Ограничението е добавено и потвърдено.", "success")
+        return redirect(url_for("constraints.list_view"))
+    return render_template(
+        "constraints/form.html",
+        form=form,
+        heading=f"Ново ограничение: {form.label}",
+        cancel_url=url_for("constraints.list_view"),
+        active="constraints",
+        types=room_types(),
+    )
+
+
+def _done(c: Constraint | None, message: str):
+    """HTMX swaps the row (or removes it); a plain form post flashes and redirects."""
+    if request.headers.get("HX-Request"):
+        return _row(c) if c else ""
+    flash(message, "success")
+    return redirect(url_for("constraints.list_view"))
+
+
+@bp.post("/<int:item_id>/status")
+@admin_required
+def set_status(item_id):
+    c = db.get_or_404(Constraint, item_id)
+    status = request.form.get("status")
+    if status not in ("confirmed", "rejected"):
+        abort(400)
+    c.status = status
+    db.session.commit()
+    return _done(c, f"Ограничение №{c.id}: {STATUS_LABELS[status][0].lower()}.")
+
+
+@bp.post("/<int:item_id>/delete")
+@admin_required
+def delete(item_id):
+    c = db.get_or_404(Constraint, item_id)
+    db.session.delete(c)
+    db.session.commit()
+    return _done(None, f"Ограничение №{item_id} е изтрито.")

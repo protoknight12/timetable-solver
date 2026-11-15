@@ -1,0 +1,35 @@
+{% set status_label, status_color = statuses.get(c.status, (c.status, 'secondary')) %}
+<tr id="constraint-{{ c.id }}">
+  <td>{{ c.id }}</td>
+  <td>
+    <div class="fw-semibold">{{ label }}</div>
+    <div>{{ desc }}</div>
+    {% if c.original_text %}
+      <div class="small text-body-secondary">Оригинален текст: „{{ c.original_text }}“</div>
+    {% endif %}
+  </td>
+  <td>{% if c.hard %}Твърдо{% else %}Предпочитание (тежест {{ c.weight }}){% endif %}</td>
+  <td><span class="badge text-bg-{{ status_color }}">{{ status_label }}</span></td>
+  {% if current_user.role == 'admin' %}
+    <td class="text-end">
+      <div class="d-flex flex-wrap gap-1 justify-content-end">
+        <form method="post" class="d-flex gap-1" action="{{ url_for('constraints.set_status', item_id=c.id) }}"
+              hx-post="{{ url_for('constraints.set_status', item_id=c.id) }}" hx-target="closest tr" hx-swap="outerHTML">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {% if c.status != 'confirmed' %}
+            <button type="submit" name="status" value="confirmed" class="btn btn-outline-success btn-sm"><i class="bi bi-check-lg"></i> Потвърди</button>
+          {% endif %}
+          {% if c.status != 'rejected' %}
+            <button type="submit" name="status" value="rejected" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x-lg"></i> Отхвърли</button>
+          {% endif %}
+        </form>
+        <form method="post" action="{{ url_for('constraints.delete', item_id=c.id) }}"
+              hx-post="{{ url_for('constraints.delete', item_id=c.id) }}" hx-target="closest tr" hx-swap="outerHTML"
+              hx-confirm="Да се изтрие ли ограничение №{{ c.id }}? Действието не може да бъде отменено.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Изтрий</button>
+        </form>
+      </div>
+    </td>
+  {% endif %}
+</tr>
