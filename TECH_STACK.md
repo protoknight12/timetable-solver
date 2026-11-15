@@ -3,9 +3,9 @@
 > **Name:** SATurn (decided 12.11.2026).
 > **Project:** AI-assisted school timetable maker for the National Autumn IT Tournament "Джон Атанасов" (December 2026, Sofia).
 > **Team:** two students + a teacher supervisor.
-> **Status:** in development (data contract, constraint models, DB models, auth and solver core merged on 14.11.2026). **Feature freeze: 26.11.2026.**
+> **Status:** in development (data pages, constraints, solver, checker, grid, Excel export, LLM proposals, import and minimal-change re-solve merged by 15.11.2026; online deploy pending the VPS). **Feature freeze: 26.11.2026.**
 
-Items marked **[DECIDE]** still need agreement between both developers.
+Items marked **[DECIDE]** still need agreement between both developers (only the schema item in §15).
 Items marked **[QUESTION]** are unknowns about real school rules. Do not guess them in code.
 
 ---
@@ -63,7 +63,7 @@ The app must work end to end **with the LLM switched off**. Manual constraint en
 | Solver | OR-Tools CP-SAT | Time limit + `num_workers`; always keep the best solution found |
 | Checker | Plain Python, no dependencies | Must not reuse solver code |
 | Background jobs | Redis + **RQ** | Chosen over Celery: far less config, and the extra Celery features aren't needed |
-| Deployment | Docker Compose | Services: `web`, `worker`, `db`, `redis` |
+| Deployment | Docker Compose; hosted on a VPS (Hetzner, Ubuntu 24.04) behind Caddy (automatic HTTPS) | Services: `web`, `worker`, `db`, `redis`. Deploy script `install.sh`; the VPS itself is still pending |
 
 ### 3.2 Additions (with reasons)
 
@@ -71,7 +71,7 @@ The app must work end to end **with the LLM switched off**. Manual constraint en
 |---|---|---|
 | Constraint format | Pydantic v2 | One source of truth: validates LLM output, generates the JSON Schema given to the LLM, documents the format |
 | LLM access | Anthropic Python SDK, tool use / structured output | Forces LLM output into the Pydantic schema; invalid output is dropped before an admin sees it |
-| Interactivity | HTMX + a little Alpine.js | Job status polling, confirm/reject buttons, small grid edits without a JS build |
+| Interactivity | HTMX 2 from CDN (decided, in use) | Job status polling and confirm/reject buttons without a JS build. Alpine.js is not used |
 | Styling | Bootstrap 5.3 + Bootstrap Icons via CDN (decided, used since FE-02) | No build step; built-in dark mode via `data-bs-theme` |
 | Auth | Flask-Login | Already familiar from earlier projects |
 | Forms / security | Flask-WTF (CSRF), Flask-Limiter (rate limits, Redis storage) | The jury scores CSRF and rate limiting (BE-05) |
@@ -84,7 +84,7 @@ The app must work end to end **with the LLM switched off**. Manual constraint en
 
 ---
 
-## 4. Repository layout (proposed)
+## 4. Repository layout
 
 ```
 .
@@ -93,7 +93,7 @@ The app must work end to end **with the LLM switched off**. Manual constraint en
 │   ├── models.py
 │   ├── routes/
 │   ├── templates/          # all user-facing text in Bulgarian
-│   ├── llm/                # prompt + Anthropic client + parsing
+│   ├── llm.py              # prompt + Anthropic client + parsing
 │   └── jobs.py             # RQ job: DB → plain data → solver → checker → DB
 ├── schema/                 # Pydantic constraint models (no Flask/DB imports)
 ├── solver/                 # CP-SAT model (no Flask/DB imports)
@@ -205,7 +205,7 @@ Extra type added with the data model: `fixed_slot` pins every block of a Course,
 
 - Decision variables: one start variable per Course block (day + start period), plus room assignment per part where needed. Implemented in `solver/` (BE-06, BE-07).
 - Hard constraints as CP-SAT constraints; soft constraints as weighted penalty terms in a minimized objective.
-- Default time limit: 60 s (`SOLVER_TIME_LIMIT_S`); configurable per job.
+- Default time limit: 60 s (`SOLVER_TIME_LIMIT_S`, the real app default); configurable per job. The TEAM-02 issue proposed 30 s; we keep 60 s. The demo school solves in ~3 s, so the limit only matters for bigger schools.
 - Return: status (`OPTIMAL`, `FEASIBLE`, `INFEASIBLE`, `UNKNOWN`), lessons, objective value, solve time.
 - **Infeasible results must be explained.** Attach an assumption literal to each user constraint and use CP-SAT's `sufficient_assumptions_for_infeasibility()` to report which constraints conflict.
 - Input and output are plain dataclasses or dicts. No DB access.
@@ -288,13 +288,12 @@ SOLVER_TIME_LIMIT_S=60
 
 ## 14. License
 
-**Proposed: MIT** **[DECIDE]** — agree with both team members.
+**Decided 15.11.2026: MIT** (Boyan, with Hristian's delegation). `LICENSE` holds "2026 SATurn team"; no real names.
 
 - Short and permissive; anyone may use, modify and deploy the code if they keep the copyright notice.
 - All core dependencies are permissively licensed, so no dependency forces a different choice. Redis has a more restrictive license but runs as a separate service and does not affect this code.
 - Alternative if the team wants modified hosted versions to stay open: **AGPL-3.0**.
-- Copyright line should name **both** developers.
-- Check the tournament regulations for any IP or licensing requirements before publishing.
+- Open: check the tournament regulations for any IP or licensing requirements before publishing.
 
 ---
 
@@ -320,11 +319,12 @@ SOLVER_TIME_LIMIT_S=60
     generic bell times, permuted days in the reference timetable (`tools/asc_import/anonymize.py`, PR #56).
     Subjects and structure are kept.
 
-**Team decisions [DECIDE]:**
+**Team decisions (15.11.2026, Boyan with Hristian's delegation, TEAM-02):**
 
-1. License.
+1. License: **MIT** (§14). Short and permissive; no dependency forces another choice.
 2. ~~Data model and constraint format (sections 5–6).~~ Agreed 13.11.2026 (TEAM-03).
-   Contract v2 (`StudentGroup.split`, PR #49) and the same-day block rule (PR #48, gap rule dropped in #55) were added on 14.11 and still need Hristian's explicit OK.
-3. ~~Tailwind or Bootstrap.~~ Bootstrap 5.3.
-4. ~~Default solver time limit.~~ 60 s.
-5. ~~Laptop or hosted demo?~~ Hosted VPS with a public HTTPS URL (required by the rules), plus an offline laptop copy and a recorded video as backup.
+   **[DECIDE]** Contract v2 (`StudentGroup.split`, PR #49) and the same-day block rule (PR #48, gap rule dropped in #55) were added on 14.11 and still need Hristian's explicit OK.
+3. CSS framework: **Bootstrap 5.3 from CDN**. Already in use, built-in dark mode, no build step.
+4. HTMX: **v2 from CDN**. Already in use, no JS build.
+5. Solver time limit: **60 s** (`SOLVER_TIME_LIMIT_S`, the app default; the issue's 30 s proposal was not adopted). Demo school solves in ~3 s.
+6. Hosting: **online on a VPS** (Hetzner, Ubuntu 24.04, Docker Compose + Caddy), public HTTPS URL required by the rules, plus an offline laptop copy and a recorded video as backup. Deploy pending the VPS (`be-02-deploy`).

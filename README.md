@@ -134,4 +134,4 @@ Keep all user-facing text in Bulgarian and make sure every page is readable in b
 
 ## License
 
-Not decided yet.
+[MIT](LICENSE).
