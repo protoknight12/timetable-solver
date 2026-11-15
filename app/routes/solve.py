@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import re
+from io import BytesIO
+
 from flask import (
     Blueprint,
     abort,
@@ -11,9 +14,12 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_file,
     url_for,
 )
 from flask_login import current_user, login_required
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font
 from redis import Redis
 from rq import Queue
 from sqlalchemy import DateTime, func, select, type_coerce
@@ -226,6 +232,65 @@ def timetable():
         day_names={d: n.capitalize() for d, n in DAY_NAMES.items()},
         active_states=ACTIVE,
         **ctx,
+    )
+
+
+@bp.get("/timetable.xlsx")
+@login_required
+def export_xlsx():
+    """One sheet per class, same data as the page grid (FE-10)."""
+    job = db.session.get(SolveJob, request.args.get("job", type=int) or 0)
+    if job is None:
+        job = db.session.scalar(select(SolveJob).order_by(SolveJob.id.desc()))
+    if not (job and job.status == "finished" and job.solver_status in HAS_TIMETABLE):
+        flash("Все още няма изградено разписание за изтегляне.", "warning")
+        return redirect(url_for("solve.timetable"))
+    periods = db.session.scalars(select(Period).order_by(Period.number)).all()
+    days = range(1, current_app.config["SCHOOL_DAYS"] + 1)
+    wb, used = Workbook(), set()
+    wb.remove(wb.active)
+    for c in db.session.scalars(select(SchoolClass).order_by(SchoolClass.id)):
+        # Excel forbids []:*?/\ and >31 chars; names must also be unique (any case).
+        base = re.sub(r"[\[\]:*?/\\]", "_", c.name).strip("'")[:28] or "Клас"
+        title, n = base, 1
+        while title.lower() in used:
+            n += 1
+            title = f"{base[:28]} {n}"
+        used.add(title.lower())
+        ws = wb.create_sheet(title)
+        ws.append(["Час"] + [DAY_NAMES[d].capitalize() for d in days])
+        cells = _grid(job.id, c.id)
+        for p in periods:
+            row = [f"{p.number}\n{p.start_time:%H:%M}–{p.end_time:%H:%M}"]
+            for d in days:
+                row.append(
+                    "\n\n".join(
+                        l["subject"]
+                        + "\n"
+                        + " · ".join(
+                            x for x in (l["teachers"], l["room"], l["group"]) if x
+                        )
+                        for l in cells.get((d, p.number), [])
+                    )
+                )
+            ws.append(row)
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+        for row in ws.iter_rows():
+            for cell in row:
+                cell.alignment = Alignment(wrap_text=True, vertical="top")
+        ws.column_dimensions["A"].width = 12
+        for d in days:
+            ws.column_dimensions[ws.cell(1, d + 1).column_letter].width = 28
+        ws.freeze_panes = "B2"
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name="razpisanie.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
 

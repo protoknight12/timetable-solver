@@ -1,3 +1,6 @@
+from io import BytesIO
+
+from openpyxl import load_workbook
 from sqlalchemy import select
 
 from app import models as m
@@ -70,3 +73,29 @@ def test_job_card_polls_until_done(make_client, migrated):
     db.session.commit()
     r = client.get(f"/jobs/{job.id}/card")
     assert "hx-trigger" not in r.text and r.headers["HX-Refresh"] == "true"
+
+
+def test_excel_export_has_one_valid_sheet_per_class(make_client, migrated):
+    _solved("demo_school.json")
+    classes = [c.name for c in db.session.scalars(select(m.SchoolClass))]
+    for role in ("admin", "viewer"):
+        r = make_client(role).get("/timetable.xlsx")
+        assert r.status_code == 200 and "spreadsheetml" in r.content_type
+        wb = load_workbook(BytesIO(r.data))
+        assert len(wb.sheetnames) == len(classes)
+        assert all(len(n) <= 31 and not set("[]:*?/\\") & set(n) for n in wb.sheetnames)
+        ws = wb[wb.sheetnames[0]]
+        assert [c.value for c in ws[1]][:3] == ["Час", "Понеделник", "Вторник"]
+        assert ws.cell(2, 1).value.startswith("1\n")
+        assert any(c.value for row in ws.iter_rows(min_row=2, min_col=2) for c in row)
+
+
+def test_excel_export_without_timetable_redirects(make_client, migrated):
+    client = make_client("viewer")
+    r = client.get("/timetable.xlsx")
+    assert r.status_code == 302 and r.headers["Location"].endswith("/timetable")
+    assert "Все още няма изградено разписание" in client.get("/timetable").text
+
+
+def test_excel_export_requires_login(migrated):
+    assert migrated.test_client().get("/timetable.xlsx").status_code == 302
