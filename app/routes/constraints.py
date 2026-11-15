@@ -134,6 +134,8 @@ def list_view():
         rows=rows,
         forms=FORMS,
         statuses=STATUS_LABELS,
+        llm_enabled=current_app.config["LLM_ENABLED"],
+        max_chars=llm.MAX_CHARS,
         active="constraints",
     )
 
@@ -208,7 +210,7 @@ def delete(item_id):
     scope="llm-daily",
 )
 def propose():
-    """Text -> proposed constraints (BE-09). The text box itself is FE-09."""
+    """Text -> proposed constraints (BE-09). The text box is on the list page (FE-09)."""
     if not current_app.config["LLM_ENABLED"]:
         abort(404)
     text = request.form.get("text", "").strip()
