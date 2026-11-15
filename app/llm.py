@@ -35,7 +35,9 @@ You turn a school administrator's request (written in Bulgarian) into timetable 
 You only propose constraints; you never build or change a timetable.
 
 Rules:
-- Call the tool exactly once. Put every constraint you are sure about in `constraints`.
+- Always answer by calling the `propose_constraints` tool exactly once, never in plain text,
+  even when nothing can be proposed (then `constraints` is empty).
+- Put every constraint you are sure about in `constraints`.
 - Use ONLY ids from the school data in the user message. Map names to ids yourself
   (Bulgarian inflections, short forms and surnames only count if the match is unambiguous).
 - If a name matches nothing or several entries, or the sentence is not a supported
@@ -133,11 +135,19 @@ def _ask(text: str) -> dict:
             max_tokens=2048,
             system=SYSTEM,
             tools=[_tool()],
-            tool_choice={"type": "tool", "name": TOOL},
+            # Newer models reject a forced tool_choice; the system prompt asks for the call.
             messages=[
                 {
                     "role": "user",
-                    "content": f"<school>{_school_context()}</school>\n<request>{text}</request>",
+                    "content": [
+                        # Tools + system + school data repeat on every request: cache them.
+                        {
+                            "type": "text",
+                            "text": f"<school>{_school_context()}</school>",
+                            "cache_control": {"type": "ephemeral"},
+                        },
+                        {"type": "text", "text": f"<request>{text}</request>"},
+                    ],
                 }
             ],
         )
