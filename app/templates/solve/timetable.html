@@ -36,6 +36,9 @@
           <div class="col-auto">
             <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-eye"></i> Покажи</button>
           </div>
+          <div class="col-auto">
+            <a href="{{ url_for('solve.export_xlsx', job=job.id) }}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-excel"></i> Изтегли в Excel</a>
+          </div>
         </form>
         <div class="table-responsive">
           <table class="table table-bordered align-top timetable-grid">
