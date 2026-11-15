@@ -14,11 +14,21 @@ from __future__ import annotations
 
 import json
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
-from flask_login import login_required
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
+from flask_login import current_user, login_required
 from sqlalchemy import select
 
-from app.auth import admin_required
+from app import llm
+from app.auth import admin_required, limiter
 from app.constraint_forms import DAY_NAMES, FORMS, _course_name
 from app.forms import room_types
 from app.models import Constraint, Course, SchoolClass, Subject, Teacher, db
@@ -184,3 +194,43 @@ def delete(item_id):
     db.session.delete(c)
     db.session.commit()
     return _done(None, f"Ограничение №{item_id} е изтрито.")
+
+
+@bp.post("/propose")
+@admin_required
+@limiter.limit(
+    lambda: current_app.config["LLM_RATE_LIMIT"],
+    key_func=lambda: str(current_user.get_id()),
+)
+@limiter.limit(
+    lambda: current_app.config["LLM_DAILY_CAP"],
+    key_func=lambda: "llm",
+    scope="llm-daily",
+)
+def propose():
+    """Text -> proposed constraints (BE-09). The text box itself is FE-09."""
+    if not current_app.config["LLM_ENABLED"]:
+        abort(404)
+    text = request.form.get("text", "").strip()
+    if not text:
+        flash("Въведете текст на заявката.", "warning")
+    elif len(text) > llm.MAX_CHARS:
+        flash(f"Текстът е твърде дълъг (най-много {llm.MAX_CHARS} знака).", "danger")
+    else:
+        try:
+            saved, unclear = llm.propose_constraints(text)
+        except llm.LlmError as e:
+            flash(str(e), "danger")
+        else:
+            if saved:
+                flash(
+                    f"Предложени ограничения: {len(saved)}. Прегледайте ги и ги потвърдете или отхвърлете.",
+                    "success",
+                )
+            if unclear:
+                flash(
+                    "Не са разбрани: " + "; ".join(f"„{u}“" for u in unclear), "warning"
+                )
+            if not saved and not unclear:
+                flash("Не бяха намерени ограничения в текста.", "info")
+    return redirect(url_for("constraints.list_view"))

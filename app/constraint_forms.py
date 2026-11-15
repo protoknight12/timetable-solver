@@ -123,20 +123,29 @@ class ConstraintForm(DataForm):
         }
 
     def _check_whole(self) -> bool:
-        try:
-            parsed = parse_constraint(self.constraint_data())
-        except PydanticError:
-            self.problem = "Ограничението не е валидно. Проверете въведените стойности."
-            return False
-        inp = build_solver_input(db.session)
-        inp = dataclasses.replace(inp, constraints=(parsed.to_solver(0),))
-        bad = [p.code for p in inp.problems() if p.path.startswith("constraints[0]")]
-        if bad:
-            self.problem = (
-                "Ограничението не съответства на данните на училището "
-                f"(код: {', '.join(sorted(set(bad)))})."
-            )
-        return not bad
+        self.problem = constraint_problem(self.constraint_data())[1]
+        return not self.problem
+
+
+def constraint_problem(data: dict, inp=None):
+    """Validate one constraint dict: ``(parsed, None)`` or ``(None, Bulgarian problem)``.
+
+    Shared by the manual form and the LLM proposals (BE-09): confirming a saved
+    row later does not validate again, so nothing invalid may be saved.
+    """
+    try:
+        parsed = parse_constraint(data)
+    except PydanticError:
+        return None, "Ограничението не е валидно. Проверете въведените стойности."
+    inp = inp or build_solver_input(db.session)
+    inp = dataclasses.replace(inp, constraints=(parsed.to_solver(0),))
+    bad = [p.code for p in inp.problems() if p.path.startswith("constraints[0]")]
+    if bad:
+        return None, (
+            "Ограничението не съответства на данните на училището "
+            f"(код: {', '.join(sorted(set(bad)))})."
+        )
+    return parsed, None
 
 
 def _teacher_field():
