@@ -190,8 +190,10 @@ def _violation_rows(job_id: int) -> list[dict]:
     return rows
 
 
-def _grid(job_id: int, class_id: int) -> dict[tuple[int, int], list[dict]]:
-    """(day, period) -> lessons of this class; a group-split slot has several."""
+def _grid(
+    job_id: int, class_id: int | None = None, teacher_id: int | None = None
+) -> dict[tuple[int, int], list[dict]]:
+    """(day, period) -> lessons of this class or teacher; a split slot has several."""
     parts = db.session.scalars(
         select(CoursePart).options(
             selectinload(CoursePart.groups),
@@ -200,10 +202,37 @@ def _grid(job_id: int, class_id: int) -> dict[tuple[int, int], list[dict]]:
         )
     )
     parts = {p.id: p for p in parts}
-    rooms = _entity_names()["room"]
+    names = _entity_names()
+    rooms = names["room"]
     cells: dict[tuple[int, int], list[dict]] = {}
     for les in db.session.scalars(select(Lesson).where(Lesson.job_id == job_id)):
         part = parts[les.part_id]
+        if teacher_id is not None:
+            if teacher_id not in {t.id for t in part.teachers}:
+                continue
+            # Teacher view reuses the "teachers" slot of the cell for the classes
+            # (and groups) taught, so the template and the export stay unchanged.
+            by_class: dict[int, list] = {}
+            for g in part.groups:
+                by_class.setdefault(g.class_id, []).append(g)
+            label = ", ".join(
+                names["class"][cid]
+                + (
+                    ""
+                    if any(g.is_whole for g in gs)
+                    else " (" + ", ".join(sorted(g.name for g in gs)) + ")"
+                )
+                for cid, gs in sorted(by_class.items())
+            )
+            entry = {
+                "subject": part.subject.name,
+                "teachers": label,
+                "room": rooms.get(les.room_id, ""),
+                "group": "",
+            }
+            for period in range(les.start_period, les.start_period + les.length):
+                cells.setdefault((les.day, period), []).append(entry)
+            continue
         mine = [g for g in part.groups if g.class_id == class_id]
         if not mine:
             continue
@@ -255,16 +284,23 @@ def timetable():
     current = next((c for c in classes if c.id == class_id), None) or (
         classes[0] if classes else None
     )
+    teachers = db.session.scalars(select(Teacher).order_by(Teacher.name)).all()
+    teacher_id = request.args.get("teacher", type=int)
+    teacher = next((t for t in teachers if t.id == teacher_id), None)
     ctx = {
         "job": job,
         "classes": classes,
         "current": current,
+        "teachers": teachers,
+        "teacher": teacher,
         "active": "timetable",
         "can_keep_previous": _previous_job() is not None,
     }
     if job and job.status == "finished" and job.solver_status in HAS_TIMETABLE:
         ctx |= {
-            "cells": _grid(job.id, current.id) if current else {},
+            "cells": _grid(job.id, current.id, teacher and teacher.id)
+            if current or teacher
+            else {},
             "days": range(1, current_app.config["SCHOOL_DAYS"] + 1),
             "periods": db.session.scalars(select(Period).order_by(Period.number)).all(),
             "violations": _violation_rows(job.id),

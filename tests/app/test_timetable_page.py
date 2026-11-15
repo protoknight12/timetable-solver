@@ -58,6 +58,35 @@ def test_split_group_lessons_are_both_in_the_cell(make_client, migrated):
     assert found
 
 
+def test_teacher_view_shows_only_that_teachers_lessons(make_client, migrated):
+    job_id = _solved("demo_school.json")
+    from app.routes.solve import _grid
+
+    parts = {p.id: p for p in db.session.scalars(select(m.CoursePart))}
+    lessons = db.session.scalars(select(m.Lesson).where(m.Lesson.job_id == job_id))
+    lessons = list(lessons)
+    joint = split = False
+    for t in db.session.scalars(select(m.Teacher)):
+        mine = [x for x in lessons if t in parts[x.part_id].teachers]
+        expected = sum(x.length for x in mine)
+        cells = _grid(job_id, teacher_id=t.id)
+        assert sum(len(v) for v in cells.values()) == expected
+        # A teacher teaches one thing at a time, so no slot holds two entries.
+        assert all(len(v) == 1 for v in cells.values())
+        for x in mine:
+            groups = parts[x.part_id].groups
+            joint |= len({g.class_id for g in groups}) > 1
+            split |= not any(g.is_whole for g in groups)
+            label = cells[(x.day, x.start_period)][0]["teachers"]
+            assert all(
+                db.session.get(m.SchoolClass, g.class_id).name in label for g in groups
+            )
+    assert joint or split  # demo data must exercise a joint or split lesson
+    t = db.session.scalars(select(m.Teacher)).first()
+    html = make_client("viewer").get(f"/timetable?teacher={t.id}").get_data(True)
+    assert f"Седмично разписание на {t.name}" in html
+
+
 def test_infeasible_shows_plain_message(make_client, migrated):
     _load("impossible_school.json")
     run_solve(_job())
