@@ -61,6 +61,7 @@ def create_app(config: dict | None = None) -> Flask:
 
     app.cli.add_command(seed_command)
     app.cli.add_command(create_user_command)
+    from app.routes.constraints import bp as constraints_bp
     from app.routes.data import bp as data_bp
     from app.routes.solve import bp as solve_bp
     from app.routes.users import bp as users_bp
@@ -68,6 +69,7 @@ def create_app(config: dict | None = None) -> Flask:
     app.register_blueprint(pages_bp)
     app.register_blueprint(solve_bp)
     app.register_blueprint(data_bp)
+    app.register_blueprint(constraints_bp)
     app.register_blueprint(users_bp)
 
     return app
