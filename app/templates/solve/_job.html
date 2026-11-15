@@ -1,0 +1,12 @@
+{# Job status card. While the job is queued or running it polls itself (HTMX). #}
+<div id="job-card" class="alert alert-{{ 'info' if job.status in active_states else 'secondary' if job.status == 'finished' else 'danger' }}" role="status"
+     {% if job.status in active_states %}hx-get="{{ url_for('solve.job_card', job_id=job.id) }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <strong>Изчисление №{{ job.id }}:</strong> {{ job_status.get(job.status, job.status) }}
+  {% if job.status in active_states %}
+    <span class="spinner-border spinner-border-sm ms-2" aria-hidden="true"></span>
+  {% elif job.status == 'finished' and job.solver_status %}
+    · {{ solver_status.get(job.solver_status, job.solver_status) }}
+  {% elif job.status == 'failed' %}
+    <div>{{ job.error }}</div>
+  {% endif %}
+</div>

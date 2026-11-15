@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Разписание{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h2 mb-0">Разписание</h1>
+  {% if current_user.role == 'admin' %}
+    <form method="post" action="{{ url_for('solve.start') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-primary" {% if job and job.status in active_states %}disabled{% endif %}>
+        <i class="bi bi-play-fill"></i> Изгради разписание
+      </button>
+    </form>
+  {% endif %}
+</div>
+<p class="lead">Разписанието се изгражда само от потвърдените ограничения и се проверява поотделно.</p>
+
+{% if not job %}
+  <p class="text-body-secondary">Все още не е изграждано разписание.</p>
+{% else %}
+  {% include "solve/_job.html" %}
+
+  {% if job.status == 'finished' and cells is defined %}
+    <div class="row g-4">
+      <div class="col-xl-8">
+        <form method="get" class="row g-2 align-items-end mb-3">
+          <input type="hidden" name="job" value="{{ job.id }}">
+          <div class="col-auto">
+            <label for="class-picker" class="form-label mb-1">Клас</label>
+            <select id="class-picker" name="class" class="form-select">
+              {% for c in classes %}
+                <option value="{{ c.id }}" {% if current and c.id == current.id %}selected{% endif %}>{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-auto">
+            <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-eye"></i> Покажи</button>
+          </div>
+        </form>
+        <div class="table-responsive">
+          <table class="table table-bordered align-top timetable-grid">
+            <caption class="visually-hidden">Седмично разписание на {{ current.name if current else '' }}</caption>
+            <thead>
+              <tr>
+                <th scope="col">Час</th>
+                {% for d in days %}<th scope="col">{{ day_names[d] }}</th>{% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in periods %}
+                <tr>
+                  <th scope="row" class="text-nowrap">{{ p.number }}<br><small class="text-body-secondary fw-normal">{{ p.start_time.strftime('%H:%M') }}–{{ p.end_time.strftime('%H:%M') }}</small></th>
+                  {% for d in days %}
+                    <td>
+                      {% for l in cells.get((d, p.number), []) %}
+                        <div class="border rounded p-1 {% if not loop.last %}mb-1{% endif %}">
+                          <div class="fw-semibold">{{ l.subject }}</div>
+                          <small class="text-body-secondary">
+                            {{ l.teachers }}{% if l.room %} · {{ l.room }}{% endif %}{% if l.group %} · {{ l.group }}{% endif %}
+                          </small>
+                        </div>
+                      {% endfor %}
+                    </td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col-xl-4">
+        {% include "solve/_report.html" %}
+      </div>
+    </div>
+  {% elif job.status == 'finished' %}
+    <p>Не е намерено разписание, което да спазва всички твърди изисквания. Прегледайте данните и ограниченията.</p>
+    {# BE-11 puts the explanation of the infeasible result here. #}
+    <div id="infeasible-explanation"></div>
+  {% endif %}
+{% endif %}
+{% endblock %}

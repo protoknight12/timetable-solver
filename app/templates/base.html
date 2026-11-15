@@ -70,7 +70,15 @@
                href="{{ url_for('constraints.list_view') }}">Ограничения</a>
           </li>
         {% endif %}
-        <li class="nav-item"><span class="nav-link disabled">Разписание</span></li>
+        {% if current_user.is_authenticated %}
+          <li class="nav-item">
+            <a class="nav-link {% if active == 'timetable' %}active{% endif %}"
+               {% if active == 'timetable' %}aria-current="page"{% endif %}
+               href="{{ url_for('solve.timetable') }}">Разписание</a>
+          </li>
+        {% else %}
+          <li class="nav-item"><span class="nav-link disabled">Разписание</span></li>
+        {% endif %}
       </ul>
 
       <ul class="navbar-nav align-items-lg-center gap-2">
