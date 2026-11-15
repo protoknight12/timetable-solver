@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Импорт на данни{% endblock %}
+
+{% block content %}
+<h1 class="h2 mb-2">Импорт на данни</h1>
+<p class="lead">Заредете учители, предмети, стаи, класове, учебни часове и учебен план от Excel файл вместо да ги въвеждате на ръка.</p>
+
+{% if errors %}
+  <div class="alert alert-danger" role="alert">
+    <p class="mb-2"><strong>Нищо не е запазено.</strong> Поправете грешките и качете файла отново:</p>
+    <ul class="mb-0">
+      {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+    </ul>
+    {% if hidden %}<p class="mt-2 mb-0">… и още {{ hidden }} грешки.</p>{% endif %}
+  </div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-12 col-lg-7">
+    <div class="card shadow-sm mb-4">
+      <div class="card-body p-4">
+        <h2 class="h4 mb-3">1. Изтеглете шаблона</h2>
+        <p>Листовете и заглавията в първия ред не се променят. Листът „Инструкции“ обяснява попълването.</p>
+        <div class="d-flex flex-wrap gap-2">
+          <a class="btn btn-outline-secondary" href="{{ url_for('importing.template') }}"><i class="bi bi-file-earmark-excel"></i> Изтегли празен шаблон</a>
+          <a class="btn btn-outline-secondary" href="{{ url_for('importing.export') }}"><i class="bi bi-download"></i> Изтегли текущите данни</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h2 class="h4 mb-3">2. Качете файла</h2>
+        <div class="alert alert-warning" role="alert">
+          <i class="bi bi-exclamation-triangle"></i>
+          <strong>Excel файл (.xlsx) замества всички текущи данни:</strong> учители, предмети, стаи, класове, учебни часове, учебен план, ограничения и изградени разписания. Профилите на потребителите се запазват. Препоръчваме първо да изтеглите текущите данни.
+          <br>CSV файл съдържа само един лист и се <strong>добавя</strong> към текущите данни.
+        </div>
+        <form method="post" enctype="multipart/form-data" novalidate>
+          {{ form.hidden_tag() }}
+          <div class="mb-3">
+            {{ form.file.label(class_='form-label') }}
+            {{ form.file(class_='form-control' ~ (' is-invalid' if form.file.errors else ''), accept='.xlsx,.csv') }}
+            {% for error in form.file.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            <div class="form-text">До 2 MB.</div>
+          </div>
+          <div class="form-floating mb-3">
+            {{ form.sheet(class_='form-select' ~ (' is-invalid' if form.sheet.errors else '')) }}
+            {{ form.sheet.label }}
+            {% for error in form.sheet.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="form-check mb-3">
+            {{ form.confirm(class_='form-check-input' ~ (' is-invalid' if form.confirm.errors else '')) }}
+            {{ form.confirm.label(class_='form-check-label') }}
+            {% for error in form.confirm.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+          </div>
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-upload"></i> Импортирай</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h2 class="h4 mb-3">Листове и колони</h2>
+        <p>За CSV изберете листа, на който съответства файлът. Колоните трябва да са със същите заглавия.</p>
+        <dl class="mb-0">
+          {% for sheet, cols in headers.items() %}
+            <dt>{{ sheet }}</dt>
+            <dd>{{ cols | join(', ') }}</dd>
+          {% endfor %}
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

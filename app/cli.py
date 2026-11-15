@@ -129,6 +129,14 @@ def _reset_sequences() -> None:
         )
 
 
+def reset_school_data() -> None:
+    """Delete every table's rows except the accounts (no commit: the caller decides)."""
+    for table in reversed(m.db.metadata.sorted_tables):
+        if table.name != "users":  # accounts survive a reset
+            m.db.session.execute(table.delete())
+    m.db.session.expunge_all()  # the identity map must not keep the deleted rows
+
+
 def _is_empty() -> bool:
     return all(
         m.db.session.scalar(select(func.count()).select_from(model)) == 0
@@ -143,9 +151,7 @@ def _is_empty() -> bool:
 def seed_command(path: str | None, reset: bool) -> None:
     """Load the demo school (seeds/example_school.json) into an empty database."""
     if reset:
-        for table in reversed(m.db.metadata.sorted_tables):
-            if table.name != "users":  # accounts survive a reset
-                m.db.session.execute(table.delete())
+        reset_school_data()
     elif not _is_empty():
         raise click.ClickException(
             "The database is not empty. Use --reset to replace the data."

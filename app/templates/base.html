@@ -45,7 +45,7 @@
                                ('classes', 'Класове'), ('periods', 'Учебни часове'),
                                ('courses', 'Учебен план')] %}
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle {% if active in data_pages|map('first') %}active{% endif %}"
+            <a class="nav-link dropdown-toggle {% if active in data_pages|map('first') or active == 'import' %}active{% endif %}"
                href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Данни</a>
             <ul class="dropdown-menu">
               {% for key, label in data_pages %}
@@ -53,6 +53,12 @@
                        {% if active == key %}aria-current="page"{% endif %}
                        href="{{ url_for('data.' ~ key ~ '_list') }}">{{ label }}</a></li>
               {% endfor %}
+              {% if current_user.role == 'admin' %}
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item {% if active == 'import' %}active{% endif %}"
+                       {% if active == 'import' %}aria-current="page"{% endif %}
+                       href="{{ url_for('importing.upload') }}">Импорт от Excel</a></li>
+              {% endif %}
             </ul>
           </li>
         {% endif %}
