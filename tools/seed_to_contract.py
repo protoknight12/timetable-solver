@@ -4,6 +4,7 @@ Pure function, no DB, so BE-04 can reuse it for seeding.
 Run: ``uv run python -m tools.seed_to_contract`` to print a summary and problems.
 
 Mapping:
+- optional ``constraints`` list -> confirmed constraints with ids 1..n.
 - text ids -> ints 1..n in file order; days 0..4 -> 1..5; periods from meta.periods.
 - every class gets a whole group; each distinct (class, label) becomes a split
   group; ``group: null`` means the whole class.
@@ -25,6 +26,7 @@ import sys
 from pathlib import Path
 
 from schema.contract import (
+    Constraint,
     Course,
     CoursePart,
     Room,
@@ -113,6 +115,11 @@ def seed_to_solver_input(seed: dict) -> SolverInput:
             for r in seed["rooms"]
         ),
         courses=tuple(courses),
+        # Optional demo constraints; params use contract ids (1-based file order).
+        constraints=tuple(
+            Constraint(i, c["type"], c["hard"], c["params"], c.get("weight"))
+            for i, c in enumerate(seed.get("constraints", []), 1)
+        ),
     )
 
 

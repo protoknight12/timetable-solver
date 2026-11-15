@@ -66,3 +66,12 @@ def test_impossible_school_is_infeasible():
     _, res, _ = solve_seed("impossible_school.json")
     assert res.status == "INFEASIBLE"
     assert res.lessons == ()
+
+
+def test_conflict_seed_is_feasible_without_its_constraints():
+    inp = seed_to_solver_input(load_seed(SEEDS / "conflict_school.json"))
+    assert inp.constraints
+    inp = replace(inp, constraints=())
+    res = solve(inp, time_limit_s=TIME_LIMIT_S)
+    assert res.status in ("OPTIMAL", "FEASIBLE")
+    assert [v for v in check(inp, res) if v.hard] == []
