@@ -42,7 +42,8 @@
         </li>
         {% if current_user.is_authenticated %}
           {% set data_pages = [('teachers', 'Учители'), ('subjects', 'Предмети'), ('rooms', 'Стаи'),
-                               ('classes', 'Класове'), ('periods', 'Учебни часове')] %}
+                               ('classes', 'Класове'), ('periods', 'Учебни часове'),
+                               ('courses', 'Учебен план')] %}
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle {% if active in data_pages|map('first') %}active{% endif %}"
                href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Данни</a>

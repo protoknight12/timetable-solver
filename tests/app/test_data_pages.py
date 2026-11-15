@@ -47,6 +47,13 @@ CASES = {
         {"name": "10А", "grade": "13"},
         "name",
     ),
+    "courses": (
+        Course,
+        {"label": "Химия 10А", "periods_per_week": "3", "block_sizes": "2, 1"},
+        {"label": "Физика 10А", "periods_per_week": "2", "block_sizes": "1,1"},
+        {"label": "Химия 10А", "periods_per_week": "3", "block_sizes": "2, 2"},
+        "label",
+    ),
     "periods": (
         Period,
         {"start_time": "08:00", "end_time": "08:40"},

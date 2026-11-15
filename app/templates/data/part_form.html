@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ heading }}{% endblock %}
+
+{% macro checks(field, empty) %}
+  <fieldset class="mb-3">
+    <legend class="form-label fs-6">{{ field.label.text }}</legend>
+    {% if field.choices %}
+      <div class="check-list border rounded p-2{{ ' border-danger' if field.errors }}">
+        {% for value, label in field.choices %}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="{{ field.name }}" id="{{ field.name }}-{{ value }}"
+                   value="{{ value }}"{% if value in (field.data or []) %} checked{% endif %}>
+            <label class="form-check-label" for="{{ field.name }}-{{ value }}">{{ label }}</label>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-body-secondary mb-0">{{ empty }}</p>
+    {% endif %}
+    {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+  </fieldset>
+{% endmacro %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h4 mb-1">{{ heading }}</h1>
+        <p class="text-body-secondary mb-4">Учебен план: {{ course_name }}</p>
+
+        <form method="post">
+          {{ form.hidden_tag() }}
+          <div class="form-floating mb-3">
+            {{ form.subject(class_='form-select' ~ (' is-invalid' if form.subject.errors else '')) }}
+            {{ form.subject.label }}
+            {% for error in form.subject.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+          </div>
+          {{ checks(form.groups, 'Няма добавени класове. Първо добавете клас.') }}
+          {{ checks(form.teachers, 'Няма добавени учители. Първо добавете учител.') }}
+          <div class="form-check form-switch mb-3">
+            {{ form.needs_room(class_='form-check-input', role='switch') }}
+            {{ form.needs_room.label(class_='form-check-label') }}
+            <div class="form-text">Полетата за стая по-долу се използват само при този избор.</div>
+          </div>
+          <div class="form-floating mb-3">
+            {{ form.room_type(class_='form-control' ~ (' is-invalid' if form.room_type.errors else ''),
+                              placeholder=form.room_type.label.text, autocomplete='off', list='room-types') }}
+            {{ form.room_type.label }}
+            {% for error in form.room_type.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            <datalist id="room-types">{% for t in types %}<option value="{{ t }}">{% endfor %}</datalist>
+          </div>
+          <p class="form-text">Ако типът е празен, се ползва типът по подразбиране на предмета.</p>
+          {{ checks(form.allowed_room_ids, 'Няма добавени стаи.') }}
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Запази</button>
+            <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Отказ</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
