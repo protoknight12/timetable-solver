@@ -189,6 +189,81 @@
       "title": "MaxLessonsPerDayParams",
       "type": "object"
     },
+    "MaxSameSubjectPerDay": {
+      "additionalProperties": false,
+      "description": "A class (or every class in a grade) has a subject at most N periods per day.",
+      "properties": {
+        "hard": {
+          "description": "true = must always hold; false = a preference.",
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only for preferences (hard = false): how much it matters, 1 or more.",
+          "title": "Weight"
+        },
+        "type": {
+          "const": "max_same_subject_per_day",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/MaxSameSubjectPerDayParams"
+        }
+      },
+      "required": [
+        "hard",
+        "type",
+        "params"
+      ],
+      "title": "MaxSameSubjectPerDay",
+      "type": "object"
+    },
+    "MaxSameSubjectPerDayParams": {
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClassScope"
+            },
+            {
+              "$ref": "#/$defs/GradeScope"
+            }
+          ],
+          "title": "Scope"
+        },
+        "subject_id": {
+          "description": "Id of the subject that is limited.",
+          "minimum": 1,
+          "title": "Subject Id",
+          "type": "integer"
+        },
+        "max": {
+          "description": "Most periods of this subject a class may have in one day.",
+          "minimum": 1,
+          "title": "Max",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "subject_id",
+        "max"
+      ],
+      "title": "MaxSameSubjectPerDayParams",
+      "type": "object"
+    },
     "NoGaps": {
       "additionalProperties": false,
       "description": "No empty periods between two lessons in a student's day.",
@@ -430,6 +505,69 @@
       "title": "TeacherAvailableDaysParams",
       "type": "object"
     },
+    "TeacherMaxLessonsPerDay": {
+      "additionalProperties": false,
+      "description": "A teacher teaches at most N periods per day.",
+      "properties": {
+        "hard": {
+          "description": "true = must always hold; false = a preference.",
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only for preferences (hard = false): how much it matters, 1 or more.",
+          "title": "Weight"
+        },
+        "type": {
+          "const": "teacher_max_lessons_per_day",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/TeacherMaxLessonsPerDayParams"
+        }
+      },
+      "required": [
+        "hard",
+        "type",
+        "params"
+      ],
+      "title": "TeacherMaxLessonsPerDay",
+      "type": "object"
+    },
+    "TeacherMaxLessonsPerDayParams": {
+      "additionalProperties": false,
+      "properties": {
+        "teacher_id": {
+          "description": "Id of the teacher.",
+          "minimum": 1,
+          "title": "Teacher Id",
+          "type": "integer"
+        },
+        "max": {
+          "description": "Most periods the teacher may teach in one day.",
+          "minimum": 1,
+          "title": "Max",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "teacher_id",
+        "max"
+      ],
+      "title": "TeacherMaxLessonsPerDayParams",
+      "type": "object"
+    },
     "TeacherUnavailableSlots": {
       "additionalProperties": false,
       "description": "The teacher cannot teach in the listed slots.",
@@ -502,9 +640,11 @@
     "mapping": {
       "fixed_slot": "#/$defs/FixedSlot",
       "max_lessons_per_day": "#/$defs/MaxLessonsPerDay",
+      "max_same_subject_per_day": "#/$defs/MaxSameSubjectPerDay",
       "no_gaps": "#/$defs/NoGaps",
       "room_type_required": "#/$defs/RoomTypeRequired",
       "teacher_available_days": "#/$defs/TeacherAvailableDays",
+      "teacher_max_lessons_per_day": "#/$defs/TeacherMaxLessonsPerDay",
       "teacher_unavailable_slots": "#/$defs/TeacherUnavailableSlots"
     },
     "propertyName": "type"
@@ -527,6 +667,12 @@
     },
     {
       "$ref": "#/$defs/FixedSlot"
+    },
+    {
+      "$ref": "#/$defs/MaxSameSubjectPerDay"
+    },
+    {
+      "$ref": "#/$defs/TeacherMaxLessonsPerDay"
     }
   ]
 }

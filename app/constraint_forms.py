@@ -269,6 +269,50 @@ class MaxLessonsPerDayForm(ConstraintForm):
         return {"scope": _scope(self.scope.data), "max": self.max.data}
 
 
+_MAX_RULE = [
+    InputRequired(REQUIRED),
+    NumberRange(min=1, message="Стойността трябва да е поне 1."),
+]
+
+
+class MaxSameSubjectPerDayForm(ConstraintForm):
+    kind, label = "max_same_subject_per_day", "Най-много часове по един предмет на ден"
+    scope = _scope_field()
+    subject_id = BgSelectField(
+        "Предмет", coerce=int, choices=[], message="Изберете предмет."
+    )
+    max = BgIntegerField("Най-много часове по предмета на ден", validators=_MAX_RULE)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.scope.choices = _scope_choices(with_all=False)
+        self.subject_id.choices = _choices(
+            Subject, lambda s: s.name, Subject.name, Subject.id
+        )
+
+    def params(self):
+        return {
+            "scope": _scope(self.scope.data),
+            "subject_id": self.subject_id.data,
+            "max": self.max.data,
+        }
+
+
+class TeacherMaxLessonsPerDayForm(ConstraintForm):
+    kind, label = "teacher_max_lessons_per_day", "Учител: най-много часове на ден"
+    teacher = _teacher_field()
+    max = BgIntegerField("Най-много часове на ден", validators=_MAX_RULE)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.teacher.choices = _choices(
+            Teacher, lambda t: t.name, Teacher.name, Teacher.id
+        )
+
+    def params(self):
+        return {"teacher_id": self.teacher.data, "max": self.max.data}
+
+
 class NoGapsForm(ConstraintForm):
     kind, label = "no_gaps", "Без прозорци"
     scope = _scope_field()
@@ -311,5 +355,7 @@ FORMS = {
         MaxLessonsPerDayForm,
         NoGapsForm,
         FixedSlotForm,
+        MaxSameSubjectPerDayForm,
+        TeacherMaxLessonsPerDayForm,
     )
 }

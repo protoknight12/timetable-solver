@@ -45,6 +45,12 @@ def test_every_type_can_be_added_by_hand(admin):
         "room_type_required": {"subject_id": subject.id, "room_type": "lab"},
         "max_lessons_per_day": {"scope": f"class:{school_class.id}", "max": "6"},
         "no_gaps": {"scope": "all"},
+        "max_same_subject_per_day": {
+            "scope": f"class:{school_class.id}",
+            "subject_id": subject.id,
+            "max": "2",
+        },
+        "teacher_max_lessons_per_day": {"teacher": teacher.id, "max": "6"},
         "fixed_slot": {
             "course_id": course.id,
             "blocks": ", ".join(f"{i}:1" for i, _ in enumerate(course.block_sizes, 1)),

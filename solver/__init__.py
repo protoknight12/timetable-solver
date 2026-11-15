@@ -336,6 +336,38 @@ def _add_max_lessons_per_day(tm: TimetableModel, c) -> None:
                 _limit(tm, c, expr, cap, len(tm.inp.periods))
 
 
+def _add_max_same_subject_per_day(tm: TimetableModel, c) -> None:
+    # ASSUMPTION: like max_lessons_per_day, counted in periods per student
+    # combination, but only for courses with a part of this subject.
+    # Soft pays per period over the maximum.
+    cap, subject = c.params["max"], c.params["subject_id"]
+    of_subject = {
+        k.id for k in tm.inp.courses if any(p.subject_id == subject for p in k.parts)
+    }
+    for cids in _scope_combos(tm, c.params["scope"]):
+        for d in tm.inp.days:
+            lits = [
+                x
+                for cid in cids
+                if cid in of_subject
+                for p in tm.inp.periods
+                for x in tm.busy[cid].get((d, p), ())
+            ]
+            if len(lits) > cap:
+                expr = cp_model.LinearExpr.sum(lits)
+                _limit(tm, c, expr, cap, len(tm.inp.periods))
+
+
+def _add_teacher_max_lessons_per_day(tm: TimetableModel, c) -> None:
+    # ASSUMPTION: "lessons" are periods taught (a 2-period block counts 2).
+    # Soft pays per period over the maximum.
+    cap = c.params["max"]
+    for d in tm.inp.days:
+        lits = _teacher_lits(tm, c.params["teacher_id"], lambda day, p, d=d: day == d)
+        if len(lits) > cap:
+            _limit(tm, c, cp_model.LinearExpr.sum(lits), cap, len(tm.inp.periods))
+
+
 def _reach(m, occ, seq, name):
     """flag[p]: forced true when the student has a lesson before p (in ``seq`` order).
 
@@ -394,6 +426,8 @@ _ADDERS = {
     "max_lessons_per_day": _add_max_lessons_per_day,
     "no_gaps": _add_no_gaps,
     "fixed_slot": _add_fixed_slot,
+    "max_same_subject_per_day": _add_max_same_subject_per_day,
+    "teacher_max_lessons_per_day": _add_teacher_max_lessons_per_day,
 }
 
 

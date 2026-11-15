@@ -163,6 +163,22 @@ def measure(inp, result, con) -> int:
             (les.day, les.start_period) != (b["day"], b["start_period"])
             for les, b in zip(mine, p["blocks"], strict=True)
         )
+    if con.type == "teacher_max_lessons_per_day":
+        return sum(
+            max(
+                0,
+                len(
+                    {
+                        q
+                        for les, part in rows
+                        if les.day == d and p["teacher_id"] in part.teacher_ids
+                        for q in periods(les)
+                    }
+                )
+                - p["max"],
+            )
+            for d in inp.days
+        )
     # The rest are per student combination and day.
     total = 0
     for _, gids in _combos(inp, p["scope"]):
@@ -170,10 +186,12 @@ def measure(inp, result, con) -> int:
             seen = {
                 q
                 for les, part in rows
-                if les.day == d and gids & set(part.group_ids)
+                if les.day == d
+                and gids & set(part.group_ids)
+                and p.get("subject_id", part.subject_id) == part.subject_id
                 for q in periods(les)
             }
-            if con.type == "max_lessons_per_day":
+            if con.type != "no_gaps":
                 total += max(0, len(seen) - p["max"])
             elif seen:  # no_gaps: free periods between first and last lesson
                 total += max(seen) - min(seen) + 1 - len(seen)

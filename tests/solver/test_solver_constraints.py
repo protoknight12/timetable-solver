@@ -293,6 +293,58 @@ def test_max_lessons_per_day_counts_a_split_student_not_the_whole_class():
     )
 
 
+# --- max_same_subject_per_day / teacher_max_lessons_per_day -----------------
+
+
+def with_subjects(inp, *subject_ids):
+    """Course i teaches subject_ids[i] (the helper ``make`` gives all subject 1)."""
+    courses = tuple(
+        replace(c, parts=tuple(replace(p, subject_id=s) for p in c.parts))
+        for c, s in zip(inp.courses, subject_ids, strict=True)
+    )
+    known = tuple(replace(inp.subjects[0], id=i) for i in set(subject_ids))
+    return replace(inp, courses=courses, subjects=known)
+
+
+def test_max_same_subject_per_day_hard_and_soft():
+    # Three 1-period lessons of subject 1 plus one of subject 2, two days.
+    inp = with_subjects(
+        make(
+            [1, 2], [1, 2, 3, 4], [([1], [1], [1])] * 3 + [([1], [1], [2])], classes=1
+        ),
+        1,
+        1,
+        1,
+        2,
+    )
+    scope = {"class_id": 1}
+    cap = lambda n: hard(
+        1, "max_same_subject_per_day", scope=scope, subject_id=1, max=n
+    )
+    assert go(build(inp, cap(2))).status in SOLVED
+    assert go(build(inp, cap(1))).status == "INFEASIBLE"  # 3 lessons, 2 days
+    assert go(build(replace(inp, days=(1,)), cap(3))).status in SOLVED
+    assert go(build(replace(inp, days=(1,)), cap(2))).status == "INFEASIBLE"
+    other = hard(1, "max_same_subject_per_day", scope=scope, subject_id=2, max=1)
+    assert go(build(replace(inp, days=(1,)), other)).status in SOLVED
+    s = soft(1, "max_same_subject_per_day", 2, scope=scope, subject_id=1, max=1)
+    res = go(build(inp, s))  # go() checks objective == independent penalty
+    assert (
+        res.status in SOLVED and res.objective == 2
+    )  # 3 lessons over 2 days: one extra
+
+
+def test_teacher_max_lessons_per_day_hard_and_soft():
+    inp = make([1, 2], [1, 2, 3], [([1], [1], [1])] * 3, classes=1)
+    cap = lambda n: hard(1, "teacher_max_lessons_per_day", teacher_id=1, max=n)
+    assert go(build(inp, cap(2))).status in SOLVED
+    assert go(build(inp, cap(1))).status == "INFEASIBLE"  # 3 lessons, 2 days
+    assert go(build(replace(inp, days=(1,)), cap(3))).status in SOLVED
+    s = soft(1, "teacher_max_lessons_per_day", 3, teacher_id=1, max=1)
+    res = go(build(inp, s))
+    assert res.status in SOLVED and res.objective == 3
+
+
 # --- no_gaps ----------------------------------------------------------------
 
 

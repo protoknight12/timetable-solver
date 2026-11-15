@@ -93,6 +93,16 @@ def describe(c: Constraint, names: dict[str, dict[int, str]]) -> str:
                 return f"{who}: стая от тип „{p['room_type']}“"
             case "max_lessons_per_day":
                 return f"{scope(p['scope'])}: най-много {p['max']} часа на ден"
+            case "max_same_subject_per_day":
+                return (
+                    f"{scope(p['scope'])}: най-много {p['max']} часа "
+                    f"по {name('subject', p['subject_id'])} на ден"
+                )
+            case "teacher_max_lessons_per_day":
+                return (
+                    f"{name('teacher', p['teacher_id'])}: "
+                    f"най-много {p['max']} часа на ден"
+                )
             case "no_gaps":
                 return f"{scope(p['scope'])}: без прозорци"
             case "fixed_slot":
