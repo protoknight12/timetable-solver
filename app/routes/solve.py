@@ -27,7 +27,7 @@ from sqlalchemy.orm import selectinload
 
 from app.auth import admin_required, limiter
 from app.constraint_forms import DAY_NAMES
-from app.jobs import run_solve
+from app.jobs import placements, run_solve
 from app.models import (
     Constraint,
     CoursePart,
@@ -43,8 +43,13 @@ from app.models import (
 from app.routes.constraints import _names as constraint_names
 from app.routes.constraints import describe
 from app.solve_text import FALLBACK_MESSAGE, JOB_STATUS, MESSAGES, SOLVER_STATUS
+from solver import count_moved
 
 bp = Blueprint("solve", __name__)
+
+ACTIVE = ("queued", "running")
+# Only these solver statuses carry a timetable (same rule as checker A1).
+HAS_TIMETABLE = ("OPTIMAL", "FEASIBLE")
 
 # Extra seconds on top of the solver limit for loading, checking and saving.
 TIMEOUT_MARGIN_S = 60
@@ -57,6 +62,16 @@ def _enqueue(job_id: int, timeout_s: int) -> None:
         return
     queue = Queue(connection=Redis.from_url(current_app.config["REDIS_URL"]))
     queue.enqueue(run_solve, job_id, job_timeout=timeout_s)
+
+
+def _previous_job(before_id: int | None = None) -> SolveJob | None:
+    """Newest finished job with a timetable (older than ``before_id`` if given)."""
+    query = select(SolveJob).where(
+        SolveJob.status == "finished", SolveJob.solver_status.in_(HAS_TIMETABLE)
+    )
+    if before_id is not None:
+        query = query.where(SolveJob.id < before_id)
+    return db.session.scalar(query.order_by(SolveJob.id.desc()))
 
 
 @bp.post("/solve")
@@ -88,7 +103,11 @@ def start():
         flash("Вече се изгражда график. Изчакайте края на изчислението.", "warning")
         return redirect(url_for("solve.timetable"))
     limit = current_app.config["SOLVER_TIME_LIMIT_S"]
-    job = SolveJob(status="queued", time_limit_s=limit)
+    # The checkbox is on by default in the page; no field means a fresh solve.
+    previous = _previous_job() if request.form.get("keep_previous") else None
+    job = SolveJob(
+        status="queued", time_limit_s=limit, base_job_id=previous and previous.id
+    )
     db.session.add(job)
     db.session.commit()
     try:
@@ -125,11 +144,6 @@ def status(job_id: int):
         hard_violations=count(Violation, Violation.hard.is_(True)),
         soft_violations=count(Violation, Violation.hard.is_(False)),
     )
-
-
-ACTIVE = ("queued", "running")
-# Only these solver statuses carry a timetable (same rule as checker A1).
-HAS_TIMETABLE = ("OPTIMAL", "FEASIBLE")
 
 
 def _entity_names() -> dict[str, dict[int, str]]:
@@ -241,7 +255,13 @@ def timetable():
     current = next((c for c in classes if c.id == class_id), None) or (
         classes[0] if classes else None
     )
-    ctx = {"job": job, "classes": classes, "current": current, "active": "timetable"}
+    ctx = {
+        "job": job,
+        "classes": classes,
+        "current": current,
+        "active": "timetable",
+        "can_keep_previous": _previous_job() is not None,
+    }
     if job and job.status == "finished" and job.solver_status in HAS_TIMETABLE:
         ctx |= {
             "cells": _grid(job.id, current.id) if current else {},
@@ -249,6 +269,8 @@ def timetable():
             "periods": db.session.scalars(select(Period).order_by(Period.number)).all(),
             "violations": _violation_rows(job.id),
         }
+        if job.base_job_id:
+            ctx["moved"] = count_moved(placements(job.base_job_id), placements(job.id))
     elif job and job.status == "finished":
         ctx["conflicts"], ctx["try_disabling"] = _conflict_rows(job.id)
     return render_template(

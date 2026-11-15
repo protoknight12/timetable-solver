@@ -9,12 +9,13 @@ from __future__ import annotations
 import logging
 
 from flask import current_app, has_app_context
-from sqlalchemy import func
+from sqlalchemy import func, select
 
 from app import create_app
 from app.models import Lesson, SolveJob, Violation, db
 from app.solver_input import build_solver_input
 from checker import check
+from schema.contract import LessonPlacement
 from solver import solve
 
 log = logging.getLogger(__name__)
@@ -28,6 +29,17 @@ def run_solve(job_id: int) -> None:
     else:
         with create_app().app_context():
             _run(job_id)
+
+
+def placements(job_id: int | None) -> list[LessonPlacement]:
+    """Saved lessons of a job as plain solver data (empty for no job)."""
+    rows = db.session.scalars(select(Lesson).where(Lesson.job_id == job_id))
+    return [
+        LessonPlacement(
+            x.course_id, x.part_id, x.day, x.start_period, x.length, x.room_id
+        )
+        for x in rows
+    ]
 
 
 def _fail(job: SolveJob, error: str) -> None:
@@ -59,7 +71,8 @@ def _run(job_id: int) -> None:
             )
             return
         limit = job.time_limit_s or current_app.config["SOLVER_TIME_LIMIT_S"]
-        result = solve(inp, time_limit_s=limit)
+        # base_job_id set = keep as much of that job's timetable as possible (BE-13).
+        result = solve(inp, time_limit_s=limit, reference=placements(job.base_job_id))
         violations = check(inp, result)
         db.session.add_all(
             Lesson(

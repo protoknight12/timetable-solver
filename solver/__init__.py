@@ -17,6 +17,12 @@ conflicting constraints. The normal solve path is not touched. Soft ones
 add ``(weight, expression)`` to ``tm.penalties``; ``add_constraints`` sums
 them into the one minimised objective.
 
+Minimal-change re-solve (BE-13): ``solve(..., reference=previous lessons)`` adds
+one soft penalty (``MOVE_WEIGHT``) per block that leaves its previous day and
+start period. It is only another term of the objective, so hard rules always
+win; courses missing from the reference are free. Without a reference nothing
+changes. The reference is a separate argument, not part of ``SolverInput``.
+
 Assumptions about school rules (TECH_STACK §15 q11 and others) are marked
 ASSUMPTION in the comments below.
 """
@@ -62,6 +68,8 @@ class TimetableModel:
     penalties: list = field(default_factory=list)
     # Explain mode (BE-11): hard constraints are assumptions, not fixed to true.
     explain: bool = False
+    # Previous lessons for the minimal-change re-solve (BE-13); empty = fresh solve.
+    reference: tuple = ()
 
 
 def new_model(inp: SolverInput, explain: bool = False) -> TimetableModel:
@@ -389,11 +397,48 @@ _ADDERS = {
 }
 
 
+# Cost of moving one block (day + start period) away from the reference. Soft
+# constraint weights are positive integers, so one moved block costs as much as a
+# weight-1 violation. ASSUMPTION: a room change alone is not a move.
+MOVE_WEIGHT = 1
+
+
+def _add_reference(tm: TimetableModel) -> None:
+    ref = defaultdict(set)  # course id -> {(day, start period, length)}
+    for x in tm.reference:
+        ref[x.course_id].add((x.day, x.start_period, x.length))
+    for course in tm.inp.courses:
+        for size in set(course.block_sizes):
+            blocks = [b for b, n in enumerate(course.block_sizes) if n == size]
+            # Blocks of one size are interchangeable: any of them may keep a slot.
+            slots = sorted(k for k in ref[course.id] if k[2] == size)[: len(blocks)]
+            for i, (d, s, _) in enumerate(slots):
+                lits = [tm.start[course.id, b].get((d, s)) for b in blocks]
+                lits = [x for x in lits if x is not None]
+                if lits:
+                    tm.model.add_hint(lits[min(i, len(lits) - 1)], 1)
+                    # At most one literal is true: equal blocks cannot overlap.
+                    tm.penalties.append(
+                        (MOVE_WEIGHT, 1 - cp_model.LinearExpr.sum(lits))
+                    )
+
+
+def count_moved(reference, lessons) -> int:
+    """Blocks of courses present in both that changed day or start period."""
+    old, new = defaultdict(set), defaultdict(set)
+    for x in reference:
+        old[x.course_id].add((x.day, x.start_period, x.length))
+    for x in lessons:
+        new[x.course_id].add((x.day, x.start_period, x.length))
+    return sum(len(v - old[c]) for c, v in new.items() if c in old)
+
+
 def add_constraints(tm: TimetableModel) -> None:
     """Add every user constraint, then one objective from the soft ones."""
     for c in tm.inp.constraints:
         _enforce(tm, c)
         _ADDERS[c.type](tm, c)
+    _add_reference(tm)
     if tm.penalties:
         tm.model.minimize(sum(w * e for w, e in tm.penalties))
 
@@ -419,7 +464,7 @@ def run(
     code = solver.solve(tm.model)
     status = _STATUS[code]
     lessons = []
-    soft = any(not c.hard for c in tm.inp.constraints)
+    soft = any(not c.hard for c in tm.inp.constraints) or bool(tm.reference)
     if code in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         for course in tm.inp.courses:
             for b, size in enumerate(course.block_sizes):
@@ -450,12 +495,17 @@ def solve(
     time_limit_s: float = 60,
     num_workers: int = 8,
     random_seed: int = 0,
+    reference=(),
 ) -> SolveResult:
-    """Build a timetable that satisfies the built-in rules and the constraints."""
+    """Build a timetable that satisfies the built-in rules and the constraints.
+
+    ``reference`` (previous ``LessonPlacement`` rows) makes moving a block away
+    from its previous slot cost ``MOVE_WEIGHT`` (BE-13).
+    """
     found = inp.problems()
     if found:
         raise ContractError(found)
-    tm = _build(inp)
+    tm = _build(inp, reference=tuple(reference))
     result = run(tm, time_limit_s, num_workers, random_seed)
     if result.status == "INFEASIBLE" and any(c.hard for c in inp.constraints):
         ids = _conflicting_ids(inp, time_limit_s, random_seed)
@@ -463,8 +513,9 @@ def solve(
     return result
 
 
-def _build(inp: SolverInput, explain: bool = False) -> TimetableModel:
+def _build(inp: SolverInput, explain: bool = False, reference=()) -> TimetableModel:
     tm = new_model(inp, explain)
+    tm.reference = reference
     for rule in BUILTIN_RULES:
         rule(tm)
     add_constraints(tm)
