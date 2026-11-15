@@ -59,6 +59,23 @@ uv run flask --app app create-user NAME --role admin|viewer [--password-env VAR]
 DB tests run on SQLite by default; set `TEST_DATABASE_URL` to run them on PostgreSQL (CI does).
 Configuration variables are documented in [.env.example](.env.example).
 
+## Self-hosting on a school server
+
+Needs a Linux server with Docker Engine and Docker Compose v2 (the script does not install them).
+
+```bash
+git clone <repo-url> saturn && cd saturn
+./install.sh
+```
+
+The script creates `.env` (random `SECRET_KEY` and database password, optional Anthropic API key; empty key means
+`LLM_ENABLED=false`), builds and starts the stack, runs the migrations, asks for the first administrator's
+username and password (no default password), and prints the URL (port 8000).
+
+Safe to re-run: an existing `.env`, database and administrator are left alone. Do not delete `.env` while the
+`db-data` volume exists: the new database password would not match the old database. Put a reverse proxy
+with HTTPS in front for real use.
+
 ## Viewing the frontend
 
 The frontend is server-rendered Flask + Jinja2 with Bootstrap 5.3 (no build step, no SPA).
