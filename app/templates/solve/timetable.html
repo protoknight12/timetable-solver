@@ -47,6 +47,15 @@
             </select>
           </div>
           <div class="col-auto">
+            <label for="teacher-picker" class="form-label mb-1">Учител</label>
+            <select id="teacher-picker" name="teacher" class="form-select">
+              <option value="">Покажи по клас</option>
+              {% for t in teachers %}
+                <option value="{{ t.id }}" {% if teacher and t.id == teacher.id %}selected{% endif %}>{{ t.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-auto">
             <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-eye"></i> Покажи</button>
           </div>
           <div class="col-auto">
@@ -55,7 +64,7 @@
         </form>
         <div class="table-responsive">
           <table class="table table-bordered align-top timetable-grid">
-            <caption class="visually-hidden">Седмично разписание на {{ current.name if current else '' }}</caption>
+            <caption class="visually-hidden">Седмично разписание на {{ teacher.name if teacher else current.name if current else '' }}</caption>
             <thead>
               <tr>
                 <th scope="col">Час</th>
