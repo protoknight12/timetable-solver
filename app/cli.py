@@ -103,6 +103,18 @@ def load_school(seed: dict) -> None:
                     teachers=[s.get(m.Teacher, t) for t in p.teacher_ids],
                 )
             )
+    s.add_all(  # the demo's constraints are pre-confirmed
+        m.Constraint(
+            id=k.id,
+            type=k.type,
+            params=k.params,
+            hard=k.hard,
+            weight=k.weight,
+            status="confirmed",
+            original_text=r.get("original_text"),
+        )
+        for k, r in zip(inp.constraints, seed.get("constraints", []), strict=True)
+    )
     s.flush()
     _reset_sequences()
 
@@ -119,6 +131,7 @@ def _reset_sequences() -> None:
         m.StudentGroup,
         m.Course,
         m.CoursePart,
+        m.Constraint,
     ):
         t = model.__table__
         m.db.session.execute(

@@ -180,10 +180,57 @@ def impossible_school():
     return seed
 
 
+def conflict_school():
+    """Feasible on its own; constraints 1 and 2 clash, 3 and 4 are harmless."""
+    seed = tiny_school()
+    teacher = [t["id"] for t in seed["teachers"]].index("T05") + 1
+    course = next(
+        i for i, x in enumerate(seed["curriculum"], 1) if x["teacher"] == "T05"
+    )
+    seed["meta"]["description"] = (
+        "Tiny school plus confirmed constraints that clash (infeasibility demo)."
+    )
+    seed["meta"]["expected_status"] = "INFEASIBLE"
+    seed["constraints"] = [
+        {
+            "type": "teacher_available_days",
+            "hard": True,
+            "params": {"teacher_id": teacher, "days": [1, 2, 3, 4]},
+            "original_text": "Николай Николов преподава само от понеделник до четвъртък.",
+        },
+        {
+            "type": "fixed_slot",
+            "hard": True,
+            "params": {
+                "course_id": course,
+                "blocks": [
+                    {"day": 5, "start_period": 1},
+                    {"day": 5, "start_period": 2},
+                ],
+            },
+            "original_text": "Часовете по физическо възпитание на 8А са в петък, първи и втори час.",
+        },
+        {
+            "type": "max_lessons_per_day",
+            "hard": True,
+            "params": {"scope": "all", "max": 5},
+            "original_text": "Всеки клас има най-много пет часа на ден.",
+        },
+        {
+            "type": "teacher_max_lessons_per_day",
+            "hard": True,
+            "params": {"teacher_id": 1, "max": 5},
+            "original_text": "Иван Иванов има най-много пет часа на ден.",
+        },
+    ]
+    return seed
+
+
 SCHOOLS = {
     "tiny_school.json": tiny_school,
     "demo_school.json": demo_school,
     "impossible_school.json": impossible_school,
+    "conflict_school.json": conflict_school,
 }
 
 if __name__ == "__main__":

@@ -19,3 +19,4 @@ def test_demo_seed_loads_into_the_db(migrated, name):
     from_db = build_solver_input(db.session)
     assert from_db.problems() == []
     assert len(from_db.courses) == len(seed_to_solver_input(seed).courses)
+    assert len(from_db.constraints) == len(seed.get("constraints", []))

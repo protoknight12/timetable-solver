@@ -58,3 +58,11 @@ def test_impossible_seed_core_is_empty_because_the_data_itself_is_impossible():
     inp = replace(inp, constraints=(hard(1, "no_gaps", scope="all"),))
     res = solve(inp, time_limit_s=30, num_workers=2)
     assert res.status == "INFEASIBLE" and res.conflicting_constraint_ids == ()
+
+
+def test_conflict_seed_core_names_the_two_clashing_constraints_only():
+    inp = seed_to_solver_input(seed_of("conflict_school.json"))
+    assert inp.problems() == [] and len(inp.constraints) == 4
+    res = solve(inp, time_limit_s=30, num_workers=2)
+    # 1 = teacher only Mon-Thu, 2 = his course pinned to Friday; 3 and 4 are harmless.
+    assert res.status == "INFEASIBLE" and res.conflicting_constraint_ids == (1, 2)

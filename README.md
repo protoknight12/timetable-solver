@@ -53,6 +53,8 @@ uv run flask --app app seed         # load the demo school into an empty DB (--r
 uv run flask --app app create-user NAME --role admin|viewer [--password-env VAR]
 ```
 
+For the infeasibility demo load the clashing-constraints school: `uv run flask --app app seed seeds/conflict_school.json --reset`.
+
 `flask seed` also creates the demo accounts `admin` (Администратор) and `preglad` (Преглед) when
 `DEMO_ADMIN_PASSWORD` / `DEMO_VIEWER_PASSWORD` are set in `.env`; otherwise it skips them.
 
