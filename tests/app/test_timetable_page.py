@@ -6,7 +6,12 @@ from sqlalchemy import select
 from app import models as m
 from app.jobs import run_solve
 from app.models import db
-from tests.app.test_solve_jobs import _job, _load
+from tests.app.test_solve_jobs import (
+    _add_constraint,
+    _all_slots_of_first_teacher,
+    _job,
+    _load,
+)
 
 
 def _solved(seed="tiny_school.json"):
@@ -59,6 +64,33 @@ def test_infeasible_shows_plain_message(make_client, migrated):
     html = make_client("viewer").get("/timetable").get_data(as_text=True)
     assert "Няма решение" in html and "infeasible-explanation" in html
     assert "<table" not in html
+
+
+def test_infeasible_page_names_the_conflicting_constraints(make_client, migrated):
+    _load("tiny_school.json")
+    _add_constraint(
+        "confirmed", "teacher_unavailable_slots", _all_slots_of_first_teacher()
+    )
+    _add_constraint("confirmed", "max_lessons_per_day", {"scope": "all", "max": 50})
+    culprit = db.session.scalars(select(m.Constraint).order_by(m.Constraint.id)).first()
+    culprit.original_text = "Учителят не може да преподава никога"
+    db.session.commit()
+    run_solve(_job())
+    html = make_client("viewer").get("/timetable").get_data(as_text=True)
+    assert "Ограничения в конфликт" in html
+    assert "Учителят не може да преподава никога" in html
+    assert "най-много 50" not in html  # the harmless one is not blamed
+    assert 'href="/constraints/"' in html
+
+
+def test_infeasible_without_core_lists_confirmed_constraints_to_disable(
+    make_client, migrated
+):
+    _load("impossible_school.json")  # impossible by itself: the core is empty
+    _add_constraint("confirmed", "max_lessons_per_day", {"scope": "all", "max": 50})
+    run_solve(_job())
+    html = make_client("viewer").get("/timetable").get_data(as_text=True)
+    assert "Причината не е ясна" in html and "най-много 50" in html
 
 
 def test_job_card_polls_until_done(make_client, migrated):

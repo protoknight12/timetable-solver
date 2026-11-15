@@ -29,6 +29,7 @@ from app.auth import admin_required, limiter
 from app.constraint_forms import DAY_NAMES
 from app.jobs import run_solve
 from app.models import (
+    Constraint,
     CoursePart,
     Lesson,
     Period,
@@ -39,6 +40,8 @@ from app.models import (
     Violation,
     db,
 )
+from app.routes.constraints import _names as constraint_names
+from app.routes.constraints import describe
 from app.solve_text import FALLBACK_MESSAGE, JOB_STATUS, MESSAGES, SOLVER_STATUS
 
 bp = Blueprint("solve", __name__)
@@ -204,6 +207,29 @@ def _grid(job_id: int, class_id: int) -> dict[tuple[int, int], list[dict]]:
     return cells
 
 
+def _conflict_rows(job_id: int) -> tuple[list[dict], list[dict]]:
+    """(conflicting constraints named by the solver, confirmed hard ones to try disabling)."""
+    names = constraint_names()
+
+    def row(c: Constraint) -> dict:
+        return {"id": c.id, "text": c.original_text or describe(c, names)}
+
+    ids = db.session.scalars(
+        select(Violation.constraint_id).where(
+            Violation.job_id == job_id, Violation.type == "infeasible_core"
+        )
+    ).all()
+    found = db.session.scalars(
+        select(Constraint).where(Constraint.id.in_(ids)).order_by(Constraint.id)
+    ).all()
+    confirmed = db.session.scalars(
+        select(Constraint)
+        .where(Constraint.status == "confirmed", Constraint.hard.is_(True))
+        .order_by(Constraint.id)
+    ).all()
+    return [row(c) for c in found], [row(c) for c in confirmed]
+
+
 @bp.get("/timetable")
 @login_required
 def timetable():
@@ -224,7 +250,7 @@ def timetable():
             "violations": _violation_rows(job.id),
         }
     elif job and job.status == "finished":
-        ctx["violations"] = _violation_rows(job.id)
+        ctx["conflicts"], ctx["try_disabling"] = _conflict_rows(job.id)
     return render_template(
         "solve/timetable.html",
         job_status=JOB_STATUS,

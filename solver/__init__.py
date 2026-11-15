@@ -10,8 +10,10 @@ the teacher, group and room rules are plain ``<=`` constraints over sums.
 User constraints (``inp.constraints``) get one ``_add_<type>(tm, constraint)``
 function each. Every constraint has its own literal in ``tm.enforce``; hard
 ones are added with ``OnlyEnforceIf(literal)`` and the literal is fixed to true
-in ``_enforce`` (BE-11: delete that one line and pass the literals as
-assumptions to read ``sufficient_assumptions_for_infeasibility``). Soft ones
+in ``_enforce``. Only when that solve is INFEASIBLE, ``solve`` builds the model
+again in explain mode (BE-11): the literals of the hard constraints become
+assumptions and ``sufficient_assumptions_for_infeasibility`` names the
+conflicting constraints. The normal solve path is not touched. Soft ones
 add ``(weight, expression)`` to ``tm.penalties``; ``add_constraints`` sums
 them into the one minimised objective.
 
@@ -23,7 +25,7 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from itertools import product
 
 from ortools.sat.python import cp_model
@@ -58,13 +60,18 @@ class TimetableModel:
     enforce: dict = field(default_factory=dict)
     # (weight, 0/1-or-integer expression) of every soft constraint
     penalties: list = field(default_factory=list)
+    # Explain mode (BE-11): hard constraints are assumptions, not fixed to true.
+    explain: bool = False
 
 
-def new_model(inp: SolverInput) -> TimetableModel:
+def new_model(inp: SolverInput, explain: bool = False) -> TimetableModel:
     """Block variables, block rules and room assignment (rules 1, 4, 5)."""
-    tm = TimetableModel(inp)
+    tm = TimetableModel(inp, explain=explain)
     m = tm.model
-    required = _required_room_types(inp)
+    needed = _required_room_types(inp)
+    # In explain mode the room types are enforced by the constraint's literal
+    # (``_add_room_type_required``), not by shrinking the candidate rooms.
+    required = {} if explain else needed
     last = inp.periods[-1]
     rooms = inp.rooms
     for course in inp.courses:
@@ -85,7 +92,7 @@ def new_model(inp: SolverInput) -> TimetableModel:
             for part in course.parts:
                 # A hard room_type_required makes the part need a room, of that
                 # type as well as of any type it already has (intersection).
-                if not (part.needs_room or part.id in required):
+                if not (part.needs_room or part.id in needed):
                     continue
                 cands = [
                     r.id
@@ -196,7 +203,10 @@ BUILTIN_RULES = (add_teacher_rule, add_group_rule, add_room_rule)
 def _enforce(tm: TimetableModel, c) -> None:
     lit = tm.model.new_bool_var(f"enforce{c.id}")
     tm.enforce[c.id] = lit
-    tm.model.add(lit == 1)  # BE-11: drop this line, pass lit as an assumption
+    if tm.explain and c.hard:
+        tm.model.add_assumption(lit)
+    else:
+        tm.model.add(lit == 1)
 
 
 def _limit(tm: TimetableModel, c, expr, cap: int, ub: int) -> None:
@@ -264,13 +274,11 @@ def _required_room_types(inp: SolverInput) -> dict[int, set[str]]:
 def _add_room_type_required(tm: TimetableModel, c) -> None:
     # Hard is structural: ``new_model`` shrinks the candidate rooms of the
     # matching parts (and makes them need a room), so there is nothing to add
-    # here. No candidate left -> INFEASIBLE. This part is not tied to the
-    # enforcement literal; BE-11 must report it from the constraint itself.
+    # here. No candidate left -> INFEASIBLE. In explain mode (BE-11) the
+    # candidates are not shrunk, so the literal bans the other room types instead.
     # Soft is a plain sum over room literals that already exist: one unit per
     # part-block placed in a room of another type. Parts that need no room are
     # not touched (ASSUMPTION: "prefer lab" never creates a room demand).
-    if c.hard:
-        return
     parts = _matching_parts(tm.inp, c.params)
     type_of = {r.id: r.type for r in tm.inp.rooms}
     lits = [
@@ -282,7 +290,13 @@ def _add_room_type_required(tm: TimetableModel, c) -> None:
         for lit in starts.values()
     ]
     if lits:
-        _limit(tm, c, cp_model.LinearExpr.sum(lits), 0, len(lits))
+        if c.hard:
+            if tm.explain:
+                tm.model.add(cp_model.LinearExpr.sum(lits) == 0).only_enforce_if(
+                    tm.enforce[c.id]
+                )
+        else:
+            _limit(tm, c, cp_model.LinearExpr.sum(lits), 0, len(lits))
 
 
 def _scope_combos(tm: TimetableModel, scope):
@@ -441,8 +455,44 @@ def solve(
     found = inp.problems()
     if found:
         raise ContractError(found)
-    tm = new_model(inp)
+    tm = _build(inp)
+    result = run(tm, time_limit_s, num_workers, random_seed)
+    if result.status == "INFEASIBLE" and any(c.hard for c in inp.constraints):
+        ids = _conflicting_ids(inp, time_limit_s, random_seed)
+        result = replace(result, conflicting_constraint_ids=ids)
+    return result
+
+
+def _build(inp: SolverInput, explain: bool = False) -> TimetableModel:
+    tm = new_model(inp, explain)
     for rule in BUILTIN_RULES:
         rule(tm)
     add_constraints(tm)
-    return run(tm, time_limit_s, num_workers, random_seed)
+    return tm
+
+
+# shortcut: the core is sufficient, not minimal, and the explain solve gets a short
+# cap; an empty result means "conflict in the base data, or unclear" (upgrade: deletion
+# filter to shrink the core).
+EXPLAIN_TIME_LIMIT_S = 20
+
+
+def _conflicting_ids(
+    inp: SolverInput, time_limit_s: float, random_seed: int
+) -> tuple[int, ...]:
+    """Ids of hard constraints that together make the problem infeasible (BE-11).
+
+    Empty when the base rules alone are infeasible or the solve timed out.
+    """
+    tm = _build(inp, explain=True)
+    solver = cp_model.CpSolver()
+    solver.parameters.max_time_in_seconds = min(time_limit_s, EXPLAIN_TIME_LIMIT_S)
+    solver.parameters.num_workers = (
+        1  # core extraction is only reliable single-threaded
+    )
+    solver.parameters.random_seed = random_seed
+    if solver.solve(tm.model) != cp_model.INFEASIBLE:
+        return ()
+    by_index = {lit.index: cid for cid, lit in tm.enforce.items()}
+    core = solver.sufficient_assumptions_for_infeasibility()
+    return tuple(sorted(by_index[i] for i in core if i in by_index))

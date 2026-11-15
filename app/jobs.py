@@ -84,6 +84,18 @@ def _run(job_id: int) -> None:
             )
             for v in violations
         )
+        # Conflicting constraints reuse the violations table: constraint_id has no FK.
+        db.session.add_all(
+            Violation(
+                job_id=job.id,
+                type="infeasible_core",
+                entity_ids=[],
+                message_key="infeasible_core",
+                hard=True,
+                constraint_id=cid,
+            )
+            for cid in result.conflicting_constraint_ids
+        )
         job.solver_status, job.objective = result.status, result.objective
         job.status, job.finished_at = "finished", func.now()
         db.session.commit()

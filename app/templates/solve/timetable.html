@@ -77,8 +77,25 @@
     </div>
   {% elif job.status == 'finished' %}
     <p>Не е намерено разписание, което да спазва всички твърди изисквания. Прегледайте данните и ограниченията.</p>
-    {# BE-11 puts the explanation of the infeasible result here. #}
-    <div id="infeasible-explanation"></div>
+    <div id="infeasible-explanation">
+      {% if conflicts %}
+        <h2 class="h5">Ограничения в конфликт</h2>
+        <p>Тези потвърдени ограничения заедно правят разписанието невъзможно. Отхвърлете или изтрийте някое от тях и изградете разписанието отново.</p>
+        {% set items = conflicts %}
+      {% else %}
+        <h2 class="h5">Причината не е ясна</h2>
+        <p>Не може да се посочи кои ограничения са в конфликт. Възможно е причината да е в самите данни (например учител с повече часове, отколкото има в седмицата). Опитайте да изключите някое от потвърдените твърди ограничения.</p>
+        {% set items = try_disabling %}
+      {% endif %}
+      {% if items %}
+        <ul class="list-group mb-3">
+          {% for c in items %}
+            <li class="list-group-item">{{ c.text }} <small class="text-body-secondary">(ограничение №{{ c.id }})</small></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      <a href="{{ url_for('constraints.list_view') }}" class="btn btn-outline-secondary"><i class="bi bi-list-check"></i> Към ограниченията</a>
+    </div>
   {% endif %}
 {% endif %}
 {% endblock %}
