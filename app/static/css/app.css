@@ -2,3 +2,7 @@
    color: var(--bs-primary);
  }
  
+.check-list {
+  max-height: 14rem;
+  overflow-y: auto;
+}

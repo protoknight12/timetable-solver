@@ -1,13 +1,18 @@
 """Data entry pages for the simple entities (FE-05a): list / create / edit / delete.
 
 Anyone logged in may read the lists; every write route is ``@admin_required``.
-Courses (curriculum) are FE-05b.
+Courses (the curriculum, FE-05b) use the same list/create/edit/delete helper; their
+parts are added on the course's edit page.
 
 Assumptions (no school rule is invented here):
 - names need not be unique (only period numbers are);
 - a whole-class group is created with the class, is named WHOLE_GROUP_NAME and
   can be neither edited nor deleted;
-- deleting a class deletes its extra groups, but only if none of them is used.
+- deleting a class deletes its extra groups, but only if none of them is used;
+- a course used by a constraint (``params.course_id``) is not deleted; deleting
+  one that already has generated lessons deletes those lessons with it;
+- a part may not repeat a teacher or conflicting groups of another part of the
+  same course (all parts of a course run at the same time).
 """
 
 from __future__ import annotations
@@ -23,14 +28,18 @@ from sqlalchemy.exc import IntegrityError
 from app.auth import admin_required
 from app.forms import (
     ClassForm,
+    CourseForm,
     GroupForm,
+    PartForm,
     PeriodForm,
     RoomForm,
     SubjectForm,
     TeacherForm,
+    group_label,
     room_types,
 )
 from app.models import (
+    Constraint,
     Course,
     CoursePart,
     Lesson,
@@ -153,6 +162,9 @@ class Entity:
     note: Callable | None = None
     # (label, value) shown read-only above the form fields when editing.
     fixed: Callable | None = None
+    # Creating goes straight to the edit page (a new course still needs parts).
+    edit_after_create: bool = False
+    created_hint: str = ""
 
     def url(self, action: str, **values) -> str:
         return url_for(f"data.{self.key}_{action}", **values)
@@ -174,6 +186,47 @@ def _period_block(period: Period) -> str | None:
         )
 
 
+def course_usages(course: Course) -> list[str]:
+    # Constraint params are JSON, so the database cannot enforce this reference.
+    ids = [
+        f"№{c.id}"
+        for c in db.session.scalars(select(Constraint).order_by(Constraint.id))
+        if isinstance(c.params, dict) and c.params.get("course_id") == course.id
+    ]
+    return [f"в ограничения ({', '.join(ids)})"] if ids else []
+
+
+def course_note(course: Course) -> str | None:
+    # Lesson.course_id is ON DELETE CASCADE.
+    lessons = db.session.scalar(
+        select(func.count()).select_from(Lesson).where(Lesson.course_id == course.id)
+    )
+    if lessons:
+        return (
+            "Учебният план присъства във вече генерирани разписания; "
+            "часовете му ще бъдат изтрити заедно с него."
+        )
+
+
+def _blocks(course: Course) -> str:
+    return " + ".join(str(n) for n in course.block_sizes)
+
+
+def _course_subjects(course: Course) -> str:
+    names = sorted({p.subject.name for p in course.parts})
+    return ", ".join(names) or "—"
+
+
+def _course_groups(course: Course) -> str:
+    labels = sorted({group_label(g) for p in course.parts for g in p.groups})
+    return ", ".join(labels) or "—"
+
+
+def part_label(part: CoursePart) -> str:
+    groups = ", ".join(group_label(g) for g in part.groups)
+    return f"{part.subject.name} ({groups})" if groups else part.subject.name
+
+
 def _add_whole_group(school_class: SchoolClass) -> None:
     school_class.groups.append(StudentGroup(name=WHOLE_GROUP_NAME, is_whole=True))
 
@@ -186,6 +239,30 @@ def _extra_groups(school_class: SchoolClass) -> str:
 
 
 ENTITIES = (
+    Entity(
+        "courses",
+        Course,
+        CourseForm,
+        "Учебен план",
+        "учебен план",
+        "Добави учебен план",
+        "Учебният план",
+        "",
+        (
+            ("Име", _course_name),
+            ("Часове седмично", lambda c: c.periods_per_week),
+            ("Блокове", _blocks),
+            ("Предмети", _course_subjects),
+            ("Групи", _course_groups),
+        ),
+        (Course.id,),
+        course_usages,
+        label=_course_name,
+        extra_template="data/_parts.html",
+        note=course_note,
+        edit_after_create=True,
+        created_hint=" Добавете частите му по-долу.",
+    ),
     Entity(
         "teachers",
         Teacher,
@@ -318,7 +395,10 @@ def register(e: Entity) -> None:
                 )  # after the hook: its queries must not flush a half-built row
             if _save():
                 verb = "добавен" if creating else "запазен"
-                flash(f"{e.the} е {verb}{e.ending}.", "success")
+                hint = e.created_hint if creating else ""
+                flash(f"{e.the} е {verb}{e.ending}.{hint}", "success")
+                if creating and e.edit_after_create:
+                    return redirect(e.url("edit", item_id=item.id))
                 return redirect(e.url("list"))
         return render_template(
             "data/form.html",
@@ -438,6 +518,113 @@ def groups_delete(group_id):
         note=None,
         cancel_url=url_for("data.classes_edit", item_id=group.class_id),
         active="classes",
+    )
+
+
+# --- parts of a course (the course edit page lists them) ---
+
+
+@bp.app_template_filter("group_label")
+def _group_label_filter(group: StudentGroup) -> str:
+    return group_label(group)
+
+
+def _back_to_course(course_id: int):
+    return redirect(url_for("data.courses_edit", item_id=course_id))
+
+
+def _part_initial(part: CoursePart | None) -> dict:
+    if part is None:
+        return {}
+    return {
+        "subject": part.subject_id,
+        "groups": [g.id for g in part.groups],
+        "teachers": [t.id for t in part.teachers],
+        "needs_room": part.needs_room,
+        "room_type": part.room_type or "",
+        "allowed_room_ids": part.allowed_room_ids or [],
+    }
+
+
+def _fill_part(part: CoursePart, form: PartForm) -> None:
+    def rows(model, ids):
+        return list(db.session.scalars(select(model).where(model.id.in_(ids))))
+
+    needs = form.needs_room.data
+    part.subject = db.session.get(Subject, form.subject.data)
+    part.groups = rows(StudentGroup, form.groups.data)
+    part.teachers = rows(Teacher, form.teachers.data)
+    part.needs_room = needs
+    # The room fields only mean something with needs_room (the solver input
+    # rejects them otherwise), so they are cleared without it.
+    part.room_type = form.room_type.data if needs else None
+    part.allowed_room_ids = (
+        sorted(form.allowed_room_ids.data or []) or None if needs else None
+    )
+
+
+def _part_page(form, heading, course):
+    return render_template(
+        "data/part_form.html",
+        form=form,
+        heading=heading,
+        course_name=_course_name(course),
+        cancel_url=url_for("data.courses_edit", item_id=course.id),
+        active="courses",
+        types=room_types(),
+    )
+
+
+def _part_edit(course: Course, part: CoursePart | None):
+    creating = part is None
+    form = PartForm(course=course, part=part, data=_part_initial(part))
+    if form.validate_on_submit():
+        if creating:
+            part = CoursePart()
+        with db.session.no_autoflush:  # the part is not complete yet
+            _fill_part(part, form)
+        if creating:
+            part.course = course
+            db.session.add(part)
+        if _save():
+            flash("Частта е добавена." if creating else "Частта е запазена.", "success")
+            return _back_to_course(course.id)
+    return _part_page(
+        form, "Добави част" if creating else "Редактиране на част", course
+    )
+
+
+@bp.route("/courses/<int:course_id>/parts/new", methods=["GET", "POST"])
+@admin_required
+def parts_new(course_id):
+    return _part_edit(db.get_or_404(Course, course_id), None)
+
+
+@bp.route("/parts/<int:part_id>/edit", methods=["GET", "POST"])
+@admin_required
+def parts_edit(part_id):
+    part = db.get_or_404(CoursePart, part_id)
+    return _part_edit(part.course, part)
+
+
+@bp.route("/parts/<int:part_id>/delete", methods=["GET", "POST"])
+@admin_required
+def parts_delete(part_id):
+    part = db.get_or_404(CoursePart, part_id)
+    course_id = part.course_id
+    if request.method == "POST":
+        db.session.delete(part)
+        if _save():
+            flash("Частта е изтрита.", "success")
+        return _back_to_course(course_id)
+    return render_template(
+        "data/delete.html",
+        heading="Изтриване на част",
+        name=part_label(part),
+        refusal=None,
+        note=None,
+        cancel_url=url_for("data.courses_edit", item_id=course_id),
+        active="courses",
     )
 
 
