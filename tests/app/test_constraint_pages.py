@@ -137,3 +137,39 @@ def test_malformed_params_do_not_break_the_list(admin):
     db.session.add(m.Constraint(type="fixed_slot", params={"oops": 1}, hard=True))
     db.session.commit()
     assert admin.get("/constraints/").status_code == 200
+
+
+def _box(client, app, enabled):
+    app.config["LLM_ENABLED"] = enabled
+    return b'name="text"' in client.get("/constraints/").data
+
+
+def test_request_box_only_for_admin_when_llm_on(admin, make_client, migrated):
+    assert _box(admin, migrated, True)
+    assert not _box(admin, migrated, False)
+    assert not _box(make_client("viewer"), migrated, True)
+
+
+def test_page_post_lands_ai_rows_as_proposed(admin, migrated, monkeypatch):
+    from app import llm
+
+    migrated.config.update(LLM_ENABLED=True)
+    c = m.Constraint(
+        type="no_gaps",
+        params={"scope": "all"},
+        hard=True,
+        status="proposed",
+        source="llm",
+        original_text="без прозорци",
+    )
+
+    def fake(text):
+        db.session.add(c)
+        db.session.commit()
+        return [c], []
+
+    monkeypatch.setattr(llm, "propose_constraints", fake)
+    html = admin.post(
+        "/constraints/propose", data={"text": "без прозорци"}, follow_redirects=True
+    ).get_data(as_text=True)
+    assert "Предложено" in html and "ИИ" in html and "без прозорци" in html
