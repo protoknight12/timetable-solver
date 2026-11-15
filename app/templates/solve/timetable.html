@@ -7,6 +7,12 @@
   {% if current_user.role == 'admin' %}
     <form method="post" action="{{ url_for('solve.start') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if can_keep_previous %}
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" name="keep_previous" id="keep-previous" value="1" checked>
+          <label class="form-check-label" for="keep-previous">Запази колкото може повече от предишното разписание</label>
+        </div>
+      {% endif %}
       <button type="submit" class="btn btn-primary" {% if job and job.status in active_states %}disabled{% endif %}>
         <i class="bi bi-play-fill"></i> Изгради разписание
       </button>
@@ -21,6 +27,13 @@
   {% include "solve/_job.html" %}
 
   {% if job.status == 'finished' and cells is defined %}
+    {% if moved is defined %}
+      <p id="moved-count" class="alert alert-info" role="status">
+        <i class="bi bi-arrow-left-right"></i>
+        {% if moved == 0 %}Няма преместени уроци спрямо изчисление №{{ job.base_job_id }}.
+        {% else %}Преместени уроци спрямо изчисление №{{ job.base_job_id }}: {{ moved }}.{% endif %}
+      </p>
+    {% endif %}
     <div class="row g-4">
       <div class="col-xl-8">
         <form method="get" class="row g-2 align-items-end mb-3">

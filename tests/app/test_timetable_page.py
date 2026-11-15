@@ -131,3 +131,22 @@ def test_excel_export_without_timetable_redirects(make_client, migrated):
 
 def test_excel_export_requires_login(migrated):
     assert migrated.test_client().get("/timetable.xlsx").status_code == 302
+
+
+def test_resolve_keeps_the_previous_timetable_and_shows_moves(make_client, migrated):
+    first = _solved()
+    migrated.config["SOLVE_ENQUEUE"] = lambda job_id, timeout: None
+    admin = make_client("admin")
+    assert "keep-previous" in admin.get("/timetable").get_data(as_text=True)
+    admin.post("/solve", data={"keep_previous": "1"})
+    second = db.session.scalar(select(m.SolveJob).order_by(m.SolveJob.id.desc()))
+    assert second.id != first and second.base_job_id == first
+    run_solve(second.id)
+    html = admin.get("/timetable").get_data(as_text=True)
+    assert f"Няма преместени уроци спрямо изчисление №{first}" in html
+    # Without the checkbox the solve is fresh and no comparison is shown.
+    db.session.get(m.SolveJob, second.id).status = "failed"
+    db.session.commit()
+    admin.post("/solve")
+    third = db.session.scalar(select(m.SolveJob).order_by(m.SolveJob.id.desc()))
+    assert third.base_job_id is None
