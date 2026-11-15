@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "AI-assisted school timetable maker"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "anthropic>=2.8",
     "flask>=3.1",
     "flask-limiter>=4.1.1",
     "flask-login>=0.6.3",

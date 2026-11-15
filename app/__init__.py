@@ -40,6 +40,14 @@ def create_app(config: dict | None = None) -> Flask:
         # Redis in production; if it is down, fall back to per-process memory.
         RATELIMIT_STORAGE_URI=os.environ.get("REDIS_URL") or "memory://",
         RATELIMIT_IN_MEMORY_FALLBACK_ENABLED=True,
+        LLM_ENABLED=(os.environ.get("LLM_ENABLED") or "").lower()
+        in ("1", "true", "yes"),
+        ANTHROPIC_API_KEY=os.environ.get("ANTHROPIC_API_KEY") or "",
+        LLM_MODEL=os.environ.get("LLM_MODEL") or "claude-sonnet-5-5",
+        LLM_RATE_LIMIT="5 per minute",  # per admin
+        # App-side spend cap. shortcut: counts requests, not tokens, in the limiter
+        # storage (Redis); upgrade to token accounting if the key limit is not enough.
+        LLM_DAILY_CAP="100 per day",
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
     )
