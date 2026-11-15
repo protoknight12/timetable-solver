@@ -24,6 +24,8 @@ VALID = {
     "room_type_required": {"subject_id": 3, "room_type": "lab"},
     "max_lessons_per_day": {"scope": {"class_id": 1}, "max": 6},
     "no_gaps": {"scope": "all"},
+    "max_same_subject_per_day": {"scope": {"grade": 9}, "subject_id": 2, "max": 2},
+    "teacher_max_lessons_per_day": {"teacher_id": 2, "max": 5},
     "fixed_slot": {"course_id": 3, "blocks": [{"day": 5, "start_period": 1}]},
 }
 
@@ -54,6 +56,11 @@ INVALID = [
     ("max_lessons_per_day", {"scope": "all", "max": 6}),  # "all" only for no_gaps
     ("max_lessons_per_day", {"scope": {}, "max": 6}),
     ("max_lessons_per_day", {"scope": {"class_id": 1, "grade": 9}, "max": 6}),
+    ("max_same_subject_per_day", {"scope": {"class_id": 1}, "max": 2}),  # no subject
+    ("max_same_subject_per_day", {"scope": "all", "subject_id": 1, "max": 2}),
+    ("max_same_subject_per_day", {"scope": {"class_id": 1}, "subject_id": 1, "max": 0}),
+    ("teacher_max_lessons_per_day", {"teacher_id": 1}),
+    ("teacher_max_lessons_per_day", {"teacher_id": 1, "max": 0}),
     ("no_gaps", {"scope": "everyone"}),
     ("no_gaps", {"scope": {"room_id": 1}}),
     ("no_gaps", {}),

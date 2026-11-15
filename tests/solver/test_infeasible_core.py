@@ -29,6 +29,20 @@ def test_core_names_a_hard_room_type_that_no_room_can_meet():
     assert res.status == "INFEASIBLE" and res.conflicting_constraint_ids == (1,)
 
 
+def test_core_names_the_extra_hard_limits():
+    # One day, one teacher with two lessons: the cap of 1 per day is the culprit.
+    inp = make([1], [1, 2], TWO_CLASSES)
+    cap = hard(1, "teacher_max_lessons_per_day", teacher_id=1, max=1)
+    res = go(build(inp, HARMLESS, cap))
+    assert res.status == "INFEASIBLE" and res.conflicting_constraint_ids == (1,)
+    one_class = make([1], [1, 2], [([1], [1], [1])] * 2, classes=1)
+    cap = hard(
+        1, "max_same_subject_per_day", scope={"class_id": 1}, subject_id=1, max=1
+    )
+    res = go(build(one_class, HARMLESS, cap))
+    assert res.status == "INFEASIBLE" and res.conflicting_constraint_ids == (1,)
+
+
 def test_feasible_result_has_no_conflicts():
     inp = build(make([1], [1, 2], TWO_CLASSES), fix(1, 1, (1, 1)), fix(2, 2, (1, 2)))
     res = go(inp)

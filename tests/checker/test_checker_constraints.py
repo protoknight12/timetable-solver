@@ -108,6 +108,45 @@ def test_fixed_slot_follows_block_order():
     ]
 
 
+def test_max_same_subject_per_day():
+    two = [
+        course(1, [1], part(1)),
+        course(2, [1], part(2)),
+        course(3, [1], part(3, subject=2)),
+    ]
+    c = con(
+        7,
+        "max_same_subject_per_day",
+        {"scope": {"class_id": 1}, "subject_id": 1, "max": 1},
+    )
+    # day 1: subject 1 twice (periods 1, 2) and subject 2 once; day 2 is empty
+    bad = (lesson(1, 1, 1, 1), lesson(2, 2, 1, 2), lesson(3, 3, 1, 3))
+    assert run(c, two, *bad) == [
+        v("max_same_subject_per_day", "too_many_same_subject",
+          ("class", 1), ("subject", 1), ("day", 1), cid=7)
+    ]  # fmt: skip
+    ok = (lesson(1, 1, 1, 1), lesson(2, 2, 2, 1), lesson(3, 3, 1, 2))
+    assert run(c, two, *ok) == []
+    other = con(
+        7,
+        "max_same_subject_per_day",
+        {"scope": {"grade": 8}, "subject_id": 2, "max": 1},
+    )
+    assert run(other, two, *bad) == []
+
+
+def test_teacher_max_lessons_per_day():
+    two = [course(1, [2], part(1)), course(2, [1], part(2, teachers=(2,)))]
+    c = con(7, "teacher_max_lessons_per_day", {"teacher_id": 1, "max": 1})
+    # a 2-period block counts 2; teacher 2's lesson is not teacher 1's
+    assert run(c, two, lesson(1, 1, 1, 1, length=2), lesson(2, 2, 2, 1)) == [
+        v("teacher_max_lessons_per_day", "teacher_too_many_lessons",
+          ("teacher", 1), ("day", 1), cid=7)
+    ]  # fmt: skip
+    one = [course(1, [1], part(1))]
+    assert run(c, one, lesson(1, 1, 1, 1)) == []
+
+
 def test_soft_constraint_gives_a_soft_violation():
     c = con(
         7,
@@ -121,7 +160,7 @@ def test_soft_constraint_gives_a_soft_violation():
 
 
 def test_unknown_constraint_type_is_reported():
-    c = con(9, "max_same_subject_per_day", {})
+    c = con(9, "made_up_type", {})
     assert run(c, [ONE], lesson(1, 1, 1, 1)) == [
         v("unknown_constraint_type", "unknown_constraint_type", cid=9)
     ]

@@ -48,6 +48,8 @@ CONSTRAINT_TYPES = (
     "max_lessons_per_day",
     "no_gaps",
     "fixed_slot",
+    "max_same_subject_per_day",
+    "teacher_max_lessons_per_day",
 )
 
 

@@ -172,7 +172,7 @@ Example:
 }
 ```
 
-Generic constraint types (not tied to any regulation). The first five plus `fixed_slot` are implemented in the solver (BE-07); the other two are Could (TEAM-11):
+Generic constraint types (not tied to any regulation). The first five plus `fixed_slot` are implemented in the solver (BE-07); the last two are the Could extras added in TEAM-11 (periods counted like `max_lessons_per_day`):
 
 | Type | Meaning |
 |---|---|

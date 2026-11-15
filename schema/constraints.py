@@ -129,6 +129,19 @@ class MaxLessonsPerDayParams(_Model):
     max: PosInt = Field(description="Most periods the class may have in one day.")
 
 
+class MaxSameSubjectPerDayParams(_Model):
+    scope: ClassScope | GradeScope
+    subject_id: PosInt = Field(description="Id of the subject that is limited.")
+    max: PosInt = Field(
+        description="Most periods of this subject a class may have in one day."
+    )
+
+
+class TeacherMaxLessonsPerDayParams(_Model):
+    teacher_id: TeacherId
+    max: PosInt = Field(description="Most periods the teacher may teach in one day.")
+
+
 class NoGapsParams(_Model):
     scope: ClassScope | GradeScope | Literal["all"] = Field(
         description="One class, one grade, or 'all' classes."
@@ -203,6 +216,20 @@ class MaxLessonsPerDay(_Constraint):
     params: MaxLessonsPerDayParams
 
 
+class MaxSameSubjectPerDay(_Constraint):
+    """A class (or every class in a grade) has a subject at most N periods per day."""
+
+    type: Literal["max_same_subject_per_day"]
+    params: MaxSameSubjectPerDayParams
+
+
+class TeacherMaxLessonsPerDay(_Constraint):
+    """A teacher teaches at most N periods per day."""
+
+    type: Literal["teacher_max_lessons_per_day"]
+    params: TeacherMaxLessonsPerDayParams
+
+
 class NoGaps(_Constraint):
     """No empty periods between two lessons in a student's day."""
 
@@ -223,7 +250,9 @@ ConstraintModel = Annotated[
     | RoomTypeRequired
     | MaxLessonsPerDay
     | NoGaps
-    | FixedSlot,
+    | FixedSlot
+    | MaxSameSubjectPerDay
+    | TeacherMaxLessonsPerDay,
     Field(discriminator="type"),
 ]
 

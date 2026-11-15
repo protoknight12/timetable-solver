@@ -18,6 +18,9 @@ A5. ``no_gaps`` and ``max_lessons_per_day`` are counted per student combination:
     counts 2). Gap: a free period with a busy one before and after it on the same
     day; free periods at the start or end of the day are not gaps. One violation
     per class and day, however many combinations break the rule.
+A5b. ``max_same_subject_per_day`` is A5's max, counting only the periods of lessons
+    whose part has that subject. ``teacher_max_lessons_per_day`` counts the distinct
+    periods a teacher teaches per day (a 2-period block counts 2).
 A6. ``room_type_required`` needs a room of that type on every affected row, even
     if the part says ``needs_room = false``.
 A7. A room id on a part that does not need a room is allowed, and it still uses
@@ -232,6 +235,8 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
             "max_lessons_per_day",
             "no_gaps",
             "fixed_slot",
+            "max_same_subject_per_day",
+            "teacher_max_lessons_per_day",
         }:
             add("unknown_constraint_type", "unknown_constraint_type", (), True, con.id)
             continue
@@ -282,6 +287,46 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
                 bad = {d for d, busy in class_days(class_id) if len(busy) > params.max}
                 for day in sorted(bad):
                     viol("too_many_lessons", [("class", class_id), ("day", day)])
+        elif con.type == "max_same_subject_per_day":
+            # Periods of this subject per student combination and day (A5).
+            subj_busy = defaultdict(set)  # (group_id, day) -> periods of the subject
+            for lesson, _, part in rows:
+                if part.subject_id == params.subject_id:
+                    for g in part.group_ids:
+                        for day, period in _slots(lesson):
+                            subj_busy[(g, day)].add(period)
+            for class_id in scoped_classes(params.scope):
+                mine = [g for g in inp.groups if g.class_id == class_id]
+                splits = defaultdict(list)
+                for g in mine:
+                    if not g.is_whole:
+                        splits[g.split].append(g.id)
+                whole = [g.id for g in mine if g.is_whole]
+                bad = {
+                    day
+                    for pick in product(*splits.values())
+                    for day in inp.days
+                    if len(set().union(*(subj_busy[(g, day)] for g in whole + [*pick])))
+                    > params.max
+                }
+                for day in sorted(bad):
+                    viol(
+                        "too_many_same_subject",
+                        [("class", class_id), ("subject", params.subject_id)]
+                        + [("day", day)],
+                    )
+        elif con.type == "teacher_max_lessons_per_day":
+            taught = defaultdict(set)  # day -> periods the teacher teaches
+            for lesson, _, part in rows:
+                if params.teacher_id in part.teacher_ids:
+                    for day, period in _slots(lesson):
+                        taught[day].add(period)
+            for day in sorted(taught):
+                if len(taught[day]) > params.max:
+                    viol(
+                        "teacher_too_many_lessons",
+                        [("teacher", params.teacher_id), ("day", day)],
+                    )
         elif con.type == "no_gaps":
             for class_id in scoped_classes(params.scope):
                 bad = {
