@@ -16,6 +16,7 @@ dependencies = [
     "ortools>=9.15.6755",
     "psycopg[binary]>=3.3.9",
     "pydantic>=2.9",
+    "python-dotenv>=1.2.4",
     "rq>=2.0",
 ]
 

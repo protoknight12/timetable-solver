@@ -7,6 +7,7 @@ exception escape with the job still "running".
 from __future__ import annotations
 
 import logging
+import threading
 
 from flask import current_app, has_app_context
 from sqlalchemy import func, select
@@ -29,6 +30,24 @@ def run_solve(job_id: int) -> None:
     else:
         with create_app().app_context():
             _run(job_id)
+
+
+def solve_in_thread(job_id: int) -> threading.Thread:
+    """Run the job in a thread of this process (SOLVE_INLINE, local dev only).
+
+    For machines without Redis or an RQ worker (the worker cannot fork on
+    Windows). Production keeps RQ: a thread dies with the web process and
+    every gunicorn worker would solve on its own CPU budget.
+    """
+    app = current_app._get_current_object()
+
+    def target() -> None:
+        with app.app_context():
+            _run(job_id)
+
+    thread = threading.Thread(target=target, name=f"solve-{job_id}", daemon=True)
+    thread.start()
+    return thread
 
 
 def placements(job_id: int | None) -> list[LessonPlacement]:

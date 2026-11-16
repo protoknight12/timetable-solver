@@ -37,6 +37,9 @@ def create_app(config: dict | None = None) -> Flask:
         REDIS_URL=os.environ.get("REDIS_URL") or "redis://localhost:6379/0",
         # Tests replace this with a callable(job_id, timeout_s); None means RQ.
         SOLVE_ENQUEUE=None,
+        # Local dev without Redis/RQ: solve in a thread of the web process.
+        SOLVE_INLINE=(os.environ.get("SOLVE_INLINE") or "").lower()
+        in ("1", "true", "yes"),
         LOGIN_RATE_LIMIT="5 per minute",
         # Redis in production; if it is down, fall back to per-process memory.
         RATELIMIT_STORAGE_URI=os.environ.get("REDIS_URL") or "memory://",

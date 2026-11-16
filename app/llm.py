@@ -120,11 +120,14 @@ def _school_context() -> str:
     return json.dumps(data, ensure_ascii=False)
 
 
+MAX_OUTPUT_TOKENS = 16000
+
+
 def _client():
     key = current_app.config["ANTHROPIC_API_KEY"]
     if not key:
         raise LlmError("Липсва ключ за изкуствения интелект.")
-    return anthropic.Anthropic(api_key=key, timeout=30, max_retries=1)
+    return anthropic.Anthropic(api_key=key, timeout=120, max_retries=1)
 
 
 def _ask(text: str) -> dict:
@@ -132,7 +135,9 @@ def _ask(text: str) -> dict:
     try:
         reply = _client().messages.create(
             model=current_app.config["LLM_MODEL"],
-            max_tokens=2048,
+            # The model thinks before the tool call (on by default on current models);
+            # a small cap cut the call off and left an empty input.
+            max_tokens=MAX_OUTPUT_TOKENS,
             system=SYSTEM,
             tools=[_tool()],
             # Newer models reject a forced tool_choice; the system prompt asks for the call.
@@ -154,6 +159,15 @@ def _ask(text: str) -> dict:
     except anthropic.APIError:
         log.exception("LLM call failed")
         raise LlmError("Услугата не отговори. Опитайте отново след малко.") from None
+    stop = getattr(reply, "stop_reason", None)
+    if stop == "max_tokens":
+        log.warning("LLM reply hit max_tokens for %r", text)
+        raise LlmError(
+            "Заявката е твърде голяма за един отговор. Разделете я на по-кратки части."
+        )
+    if stop == "refusal":
+        log.warning("LLM refused %r", text)
+        raise LlmError("Заявката не може да бъде обработена. Преформулирайте я.")
     out = next((b.input for b in reply.content if b.type == "tool_use"), None)
     log.info("LLM request: %r -> %r", text, out)
     if (
