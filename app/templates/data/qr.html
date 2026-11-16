@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}QR кодове{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 d-print-none">
+  <h1 class="h2 mb-0">QR кодове</h1>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{{ url_for('data.classes_list') }}"><i class="bi bi-arrow-left"></i> Към класовете</a>
+    <button type="button" class="btn btn-outline-secondary" id="print-button"><i class="bi bi-printer"></i> Печат</button>
+  </div>
+</div>
+{% if cards %}
+  <p class="lead d-print-none">Всеки клас се печата на отделен лист, за да се закачи в стаята.</p>
+  <div class="row g-4">
+    {% for c, url, svg in cards %}
+      <div class="col-12 col-md-6 col-lg-4 qr-sheet">
+        <div class="card shadow-sm text-center">
+          <div class="card-body p-4">
+            <h2 class="h4">{{ c.name }}</h2>
+            <div class="qr-code my-3">{{ svg }}</div>
+            <p class="mb-0 small text-break">{{ url }}</p>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="text-body-secondary">Няма клас с включена публична страница. Включете я от страницата на класа.</p>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/print.js') }}"></script>{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Разписание на {{ school_class.name }}{% endblock %}
+{% block head %}{% if subject_styles %}<style>{{ subject_styles }}</style>{% endif %}{% endblock %}
+{# Minimal layout: no links into the admin app. #}
+{% block nav %}
+<nav class="navbar bg-body-tertiary border-bottom">
+  <div class="container">
+    <span class="navbar-brand fw-semibold"><i class="bi bi-calendar3"></i> SATurn</span>
+    <button id="theme-toggle" type="button" class="btn btn-outline-secondary btn-sm"
+            aria-label="Смяна на темата" title="Смяна на темата">
+      <i class="bi bi-moon-stars" id="theme-icon"></i>
+      <span id="theme-label">Тъмна тема</span>
+    </button>
+  </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h2 mb-0">Разписание на {{ school_class.name }}</h1>
+  {% if job %}
+    <button type="button" class="btn btn-outline-secondary d-print-none" id="print-button"><i class="bi bi-printer"></i> Печат</button>
+  {% endif %}
+</div>
+{% if job %}
+  <div class="table-responsive">
+    <table class="table table-bordered align-top">
+      <caption class="visually-hidden">Седмично разписание на {{ school_class.name }}</caption>
+      <thead>
+        <tr>
+          <th scope="col">Час</th>
+          {% for d in days %}<th scope="col">{{ day_names[d] }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in periods %}
+          <tr>
+            <th scope="row" class="text-nowrap">{{ p.number }}<br><small class="text-body-secondary fw-normal">{{ p.start_time.strftime('%H:%M') }}–{{ p.end_time.strftime('%H:%M') }}</small></th>
+            {% for d in days %}
+              <td data-day="{{ d }}" data-period="{{ p.number }}">
+                {% for l in cells.get((d, p.number), []) %}
+                  <div class="border rounded p-1 subject-{{ l.subject_id }} {% if not loop.last %}mb-1{% endif %}">
+                    <div class="fw-semibold" title="{{ l.subject_full }}">{{ l.subject }}</div>
+                    <small>{{ l.teachers }}{% if l.room %} · {{ l.room }}{% endif %}{% if l.group %} · {{ l.group }}{% endif %}</small>
+                  </div>
+                {% endfor %}
+              </td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-body-secondary small">Публикувана версия от {{ job.published_at.strftime('%d.%m.%Y %H:%M') }}.</p>
+{% else %}
+  <p class="lead">Разписанието още не е публикувано.</p>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/print.js') }}"></script>{% endblock %}

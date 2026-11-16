@@ -7,7 +7,10 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
   <h1 class="h2 mb-0">{{ e.plural }}</h1>
   {% if is_admin %}
-    <a class="btn btn-primary" href="{{ e.url('new') }}"><i class="bi bi-plus-lg"></i> {{ e.add_label }}</a>
+    <div class="d-flex flex-wrap gap-2">
+      {% if e.key == 'classes' %}<a class="btn btn-outline-secondary" href="{{ url_for('data.classes_qr') }}"><i class="bi bi-qr-code"></i> QR кодове</a>{% endif %}
+      <a class="btn btn-primary" href="{{ e.url('new') }}"><i class="bi bi-plus-lg"></i> {{ e.add_label }}</a>
+    </div>
   {% endif %}
 </div>
 
