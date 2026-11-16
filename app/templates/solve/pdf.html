@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<style>{{ subject_styles }}</style>
+</head>
+<body>
+<h1>{{ title }}</h1>
+<table>
+  <thead>
+    <tr>
+      <th>Час</th>
+      {% for d in days %}<th>{{ day_names[d] }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in periods %}
+      <tr>
+        <th>{{ p.number }}<br><small>{{ p.start_time.strftime('%H:%M') }}–{{ p.end_time.strftime('%H:%M') }}</small></th>
+        {% for d in days %}
+          <td>
+            {% for l in cells.get((d, p.number), []) %}
+              <div class="subject-{{ l.subject_id }}">
+                <strong>{{ l.subject }}</strong><br>
+                <small>{{ l.teachers }}{% if l.room %} · {{ l.room }}{% endif %}{% if l.group %} · {{ l.group }}{% endif %}</small>
+              </div>
+            {% endfor %}
+          </td>
+        {% endfor %}
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</body>
+</html>

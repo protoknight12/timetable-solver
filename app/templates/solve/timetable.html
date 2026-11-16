@@ -81,6 +81,9 @@
             <a href="{{ url_for('solve.export_xlsx', job=job.id) }}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-excel"></i> Изтегли в Excel</a>
           </div>
           <div class="col-auto">
+            <a href="{{ url_for('solve.timetable_pdf', job=job.id, **back) }}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-pdf"></i> Изтегли в PDF</a>
+          </div>
+          <div class="col-auto">
             <a href="{{ url_for('solve.overview', job=job.id) }}" class="btn btn-outline-secondary"><i class="bi bi-grid-3x3"></i> Общ разпис</a>
           </div>
           <div class="col-auto">
