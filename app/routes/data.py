@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 from markupsafe import Markup
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.auth import admin_required
@@ -50,6 +50,7 @@ from app.models import (
     StudentGroup,
     Subject,
     Teacher,
+    User,
     course_part_groups,
     course_part_teachers,
     db,
@@ -170,12 +171,29 @@ class Entity:
     note: Callable | None = None
     # (label, value) shown read-only above the form fields when editing.
     fixed: Callable | None = None
+    # Runs after the row is saved (it needs the id): (item, form).
+    after_save: Callable | None = None
     # Creating goes straight to the edit page (a new course still needs parts).
     edit_after_create: bool = False
     created_hint: str = ""
 
     def url(self, action: str, **values) -> str:
         return url_for(f"data.{self.key}_{action}", **values)
+
+
+def _link_account(teacher: Teacher, form) -> None:
+    # One UPDATE to unlink first, so moving a login between teachers never trips
+    # the unique constraint. The form only offers free viewers; the role is re-checked here.
+    db.session.execute(
+        update(User).where(User.teacher_id == teacher.id).values(teacher_id=None)
+    )
+    if form.account.data:
+        db.session.execute(
+            update(User)
+            .where(User.id == int(form.account.data), User.role == "viewer")
+            .values(teacher_id=teacher.id)
+        )
+    db.session.commit()
 
 
 def _next_period(period: Period) -> None:
@@ -283,6 +301,7 @@ ENTITIES = (
         (("Име", lambda t: t.name),),
         (Teacher.name, Teacher.id),
         teacher_usages,
+        after_save=_link_account,
     ),
     Entity(
         "subjects",
@@ -403,6 +422,8 @@ def register(e: Entity) -> None:
                     item
                 )  # after the hook: its queries must not flush a half-built row
             if _save():
+                if e.after_save:
+                    e.after_save(item, form)
                 verb = "добавен" if creating else "запазен"
                 hint = e.created_hint if creating else ""
                 flash(f"{e.the} е {verb}{e.ending}.{hint}", "success")

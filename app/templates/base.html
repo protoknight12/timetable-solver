@@ -77,10 +77,19 @@
                href="{{ url_for('constraints.list_view') }}">Ограничения</a>
           </li>
         {% endif %}
+        {% set own = active == 'timetable' and current_user.is_authenticated and current_user.teacher_id
+                     and request.args.get('teacher')|int(0) == current_user.teacher_id %}
+        {% if current_user.is_authenticated and current_user.teacher_id %}
+          <li class="nav-item">
+            <a class="nav-link {% if own %}active{% endif %}"
+               {% if own %}aria-current="page"{% endif %}
+               href="{{ url_for('solve.timetable', teacher=current_user.teacher_id) }}">Моето разписание</a>
+          </li>
+        {% endif %}
         {% if current_user.is_authenticated %}
           <li class="nav-item">
-            <a class="nav-link {% if active == 'timetable' %}active{% endif %}"
-               {% if active == 'timetable' %}aria-current="page"{% endif %}
+            <a class="nav-link {% if active == 'timetable' and not own %}active{% endif %}"
+               {% if active == 'timetable' and not own %}aria-current="page"{% endif %}
                href="{{ url_for('solve.timetable') }}">Разписание</a>
           </li>
         {% else %}
