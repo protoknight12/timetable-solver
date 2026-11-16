@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Натовареност{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h2 mb-0">Натовареност</h1>
+  {% if rows is not none %}
+  <div class="d-print-none">
+    <a class="btn btn-outline-secondary" href="{{ url_for('workload.export_xlsx', job=job.id) }}"><i class="bi bi-file-earmark-excel"></i> Изтегли в Excel</a>
+  </div>
+  {% endif %}
+</div>
+{% if rows is none %}
+  <p class="alert alert-info" role="status"><i class="bi bi-person-x"></i> Профилът ви не е свързан с учител, затова няма данни за показване. Обърнете се към администратор.</p>
+{% else %}
+  <p class="lead">Седмично натоварване на учителите: часове, дни и прозорци.</p>
+  {% include "workload/_version.html" %}
+  <div class="table-responsive">
+    <table class="table table-striped align-middle" id="workload-table">
+      <caption class="visually-hidden">Натовареност на учителите</caption>
+      <thead>
+        <tr>
+          {% for key, title in columns.items() %}
+            <th scope="col" {% if sort == key %}aria-sort="{{ 'descending' if desc else 'ascending' }}"{% endif %}>
+              <a class="text-body text-decoration-none"
+                 href="{{ url_for('workload.index', sort=key, dir='desc' if sort == key and not desc else 'asc', job=job.id if current_user.role == 'admin' else None) }}">
+                {{ title }}{% if sort == key %} <i class="bi bi-caret-{{ 'down' if desc else 'up' }}-fill"></i>{% endif %}
+              </a>
+            </th>
+          {% endfor %}
+          <th scope="col">Бележки</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tid, r in rows %}
+          <tr>
+            <th scope="row"><a href="{{ url_for('workload.detail', teacher_id=tid, job=job.id if current_user.role == 'admin' else None) }}">{{ r.name }}</a></th>
+            <td>{{ r.periods }}</td>
+            <td>{{ r.courses }}</td>
+            <td>{{ r.classes }}</td>
+            <td>{{ r.days }}</td>
+            <td>{{ r.gaps }}</td>
+            <td>{{ r.worst_gaps }}</td>
+            <td>{{ r.first if r.first is not none else '—' }}</td>
+            <td>{{ r.last if r.last is not none else '—' }}</td>
+            <td>
+              {% for d, n in r.over %}
+                <span class="badge text-bg-warning"><i class="bi bi-exclamation-triangle"></i> Над лимита: {{ n }} от {{ r.limit }} часа</span>
+              {% endfor %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="10" class="text-body-secondary">Няма учители.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if rows|length > 1 %}
+      <tfoot>
+        <tr class="fw-semibold">
+          <th scope="row">Общо</th>
+          <td>{{ total.periods }}</td><td></td><td></td><td></td>
+          <td>{{ total.gaps }}</td><td></td><td></td><td></td><td></td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+{% endif %}
+{% endblock %}

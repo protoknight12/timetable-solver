@@ -82,6 +82,7 @@ def create_app(config: dict | None = None) -> Flask:
     from app.routes.public import bp as public_bp
     from app.routes.solve import bp as solve_bp
     from app.routes.users import bp as users_bp
+    from app.routes.workload import bp as workload_bp
 
     app.register_blueprint(pages_bp)
     app.register_blueprint(solve_bp)
@@ -90,5 +91,6 @@ def create_app(config: dict | None = None) -> Flask:
     app.register_blueprint(constraints_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(public_bp)
+    app.register_blueprint(workload_bp)
 
     return app
