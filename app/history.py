@@ -7,16 +7,18 @@ from collections import Counter, defaultdict
 from schema.contract import LessonPlacement
 
 
-def how_made(job) -> tuple[str, str]:
+def how_made(job, edited: bool = False) -> tuple[str, str]:
     """(kind, Bulgarian label), derived from existing columns.
 
-    A job that never started was copied from ``base_job_id``: a restore today,
-    a manual edit from FE-15 later. FE-15 must tell the two apart here (it may
-    need its own marker; adding a column needs Boyan's approval first).
+    A job that never started was copied from ``base_job_id``: a restore, or a
+    manual edit (FE-15) when ``edited`` (its lessons differ from the base).
     """
     if job.started_at is None:
-        base = f" №{job.base_job_id}" if job.base_job_id else ""
-        return "copy", f"Копие на версия{base} (възстановена или ръчно редактирана)"
+        if not job.base_job_id:
+            return "copy", "Копие на версия"
+        if edited:
+            return "edited", f"Ръчна промяна на версия №{job.base_job_id}"
+        return "copy", f"Възстановена версия №{job.base_job_id}"
     if job.base_job_id:
         return "resolved", f"Преизчислена с минимални промени спрямо №{job.base_job_id}"
     return "solved", "Изчислена наново"

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Проверка на промяната{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-10 col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h4 mb-3">Промяната нарушава твърди изисквания</h1>
+        <p>Това преместване води до {{ rows|length }} нови твърди нарушения. Ако я запазите, те остават видими в проверката на новата версия.</p>
+        <ul class="list-group check-list mb-3">
+          {% for v in rows %}
+            <li class="list-group-item">
+              {{ v.text }}
+              {% if v.about %}<div><small class="text-body-secondary">{{ v.about|join('; ') }}</small></div>{% endif %}
+              {% if v.constraint_id %}<div><small class="text-body-secondary">Ограничение №{{ v.constraint_id }}</small></div>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+        <form method="post" action="{{ url_for('solve.move', lesson_id=les.id) }}" class="d-flex gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="confirm" value="1">
+          {% for k in ('day', 'start_period', 'room_id') %}<input type="hidden" name="{{ k }}" value="{{ form.get(k, '') }}">{% endfor %}
+          {% for k, v in back.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+          <button type="submit" class="btn btn-primary"><i class="bi bi-exclamation-triangle"></i> Запази въпреки това</button>
+          <a class="btn btn-outline-secondary" href="{{ url_for('solve.timetable', job=les.job_id, **back) }}">Откажи</a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
