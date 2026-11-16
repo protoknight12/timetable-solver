@@ -238,10 +238,11 @@ def _subject_fields(subject: Subject) -> dict:
     }
 
 
-def short_teacher(name: str) -> str:
-    """ "Иван Петров" -> "И. Петров". shortcut: switch to Teacher.short_name once the importer adds it."""
-    parts = name.split()
-    return f"{parts[0][0]}. {parts[-1]}" if len(parts) > 1 else name
+def short_teacher(teacher) -> str:
+    """Teacher.short_name (the school's own, e.g. from aSc), else "Иван Петров" -> "И. Петров"."""
+    parts = teacher.name.split()
+    short = f"{parts[0][0]}. {parts[-1]}" if len(parts) > 1 else teacher.name
+    return teacher.short_name or short
 
 
 _SKIP_WORDS = {"и", "на", "в", "за", "с"}
@@ -348,7 +349,7 @@ def _grid(
             **_subject_fields(part.subject),
             "teachers": ", ".join(sorted(t.name for t in part.teachers)),
             "teachers_short": ", ".join(
-                sorted(short_teacher(t.name) for t in part.teachers)
+                sorted(short_teacher(t) for t in part.teachers)
             ),
             "room": rooms.get(les.room_id, ""),
             "lesson_id": les.id,

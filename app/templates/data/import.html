@@ -26,6 +26,24 @@
     {% else %}
       <p class="mb-0">Във файла няма кодове на класове за преобразуване.</p>
     {% endif %}
+    {% if asc %}
+      <hr>
+      <p class="mb-1">Учебна година: <strong>{{ asc.year }}/{{ '%02d' | format((asc.year + 1) % 100) }}</strong> ({{ year_from[asc.year_from] }}). Можете да я промените в полето по-долу.</p>
+      <p class="mb-1">Ще бъдат създадени:</p>
+      <ul>
+        {% for label, n in asc.counts.items() %}<li>{{ label }}: {{ n }}</li>{% endfor %}
+      </ul>
+      <p class="mb-1">Пропуснати редове: {{ asc.skipped.values() | sum }}{% if asc.skipped %}, по причина:{% endif %}</p>
+      {% if asc.skipped %}
+        <ul>
+          {% for reason, n in asc.skipped.items() %}<li>{{ reason }}: {{ n }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+      <p class="mb-1">Имайте предвид:</p>
+      <ul class="mb-0">
+        {% for note in asc_notes %}<li>{{ note }}</li>{% endfor %}
+      </ul>
+    {% endif %}
   </div>
 {% endif %}
 
@@ -42,7 +60,7 @@
       </div>
     </div>
 
-    <div class="card shadow-sm">
+    <div class="card shadow-sm mb-4">
       <div class="card-body p-4">
         <h2 class="h4 mb-3">2. Качете файла</h2>
         <div class="alert alert-warning" role="alert">
@@ -77,6 +95,41 @@
           <div class="d-grid gap-2">
             <button type="submit" name="preview" value="y" class="btn btn-outline-secondary"><i class="bi bi-eye"></i> Преглед без запазване</button>
             <button type="submit" class="btn btn-primary"><i class="bi bi-upload"></i> Импортирай</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h2 class="h4 mb-3">Или: експорт от aSc (.xlsx)</h2>
+        <p>Файлът „Експорт в Excel“ от aSc TimeTables. Внасят се учители, стаи, предмети, класове, групи, учебен план и ограниченията („Почивка“, „Прозорци“). Учебните часове се запазват от сегашните.</p>
+        <div class="alert alert-warning" role="alert">
+          <i class="bi bi-exclamation-triangle"></i>
+          <strong>Импортът замества всички текущи данни.</strong> Първо използвайте „Преглед без запазване“.
+        </div>
+        <form method="post" action="{{ url_for('importing.upload_asc') }}" enctype="multipart/form-data" novalidate>
+          {{ asc_form.hidden_tag() }}
+          <div class="mb-3">
+            {{ asc_form.file.label(class_='form-label') }}
+            {{ asc_form.file(class_='form-control' ~ (' is-invalid' if asc_form.file.errors else ''), accept='.xlsx') }}
+            {% for error in asc_form.file.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            <div class="form-text">До 32 MB.</div>
+          </div>
+          <div class="form-floating mb-3">
+            {{ asc_form.school_year(class_='form-control' ~ (' is-invalid' if asc_form.school_year.errors else ''), placeholder=asc_form.school_year.label.text) }}
+            {{ asc_form.school_year.label }}
+            {% for error in asc_form.school_year.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            <div class="form-text">Ако е празно, годината се взема от името на файла (например 25-26) или от кодовете на класовете.</div>
+          </div>
+          <div class="form-check mb-3">
+            {{ asc_form.confirm(class_='form-check-input' ~ (' is-invalid' if asc_form.confirm.errors else '')) }}
+            {{ asc_form.confirm.label(class_='form-check-label') }}
+            {% for error in asc_form.confirm.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="d-grid gap-2">
+            <button type="submit" name="asc-preview" value="y" class="btn btn-outline-secondary"><i class="bi bi-eye"></i> Преглед без запазване</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-upload"></i> Импортирай от aSc</button>
           </div>
         </form>
       </div>

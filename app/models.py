@@ -40,7 +40,11 @@ db = SQLAlchemy(model_class=Base)
 JsonType = JSON().with_variant(JSONB, "postgresql")
 
 CONSTRAINT_STATUSES = ("proposed", "confirmed", "rejected")
-CONSTRAINT_SOURCES = ("manual", "llm")
+CONSTRAINT_SOURCES = (
+    "manual",
+    "llm",
+    "import",
+)  # import = the school's own aSc file (BE-17)
 
 # UI names: admin = "Администратор", viewer = "Преглед".
 ROLES = ("admin", "viewer")
@@ -78,6 +82,7 @@ class Teacher(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
+    short_name: Mapped[str | None] = mapped_column(String(40))
 
 
 class Subject(Base):
@@ -98,6 +103,10 @@ class SchoolClass(Base):
     grade: Mapped[int | None]
     # Secret of the public read-only page /p/<token> (FE-16); NULL = page off.
     public_token: Mapped[str | None] = mapped_column(String(32), unique=True)
+    class_teacher_id: Mapped[int | None] = mapped_column(
+        ForeignKey("teachers.id", ondelete="SET NULL")
+    )
+    class_teacher: Mapped[Teacher | None] = relationship()
 
     groups: Mapped[list[StudentGroup]] = relationship(
         back_populates="school_class",
