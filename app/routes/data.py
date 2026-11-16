@@ -17,10 +17,12 @@ Assumptions (no school rule is invented here):
 
 from __future__ import annotations
 
+import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+import segno
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 from markupsafe import Markup
 from sqlalchemy import func, select, update
@@ -669,3 +671,48 @@ def _group_form(form, heading, school_class):
         extra=None,
         item=None,
     )
+
+
+# --- public read-only page per class (FE-16) ---
+
+
+@bp.post("/classes/<int:class_id>/public")
+@admin_required
+def class_public(class_id):
+    """action=on|off|new. Off clears the token, so turning it on again gives a new link."""
+    school_class = db.get_or_404(SchoolClass, class_id)
+    action = request.form.get("action")
+    if action == "off":
+        school_class.public_token = None
+    elif action in ("on", "new"):
+        # 16 random bytes -> 22 URL-safe characters (the column holds 32).
+        school_class.public_token = secrets.token_urlsafe(16)
+    else:
+        abort(400)
+    if _save():
+        flash(
+            "Публичната страница е изключена."
+            if action == "off"
+            else "Публичната страница е включена. Старият линк вече не работи.",
+            "success",
+        )
+    return _back(class_id)
+
+
+@bp.get("/classes/qr")
+@admin_required
+def classes_qr():
+    classes = db.session.scalars(
+        select(SchoolClass)
+        .where(SchoolClass.public_token.isnot(None))
+        .order_by(SchoolClass.grade, SchoolClass.name, SchoolClass.id)
+    ).all()
+    cards = []
+    for c in classes:
+        url = url_for("public.class_page", token=c.public_token, _external=True)
+        # A QR code must stay dark on light in both themes, so the colors are fixed here.
+        svg = segno.make(url, error="m").svg_inline(
+            scale=6, border=2, dark="#000", light="#fff", title=f"QR код за {c.name}"
+        )
+        cards.append((c, url, Markup(svg)))
+    return render_template("data/qr.html", cards=cards, active="classes")

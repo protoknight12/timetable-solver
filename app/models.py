@@ -96,6 +96,8 @@ class SchoolClass(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(40))
     grade: Mapped[int | None]
+    # Secret of the public read-only page /p/<token> (FE-16); NULL = page off.
+    public_token: Mapped[str | None] = mapped_column(String(32), unique=True)
 
     groups: Mapped[list[StudentGroup]] = relationship(
         back_populates="school_class",

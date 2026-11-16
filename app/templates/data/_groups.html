@@ -29,3 +29,24 @@
     </div>
   </div>
 </div>
+
+<div class="card shadow-sm mt-4">
+  <div class="card-body p-4">
+    <h2 class="h4 mb-3">Публична страница</h2>
+    <p class="mb-3">Публична страница: <strong>{{ 'включена' if item.public_token else 'изключена' }}</strong></p>
+    {% if item.public_token %}
+      <p class="mb-3"><a href="{{ url_for('public.class_page', token=item.public_token) }}">{{ url_for('public.class_page', token=item.public_token, _external=True) }}</a></p>
+    {% endif %}
+    <div class="d-flex flex-wrap gap-2">
+      {% for action, label, icon in ([('off', 'Изключи', 'bi-toggle-off'), ('new', 'Нов линк', 'bi-arrow-repeat')] if item.public_token else [('on', 'Включи', 'bi-toggle-on')]) %}
+        <form method="post" action="{{ url_for('data.class_public', class_id=item.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="{{ action }}">
+          <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi {{ icon }}"></i> {{ label }}</button>
+        </form>
+      {% endfor %}
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('data.classes_qr') }}"><i class="bi bi-qr-code"></i> QR кодове</a>
+    </div>
+  </div>
+</div>
+

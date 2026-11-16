@@ -27,6 +27,13 @@
   background-color: var(--bs-body-bg);
 }
 
+/* QR page (FE-16): the code scales with the card; fixed colors are set in the SVG itself. */
+.qr-code svg {
+  width: 100%;
+  max-width: 16rem;
+  height: auto;
+}
+
 @media print {
   @page {
     size: landscape;
@@ -59,5 +66,26 @@
 
   .table-responsive {
     overflow: visible;
+  }
+
+  /* One class per sheet, centred, with a large code. */
+  .qr-sheet {
+    flex: 0 0 100%;
+    max-width: 100%;
+    break-after: page;
+    padding-top: 0;
+  }
+
+  .qr-sheet .card {
+    border: 0;
+    box-shadow: none !important;
+  }
+
+  .qr-sheet h2 {
+    font-size: 2.5rem;
+  }
+
+  .qr-sheet .qr-code svg {
+    max-width: 12cm;
   }
 }

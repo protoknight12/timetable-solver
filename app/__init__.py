@@ -42,6 +42,7 @@ def create_app(config: dict | None = None) -> Flask:
         SOLVE_INLINE=(os.environ.get("SOLVE_INLINE") or "").lower()
         in ("1", "true", "yes"),
         LOGIN_RATE_LIMIT="5 per minute",
+        PUBLIC_RATE_LIMIT="60 per minute",  # per IP, /p/<token>
         # Redis in production; if it is down, fall back to per-process memory.
         RATELIMIT_STORAGE_URI=os.environ.get("REDIS_URL") or "memory://",
         RATELIMIT_IN_MEMORY_FALLBACK_ENABLED=True,
@@ -78,6 +79,7 @@ def create_app(config: dict | None = None) -> Flask:
     from app.routes.constraints import bp as constraints_bp
     from app.routes.data import bp as data_bp
     from app.routes.importing import bp as importing_bp
+    from app.routes.public import bp as public_bp
     from app.routes.solve import bp as solve_bp
     from app.routes.users import bp as users_bp
 
@@ -87,5 +89,6 @@ def create_app(config: dict | None = None) -> Flask:
     app.register_blueprint(importing_bp)
     app.register_blueprint(constraints_bp)
     app.register_blueprint(users_bp)
+    app.register_blueprint(public_bp)
 
     return app
