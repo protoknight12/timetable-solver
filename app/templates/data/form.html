@@ -17,6 +17,18 @@
             </div>
           {% endif %}
           {% for field in form if field.type != 'CSRFTokenField' %}
+            {% if field.name == 'color' %}
+              <div class="mb-3">
+                {{ field.label(class_='form-label') }}
+                {{ field(class_='form-control form-control-color' ~ (' is-invalid' if field.errors else '')) }}
+                {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+              </div>
+            {% elif field.name == 'auto_color' %}
+              <div class="form-check mb-3">
+                {{ field(class_='form-check-input') }}
+                {{ field.label(class_='form-check-label') }}
+              </div>
+            {% else %}
             {% set kw = {'list': 'room-types'} if types is not none and field.name in ('type', 'default_room_type') else {} %}
             <div class="form-floating mb-3">
               {{ field(class_='form-control' ~ (' is-invalid' if field.errors else ''),
@@ -24,6 +36,7 @@
               {{ field.label }}
               {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
             </div>
+            {% endif %}
           {% endfor %}
           {% if types is not none %}
             <datalist id="room-types">{% for t in types %}<option value="{{ t }}">{% endfor %}</datalist>

@@ -71,7 +71,8 @@ def snapshot():
     return {
         "teachers": sorted(t.name for t in s.scalars(select(m.Teacher))),
         "subjects": sorted(
-            (x.name, x.default_room_type) for x in s.scalars(select(m.Subject))
+            (x.name, x.default_room_type, x.color, x.short_name)
+            for x in s.scalars(select(m.Subject))
         ),
         "rooms": sorted(
             (r.name, r.type, r.concurrent_capacity) for r in s.scalars(select(m.Room))

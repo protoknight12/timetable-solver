@@ -11,6 +11,7 @@ from app.auth import create_user_command, csrf, limiter, login_manager
 from app.errors import register_error_pages
 from app.models import db
 from app.routes.pages import bp as pages_bp
+from app.subject_colors import subject_css
 
 migrate = Migrate()
 
@@ -68,6 +69,7 @@ def create_app(config: dict | None = None) -> Flask:
     login_manager.init_app(app)
     login_manager.login_view = "pages.login"
     register_error_pages(app)
+    app.jinja_env.globals["subject_css"] = subject_css
 
     from app.cli import seed_command
 

@@ -26,6 +26,7 @@ from wtforms.validators import (
     Optional,
     Regexp,
 )
+from wtforms.widgets import ColorInput
 
 from app.class_names import NAME_ERROR, NAME_RE, normalize_class_name
 from app.models import (
@@ -39,6 +40,7 @@ from app.models import (
     User,
     db,
 )
+from app.subject_colors import PALETTE, is_color, subject_color
 
 REQUIRED = "Полето е задължително."
 
@@ -121,6 +123,34 @@ class SubjectForm(DataForm):
         filters=[_strip_or_none, _canonical_type],
         validators=[Optional(), Length(max=40, message=_too_long(40))],
     )
+    short_name = StringField(
+        "Кратко име (по избор)",
+        filters=[_strip_or_none],
+        validators=[Optional(), Length(max=20, message=_too_long(20))],
+    )
+    color = StringField("Цвят", widget=ColorInput(), filters=[_strip])
+    auto_color = BooleanField("Автоматичен цвят")
+
+    def __init__(self, *args, obj=None, **kwargs):
+        super().__init__(*args, obj=obj, **kwargs)
+        if not self.is_submitted():
+            # The picker starts at the color the grid shows now.
+            self.auto_color.data = obj is None or obj.color is None
+            self.color.data = subject_color(obj) if obj else PALETTE[0]
+
+    def _auto(self) -> bool:
+        return bool(self.auto_color.data) or not self.color.data  # blank = import file
+
+    def validate_color(self, field):
+        # Trust boundary: the value ends up inside CSS. Ignored while "automatic" is on.
+        if not self._auto() and not is_color(field.data):
+            raise ValidationError("Изберете цвят във формат #rrggbb.")
+
+    def populate_obj(self, obj):
+        obj.name = self.name.data
+        obj.default_room_type = self.default_room_type.data
+        obj.short_name = self.short_name.data
+        obj.color = None if self._auto() else self.color.data.lower()
 
 
 class RoomForm(DataForm):

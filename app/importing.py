@@ -59,7 +59,7 @@ TEACHERS, SUBJECTS, ROOMS, CLASSES, GROUPS, PERIODS, COURSES = (
 )
 HEADERS = {
     TEACHERS: ["Име"],
-    SUBJECTS: ["Име", "Тип стая по подразбиране"],
+    SUBJECTS: ["Име", "Тип стая по подразбиране", "Кратко име", "Цвят"],
     ROOMS: ["Име", "Тип", "Едновременни часове"],
     CLASSES: ["Име", "Година на обучение"],
     GROUPS: ["Клас", "Име", "Разделяне"],
@@ -77,6 +77,8 @@ HEADERS = {
         "Позволени стаи",
     ],
 }
+# Columns older files may lack (they import without them); a Subject without a color is automatic.
+OPTIONAL = {SUBJECTS: ("Кратко име", "Цвят")}
 INSTRUCTIONS = "Инструкции"
 INSTRUCTION_LINES = [
     "Попълнете листовете. Не променяйте имената на листовете и заглавията в първия ред.",
@@ -90,6 +92,7 @@ INSTRUCTION_LINES = [
         "Целият клас се записва с името на класа (например 8А), група — „8А — Първа група“."
     ),
     "Блокове: например 2, 1. Изисква стая: да или не.",
+    "Предмети: „Кратко име“ и „Цвят“ (например #4e79a7) не са задължителни; без цвят се избира автоматичен.",
     "Внимание: качването на Excel файл ЗАМЕСТВА всички текущи данни.",
 ]
 # The column of each sheet that names classes (the course sheet lists several, split by SEP).
@@ -198,13 +201,14 @@ class _Import:
         if not raw:
             return []
         header = raw[0]
-        missing = [h for h in HEADERS[sheet] if h not in header]
+        wanted = [h for h in HEADERS[sheet] if h not in OPTIONAL.get(sheet, ())]
+        missing = [h for h in wanted if h not in header]
         if missing:
             self.errors.append(
                 f"Лист „{sheet}“: липсва колона „{'“, „'.join(missing)}“."
             )
             return []
-        at = {h: header.index(h) for h in HEADERS[sheet]}
+        at = {h: header.index(h) for h in HEADERS[sheet] if h in header}
         rows = []
         for n, row in enumerate(raw[1:], 2):
             cells = {h: row[i] if i < len(row) else "" for h, i in at.items()}
@@ -253,7 +257,12 @@ class _Import:
             SUBJECTS,
             m.Subject,
             SubjectForm,
-            {"name": "Име", "default_room_type": "Тип стая по подразбиране"},
+            {
+                "name": "Име",
+                "default_room_type": "Тип стая по подразбиране",
+                "short_name": "Кратко име",
+                "color": "Цвят",
+            },
         )
         self.named(
             ROOMS,
@@ -319,7 +328,11 @@ class _Import:
         known = _by_name(model)
         for n, r in self.tables[sheet]:
             form = self.form(
-                sheet, n, form_cls, {f: r[h] for f, h in columns.items()}, columns
+                sheet,
+                n,
+                form_cls,
+                {f: r.get(h, "") for f, h in columns.items()},
+                columns,
             )
             if form is None:
                 continue
@@ -523,7 +536,7 @@ def build_workbook(with_data: bool) -> Workbook:
     if with_data:
         rows[TEACHERS] = [[t.name] for t in s(select(m.Teacher).order_by(m.Teacher.id))]
         rows[SUBJECTS] = [
-            [x.name, x.default_room_type or ""]
+            [x.name, x.default_room_type or "", x.short_name or "", x.color or ""]
             for x in s(select(m.Subject).order_by(m.Subject.id))
         ]
         rows[ROOMS] = [
