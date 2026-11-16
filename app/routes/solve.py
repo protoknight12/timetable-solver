@@ -27,7 +27,7 @@ from sqlalchemy.orm import selectinload
 
 from app.auth import admin_required, limiter
 from app.constraint_forms import DAY_NAMES
-from app.jobs import placements, run_solve
+from app.jobs import placements, run_solve, solve_in_thread
 from app.models import (
     Constraint,
     CoursePart,
@@ -59,6 +59,9 @@ def _enqueue(job_id: int, timeout_s: int) -> None:
     enqueue = current_app.config["SOLVE_ENQUEUE"]
     if enqueue:
         enqueue(job_id, timeout_s)
+        return
+    if current_app.config["SOLVE_INLINE"]:
+        solve_in_thread(job_id)
         return
     queue = Queue(connection=Redis.from_url(current_app.config["REDIS_URL"]))
     queue.enqueue(run_solve, job_id, job_timeout=timeout_s)

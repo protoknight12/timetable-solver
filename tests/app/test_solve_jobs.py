@@ -1,4 +1,5 @@
 from datetime import datetime
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import func, select
@@ -223,3 +224,22 @@ def test_status_json_of_a_finished_job(make_client, migrated):
 def test_status_of_unknown_job_is_404_and_needs_login(make_client, migrated):
     assert make_client("viewer").get("/jobs/999/status").status_code == 404
     assert migrated.test_client().get("/jobs/1/status").status_code == 302
+
+
+def test_solve_inline_runs_the_job_without_rq(make_client, migrated, monkeypatch):
+    class NowThread:  # run the thread body at once so the test needs no waiting
+        def __init__(self, target, **_):
+            self.target = target
+
+        def start(self):
+            self.target()
+
+    monkeypatch.setattr(jobs, "threading", SimpleNamespace(Thread=NowThread))
+    _load("tiny_school.json")
+    migrated.config["SOLVE_INLINE"] = True
+    migrated.config["SOLVER_TIME_LIMIT_S"] = 20
+    assert make_client("admin").post("/solve").status_code == 302
+    job = db.session.scalars(select(m.SolveJob)).one()
+    db.session.refresh(job)
+    assert job.status == "finished" and job.solver_status in ("OPTIMAL", "FEASIBLE")
+    assert _count(m.Lesson, job.id) > 0

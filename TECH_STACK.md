@@ -183,6 +183,8 @@ Generic constraint types (not tied to any regulation). The first five plus `fixe
 | `max_same_subject_per_day` | Class has a subject at most N times per day |
 | `no_gaps` (soft or hard) | No empty periods between a class's lessons |
 | `teacher_max_lessons_per_day` | Teacher teaches at most N lessons per day |
+| `day_starts_first_period` (soft or hard) | On every day a class has lessons, it has one in the first period |
+| `periods_reserved_for_subjects` | The listed periods (every day) hold only the listed subjects, e.g. periods 9–11 only for PE |
 
 Built-in hard rules (always on, not stored as constraints): a teacher is in at most one part-block per slot; two groups of the same class conflict if either is the whole class, they are the same group, or they belong to different splits, and conflicting groups never share a slot; a room holds at most `concurrent_capacity` part-blocks per slot; every `Course` gets exactly its `block_sizes`, each block being consecutive periods on one day; a part that needs a room gets one matching its room type and allowed rooms.
 

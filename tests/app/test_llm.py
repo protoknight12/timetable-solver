@@ -22,7 +22,7 @@ def admin(make_client, migrated):
     return make_client("admin")
 
 
-def fake(monkeypatch, out=None, error=None):
+def fake(monkeypatch, out=None, error=None, stop_reason="tool_use"):
     calls = []
 
     def create(**kw):
@@ -30,7 +30,8 @@ def fake(monkeypatch, out=None, error=None):
         if error:
             raise error
         return SimpleNamespace(
-            content=[SimpleNamespace(type="tool_use", name=llm.TOOL, input=out)]
+            stop_reason=stop_reason,
+            content=[SimpleNamespace(type="tool_use", name=llm.TOOL, input=out)],
         )
 
     monkeypatch.setattr(
@@ -145,3 +146,17 @@ def test_daily_cap_is_shared_by_all_admins(admin, migrated, make_client, monkeyp
     migrated.config["LLM_DAILY_CAP"] = "1 per day"
     assert admin.post("/constraints/propose", data={"text": "x"}).status_code == 302
     assert admin.post("/constraints/propose", data={"text": "x"}).status_code == 429
+
+
+@pytest.mark.parametrize(
+    ("stop_reason", "message"),
+    [("max_tokens", "твърде голяма"), ("refusal", "не може да бъде обработена")],
+)
+def test_cut_off_or_refused_reply_saves_nothing(
+    admin, monkeypatch, stop_reason, message
+):
+    # A reply cut at max_tokens carries a truncated (often empty) tool input.
+    calls = fake(monkeypatch, {}, stop_reason=stop_reason)
+    assert message in post(admin).get_data(as_text=True)
+    assert saved() == []
+    assert calls[0]["max_tokens"] == llm.MAX_OUTPUT_TOKENS

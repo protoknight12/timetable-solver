@@ -9,3 +9,6 @@ __pycache__/
 # Real school data - never commit (project rule 5)
 example timetable.pdf
 data/raw/
+
+# Local SQLite database (DATABASE_URL=sqlite:///saturn.db)
+instance/

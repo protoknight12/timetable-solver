@@ -201,3 +201,43 @@ def test_no_gaps_is_counted_per_student_combination():
         v("no_gaps", "gap_in_day", ("class", 1), ("day", 1), cid=7)
     ]
     assert split_run(c, [2, 3], [2, 3]) == []
+
+
+def test_day_starts_first_period():
+    two = [course(1, [1], part(1)), course(2, [1], part(2, teachers=(2,)))]
+    for scope in ("all", {"class_id": 1}, {"grade": 8}):
+        c = con(7, "day_starts_first_period", {"scope": scope})
+        assert run(c, two, lesson(1, 1, 1, 1), lesson(2, 2, 1, 2)) == []
+        assert run(c, two, lesson(1, 1, 1, 1), lesson(2, 2, 2, 1)) == []
+        assert run(c, two, lesson(1, 1, 1, 2), lesson(2, 2, 1, 3)) == [
+            v("day_starts_first_period", "day_starts_late", ("class", 1), ("day", 1),
+              cid=7)
+        ]  # fmt: skip
+
+
+def test_day_starts_first_period_is_counted_per_student_combination():
+    c = con(7, "day_starts_first_period", {"scope": {"class_id": 1}})
+    assert split_run(c, [1, 2], [1, 3]) == []
+    # the class has period 1, but group 3's students only start at period 2
+    assert split_run(c, [1, 2], [2, 3]) == [
+        v("day_starts_first_period", "day_starts_late", ("class", 1), ("day", 1), cid=7)
+    ]
+
+
+def test_periods_reserved_for_subjects():
+    maths = course(1, [1], part(1))
+    pe = course(2, [1], part(2, teachers=(2,), subject=2))
+    c = con(7, "periods_reserved_for_subjects", {"periods": [3], "subject_ids": [2]})
+    # PE may also use the other periods; maths may not use period 3.
+    assert run(c, [maths, pe], lesson(1, 1, 1, 1), lesson(2, 2, 1, 2)) == []
+    assert run(c, [maths, pe], lesson(1, 1, 1, 2), lesson(2, 2, 1, 3)) == []
+    assert run(c, [maths, pe], lesson(1, 1, 1, 3), lesson(2, 2, 1, 1)) == [
+        v("periods_reserved_for_subjects", "period_reserved_for_other_subjects",
+          ("course", 1), ("part", 1), ("day", 1), ("period", 3), cid=7)
+    ]  # fmt: skip
+
+
+def test_periods_reserved_counts_each_period_of_a_block():
+    maths = course(1, [2], part(1))
+    c = con(7, "periods_reserved_for_subjects", {"periods": [2, 3], "subject_ids": [2]})
+    assert len(run(c, [maths], lesson(1, 1, 1, 2, length=2))) == 2

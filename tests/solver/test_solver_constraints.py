@@ -416,3 +416,69 @@ def test_no_gaps_counts_each_student_combination_separately():
         go(build(only_one, *pins[:2], soft(1, "no_gaps", 3, scope="all"))).objective
         == 3
     )
+
+
+# --- day_starts_first_period ------------------------------------------------
+
+
+def test_day_starts_first_period_hard_moves_a_late_start_and_soft_pays_per_day():
+    inp = one_class((3, 1), (4, 2))
+    res = go(build(inp, hard(1, "day_starts_first_period", scope="all")))
+    assert (
+        res.status in SOLVED and min(s for _, s in slots(res, 1) + slots(res, 2)) == 1
+    )
+    pinned = build(inp, fix(7, 1, (1, 3)), fix(8, 2, (1, 4)))
+    late = lambda c: replace(pinned, constraints=(*pinned.constraints, c))
+    assert go(late(hard(1, "day_starts_first_period", scope="all"))).status == (
+        "INFEASIBLE"
+    )
+    assert go(late(soft(1, "day_starts_first_period", 5, scope="all"))).objective == 5
+
+
+def test_day_starts_first_period_is_per_student_combination():
+    # Group 1 starts at period 1, group 2 only at period 2: the group 2 pupil starts late.
+    both = [([1], [2], [1]), ([1], [3], [2])]
+    inp = make([1], [1, 2, 3], both, groups=SPLIT, classes=1)
+    pins = (fix(7, 1, (1, 1)), fix(8, 2, (1, 2)))
+    con = soft(1, "day_starts_first_period", 4, scope="all")
+    assert go(build(inp, *pins, con)).objective == 4
+
+
+def test_day_without_lessons_does_not_count_as_a_late_start():
+    inp = make([1, 2], [1, 2], [([1], [1], [1])], classes=1)
+    res = go(
+        build(inp, fix(7, 1, (2, 1)), hard(1, "day_starts_first_period", scope="all"))
+    )
+    assert res.status in SOLVED
+
+
+# --- periods_reserved_for_subjects ------------------------------------------
+
+
+def two_subjects(periods=(1, 2, 3)):
+    """Class 1, one day: course 1 is subject 1 (e.g. maths), course 2 subject 2 (PE)."""
+    inp = make([1], list(periods), [([1], [1], [1]), ([1], [1], [2])], classes=1)
+    pe = replace(
+        inp.courses[1], parts=(replace(inp.courses[1].parts[0], subject_id=2),)
+    )
+    return replace(
+        inp,
+        subjects=(*inp.subjects, replace(inp.subjects[0], id=2)),
+        courses=(inp.courses[0], pe),
+    )
+
+
+def test_reserved_periods_hold_only_the_listed_subjects():
+    inp = two_subjects()
+    con = hard(1, "periods_reserved_for_subjects", periods=[2, 3], subject_ids=[2])
+    res = go(build(inp, con))
+    assert res.status in SOLVED and slots(res, 1) == [(1, 1)]
+    # PE pinned to period 1 leaves maths no period at all.
+    assert go(build(inp, fix(7, 2, (1, 1)), con)).status == "INFEASIBLE"
+
+
+def test_reserved_periods_soft_pays_per_period():
+    inp = two_subjects()
+    con = soft(1, "periods_reserved_for_subjects", 3, periods=[1], subject_ids=[2])
+    assert go(build(inp, fix(7, 1, (1, 1)), con)).objective == 3
+    assert go(build(inp, con)).objective == 0

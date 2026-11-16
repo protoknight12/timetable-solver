@@ -21,6 +21,11 @@ A5. ``no_gaps`` and ``max_lessons_per_day`` are counted per student combination:
 A5b. ``max_same_subject_per_day`` is A5's max, counting only the periods of lessons
     whose part has that subject. ``teacher_max_lessons_per_day`` counts the distinct
     periods a teacher teaches per day (a 2-period block counts 2).
+A5c. ``day_starts_first_period`` uses A5's combinations: on a day a combination
+    has any busy period, the first period of the school day must be busy. One
+    violation per class and day.
+A5d. ``periods_reserved_for_subjects``: every row whose part has another subject
+    and that covers a reserved period breaks it, once per such period.
 A6. ``room_type_required`` needs a room of that type on every affected row, even
     if the part says ``needs_room = false``.
 A7. A room id on a part that does not need a room is allowed, and it still uses
@@ -237,6 +242,8 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
             "fixed_slot",
             "max_same_subject_per_day",
             "teacher_max_lessons_per_day",
+            "day_starts_first_period",
+            "periods_reserved_for_subjects",
         }:
             add("unknown_constraint_type", "unknown_constraint_type", (), True, con.id)
             continue
@@ -336,6 +343,26 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
                 }
                 for day in sorted(bad):
                     viol("gap_in_day", [("class", class_id), ("day", day)])
+        elif con.type == "day_starts_first_period":
+            first = min(inp.periods)
+            for class_id in scoped_classes(params.scope):
+                bad = {
+                    d for d, busy in class_days(class_id) if busy and first not in busy
+                }
+                for day in sorted(bad):
+                    viol("day_starts_late", [("class", class_id), ("day", day)])
+        elif con.type == "periods_reserved_for_subjects":
+            reserved, allowed = set(params.periods), set(params.subject_ids)
+            for lesson, course, part in rows:
+                if part.subject_id in allowed:
+                    continue
+                for day, period in _slots(lesson):
+                    if period in reserved:
+                        viol(
+                            "period_reserved_for_other_subjects",
+                            [("course", course.id), ("part", part.id)]
+                            + [("day", day), ("period", period)],
+                        )
         elif con.type == "fixed_slot":
             course = courses.get(params.course_id)
             for part in course.parts if course else ():

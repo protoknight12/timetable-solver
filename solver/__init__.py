@@ -408,6 +408,51 @@ def _add_no_gaps(tm: TimetableModel, c) -> None:
                     _limit(tm, c, expr, 1, 2)
 
 
+def _add_day_starts_first_period(tm: TimetableModel, c) -> None:
+    # ASSUMPTION: like no_gaps, per student combination: on a day the
+    # combination has any lesson, it has one in the first period. A day without
+    # lessons is fine. Soft pays ``weight`` per combination and day that starts late.
+    m, first = tm.model, tm.inp.periods[0]
+    for cids in _scope_combos(tm, c.params["scope"]):
+        for d in tm.inp.days:
+            occ = {
+                p: [x for cid in cids for x in tm.busy[cid].get((d, p), ())]
+                for p in tm.inp.periods
+            }
+            later = [p for p in tm.inp.periods[1:] if occ[p]]
+            if not later:
+                continue
+            # The group rule keeps each sum at 0 or 1 for one combination.
+            at_first = cp_model.LinearExpr.sum(occ[first])
+            if c.hard:
+                for p in later:
+                    m.add(cp_model.LinearExpr.sum(occ[p]) <= at_first).only_enforce_if(
+                        tm.enforce[c.id]
+                    )
+            else:
+                late = m.new_bool_var(f"late{c.id}d{d}")
+                for p in later:
+                    m.add(late >= cp_model.LinearExpr.sum(occ[p]) - at_first)
+                tm.penalties.append((c.weight, late))
+
+
+def _add_periods_reserved_for_subjects(tm: TimetableModel, c) -> None:
+    # ASSUMPTION: a block runs all parts of its course at once, so a course may
+    # use a reserved period only when every part has one of the listed subjects.
+    # Soft pays per period of another course in a reserved period.
+    reserved, allowed = set(c.params["periods"]), set(c.params["subject_ids"])
+    lits = [
+        x
+        for course in tm.inp.courses
+        if any(part.subject_id not in allowed for part in course.parts)
+        for (_, p), ls in tm.busy[course.id].items()
+        if p in reserved
+        for x in ls
+    ]
+    if lits:
+        _limit(tm, c, cp_model.LinearExpr.sum(lits), 0, len(lits))
+
+
 def _add_fixed_slot(tm: TimetableModel, c) -> None:
     # Block i starts at blocks[i]. The contract already checked it fits the day.
     # Soft pays per block that is somewhere else.
@@ -428,6 +473,8 @@ _ADDERS = {
     "fixed_slot": _add_fixed_slot,
     "max_same_subject_per_day": _add_max_same_subject_per_day,
     "teacher_max_lessons_per_day": _add_teacher_max_lessons_per_day,
+    "day_starts_first_period": _add_day_starts_first_period,
+    "periods_reserved_for_subjects": _add_periods_reserved_for_subjects,
 }
 
 

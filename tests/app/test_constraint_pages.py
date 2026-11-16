@@ -51,6 +51,11 @@ def test_every_type_can_be_added_by_hand(admin):
             "max": "2",
         },
         "teacher_max_lessons_per_day": {"teacher": teacher.id, "max": "6"},
+        "day_starts_first_period": {"scope": "all"},
+        "periods_reserved_for_subjects": {
+            "periods": ["1"],
+            "subject_ids": [subject.id],
+        },
         "fixed_slot": {
             "course_id": course.id,
             "blocks": ", ".join(f"{i}:1" for i, _ in enumerate(course.block_sizes, 1)),
