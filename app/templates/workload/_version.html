@@ -1,0 +1,5 @@
+<p class="text-body-secondary" id="workload-version">
+  <i class="bi bi-info-circle"></i>
+  {% if job.published_at %}Числата са от публикуваната версия (№{{ job.id }}).
+  {% else %}Числата са от чернова: версия №{{ job.id }}, която още не е публикувана.{% endif %}
+</p>

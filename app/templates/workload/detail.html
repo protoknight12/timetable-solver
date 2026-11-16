@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Натовареност: {{ t.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h2 mb-0">{{ t.name }}</h1>
+  <a class="btn btn-outline-secondary d-print-none" href="{{ url_for('workload.index', job=job.id if current_user.role == 'admin' else None) }}"><i class="bi bi-arrow-left"></i> Към натовареността</a>
+</div>
+{% include "workload/_version.html" %}
+{% for d, n in t.over %}
+  <p class="mb-2"><span class="badge text-bg-warning"><i class="bi bi-exclamation-triangle"></i> Над лимита в {{ day_names[d] }}: {{ n }} от {{ t.limit }} часа</span></p>
+{% endfor %}
+<div class="row g-4">
+  <div class="col-lg-7">
+    <h2 class="h4">По дни</h2>
+    <div class="table-responsive">
+      <table class="table table-striped" id="per-day">
+        <thead><tr><th scope="col">Ден</th><th scope="col">Часове</th><th scope="col">Първи час</th><th scope="col">Последен час</th><th scope="col">Прозорци</th></tr></thead>
+        <tbody>
+          {% for d, x in t.per_day.items() %}
+            <tr><th scope="row">{{ day_names[d] }}</th><td>{{ x.periods }}</td><td>{{ x.first }}</td><td>{{ x.last }}</td><td>{{ x.gaps }}</td></tr>
+          {% else %}
+            <tr><td colspan="5" class="text-body-secondary">Няма часове в разписанието.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <h2 class="h4">По предмети</h2>
+    <div class="table-responsive">
+      <table class="table table-striped" id="per-subject">
+        <thead><tr><th scope="col">Предмет</th><th scope="col">Часове</th></tr></thead>
+        <tbody>
+          {% for name, n in t.subjects.items() %}
+            <tr><th scope="row">{{ name }}</th><td>{{ n }}</td></tr>
+          {% else %}
+            <tr><td colspan="2" class="text-body-secondary">Няма часове в разписанието.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
