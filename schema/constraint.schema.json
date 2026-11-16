@@ -39,6 +39,73 @@
       "title": "ClassScope",
       "type": "object"
     },
+    "ClassUnavailableSlots": {
+      "additionalProperties": false,
+      "description": "No lesson of any group of the class in the listed slots.",
+      "properties": {
+        "hard": {
+          "description": "true = must always hold; false = a preference.",
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only for preferences (hard = false): how much it matters, 1 or more.",
+          "title": "Weight"
+        },
+        "type": {
+          "const": "class_unavailable_slots",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/ClassUnavailableSlotsParams"
+        }
+      },
+      "required": [
+        "hard",
+        "type",
+        "params"
+      ],
+      "title": "ClassUnavailableSlots",
+      "type": "object"
+    },
+    "ClassUnavailableSlotsParams": {
+      "additionalProperties": false,
+      "properties": {
+        "class_id": {
+          "description": "Id of one school class.",
+          "minimum": 1,
+          "title": "Class Id",
+          "type": "integer"
+        },
+        "slots": {
+          "description": "Slots in which no group of the class has a lesson.",
+          "items": {
+            "$ref": "#/$defs/Slot"
+          },
+          "minItems": 1,
+          "title": "Slots",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "class_id",
+        "slots"
+      ],
+      "title": "ClassUnavailableSlotsParams",
+      "type": "object"
+    },
     "DayStartsFirstPeriod": {
       "additionalProperties": false,
       "description": "On every day a student has lessons, the first lesson is in the first period.",
@@ -576,6 +643,73 @@
       "title": "Slot",
       "type": "object"
     },
+    "SubjectUnavailableSlots": {
+      "additionalProperties": false,
+      "description": "No lesson of the subject in the listed slots.",
+      "properties": {
+        "hard": {
+          "description": "true = must always hold; false = a preference.",
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only for preferences (hard = false): how much it matters, 1 or more.",
+          "title": "Weight"
+        },
+        "type": {
+          "const": "subject_unavailable_slots",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/SubjectUnavailableSlotsParams"
+        }
+      },
+      "required": [
+        "hard",
+        "type",
+        "params"
+      ],
+      "title": "SubjectUnavailableSlots",
+      "type": "object"
+    },
+    "SubjectUnavailableSlotsParams": {
+      "additionalProperties": false,
+      "properties": {
+        "subject_id": {
+          "description": "Id of the subject.",
+          "minimum": 1,
+          "title": "Subject Id",
+          "type": "integer"
+        },
+        "slots": {
+          "description": "Slots in which this subject is not taught.",
+          "items": {
+            "$ref": "#/$defs/Slot"
+          },
+          "minItems": 1,
+          "title": "Slots",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "subject_id",
+        "slots"
+      ],
+      "title": "SubjectUnavailableSlotsParams",
+      "type": "object"
+    },
     "TeacherAvailableDays": {
       "additionalProperties": false,
       "description": "The teacher works only on the listed days.",
@@ -644,6 +778,69 @@
       "title": "TeacherAvailableDaysParams",
       "type": "object"
     },
+    "TeacherMaxGaps": {
+      "additionalProperties": false,
+      "description": "A teacher has at most N free periods between first and last lesson per day.",
+      "properties": {
+        "hard": {
+          "description": "true = must always hold; false = a preference.",
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only for preferences (hard = false): how much it matters, 1 or more.",
+          "title": "Weight"
+        },
+        "type": {
+          "const": "teacher_max_gaps",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/TeacherMaxGapsParams"
+        }
+      },
+      "required": [
+        "hard",
+        "type",
+        "params"
+      ],
+      "title": "TeacherMaxGaps",
+      "type": "object"
+    },
+    "TeacherMaxGapsParams": {
+      "additionalProperties": false,
+      "properties": {
+        "teacher_id": {
+          "description": "Id of the teacher.",
+          "minimum": 1,
+          "title": "Teacher Id",
+          "type": "integer"
+        },
+        "max": {
+          "description": "Most free periods between the teacher's first and last lesson in one day; 0 = no gaps.",
+          "minimum": 0,
+          "title": "Max",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "teacher_id",
+        "max"
+      ],
+      "title": "TeacherMaxGapsParams",
+      "type": "object"
+    },
     "TeacherMaxLessonsPerDay": {
       "additionalProperties": false,
       "description": "A teacher teaches at most N periods per day.",
@@ -705,6 +902,69 @@
         "max"
       ],
       "title": "TeacherMaxLessonsPerDayParams",
+      "type": "object"
+    },
+    "TeacherMinLessonsPerDay": {
+      "additionalProperties": false,
+      "description": "On every day a teacher teaches, they teach at least N periods.",
+      "properties": {
+        "hard": {
+          "description": "true = must always hold; false = a preference.",
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only for preferences (hard = false): how much it matters, 1 or more.",
+          "title": "Weight"
+        },
+        "type": {
+          "const": "teacher_min_lessons_per_day",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/TeacherMinLessonsPerDayParams"
+        }
+      },
+      "required": [
+        "hard",
+        "type",
+        "params"
+      ],
+      "title": "TeacherMinLessonsPerDay",
+      "type": "object"
+    },
+    "TeacherMinLessonsPerDayParams": {
+      "additionalProperties": false,
+      "properties": {
+        "teacher_id": {
+          "description": "Id of the teacher.",
+          "minimum": 1,
+          "title": "Teacher Id",
+          "type": "integer"
+        },
+        "min": {
+          "description": "Fewest periods on every day the teacher teaches at all.",
+          "minimum": 1,
+          "title": "Min",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "teacher_id",
+        "min"
+      ],
+      "title": "TeacherMinLessonsPerDayParams",
       "type": "object"
     },
     "TeacherUnavailableSlots": {
@@ -777,6 +1037,7 @@
   },
   "discriminator": {
     "mapping": {
+      "class_unavailable_slots": "#/$defs/ClassUnavailableSlots",
       "day_starts_first_period": "#/$defs/DayStartsFirstPeriod",
       "fixed_slot": "#/$defs/FixedSlot",
       "max_lessons_per_day": "#/$defs/MaxLessonsPerDay",
@@ -784,8 +1045,11 @@
       "no_gaps": "#/$defs/NoGaps",
       "periods_reserved_for_subjects": "#/$defs/PeriodsReservedForSubjects",
       "room_type_required": "#/$defs/RoomTypeRequired",
+      "subject_unavailable_slots": "#/$defs/SubjectUnavailableSlots",
       "teacher_available_days": "#/$defs/TeacherAvailableDays",
+      "teacher_max_gaps": "#/$defs/TeacherMaxGaps",
       "teacher_max_lessons_per_day": "#/$defs/TeacherMaxLessonsPerDay",
+      "teacher_min_lessons_per_day": "#/$defs/TeacherMinLessonsPerDay",
       "teacher_unavailable_slots": "#/$defs/TeacherUnavailableSlots"
     },
     "propertyName": "type"
@@ -820,6 +1084,18 @@
     },
     {
       "$ref": "#/$defs/PeriodsReservedForSubjects"
+    },
+    {
+      "$ref": "#/$defs/ClassUnavailableSlots"
+    },
+    {
+      "$ref": "#/$defs/SubjectUnavailableSlots"
+    },
+    {
+      "$ref": "#/$defs/TeacherMaxGaps"
+    },
+    {
+      "$ref": "#/$defs/TeacherMinLessonsPerDay"
     }
   ]
 }

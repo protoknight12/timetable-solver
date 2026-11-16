@@ -152,7 +152,7 @@ type, and the worker must refuse to solve and show those problems instead of sil
 checked once for week A and once for week B; an every-week Course counts in both, an A Course only in A. So an
 A and a B Course may share a teacher, room or group in one slot, two A Courses may not. Assumption: the per-day
 constraints (`no_gaps`, `max_lessons_per_day`, `max_same_subject_per_day`, `teacher_max_lessons_per_day`,
-`day_starts_first_period`) are evaluated per week and must hold in both weeks. Contract version 2 input (no
+`day_starts_first_period`, `teacher_max_gaps`, `teacher_min_lessons_per_day`) are evaluated per week and must hold in both weeks. Contract version 2 input (no
 `week`) still parses. The solver and the checker implement the rule separately (`schema/contract.py` has the spec).
 
 **Limits.** Every lesson without a `week` repeats weekly. Parts of one Course share the same block
@@ -192,6 +192,10 @@ Generic constraint types (not tied to any regulation). The first five plus `fixe
 | `no_gaps` (soft or hard) | No empty periods between a class's lessons |
 | `teacher_max_lessons_per_day` | Teacher teaches at most N lessons per day |
 | `day_starts_first_period` (soft or hard) | On every day a class has lessons, it has one in the first period |
+| `class_unavailable_slots` | No lesson of any group of the class in the listed slots (e.g. "Почивка") |
+| `subject_unavailable_slots` | No lesson of the subject in the listed slots |
+| `teacher_max_gaps` | At most N free periods between a teacher's first and last lesson, per day (aSc "Прозорци"; per day is an assumption) |
+| `teacher_min_lessons_per_day` | On every day the teacher teaches, at least N periods; free days are fine |
 | `periods_reserved_for_subjects` | The listed periods (every day) hold only the listed subjects, e.g. periods 9–11 only for PE |
 
 Built-in hard rules (always on, not stored as constraints): a teacher is in at most one part-block per slot; two groups of the same class conflict if either is the whole class, they are the same group, or they belong to different splits, and conflicting groups never share a slot; a room holds at most `concurrent_capacity` part-blocks per slot; every `Course` gets exactly its `block_sizes`, each block being consecutive periods on one day; a part that needs a room gets one matching its room type and allowed rooms.

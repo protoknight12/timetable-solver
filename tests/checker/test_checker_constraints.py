@@ -241,3 +241,64 @@ def test_periods_reserved_counts_each_period_of_a_block():
     maths = course(1, [2], part(1))
     c = con(7, "periods_reserved_for_subjects", {"periods": [2, 3], "subject_ids": [2]})
     assert len(run(c, [maths], lesson(1, 1, 1, 2, length=2))) == 2
+
+
+# --- BE-19 ---------------------------------------------------------------------
+
+
+def test_class_unavailable_slots_covers_split_groups_and_other_classes_are_free():
+    c = con(
+        7,
+        "class_unavailable_slots",
+        {"class_id": 1, "slots": [{"day": 1, "period": 1}]},
+    )
+    split = course(1, [1], part(1, groups=(2,)))  # a group of class 1
+    other = course(2, [1], part(2, groups=(5,), teachers=(2,)))  # class 2
+    assert run(c, [split, other], lesson(1, 1, 1, 2), lesson(2, 2, 1, 1)) == []
+    assert run(c, [split, other], lesson(1, 1, 1, 1), lesson(2, 2, 1, 2)) == [
+        v("class_unavailable_slots", "class_unavailable_slot",
+          ("class", 1), ("course", 1), ("day", 1), ("period", 1), cid=7)
+    ]  # fmt: skip
+
+
+def test_subject_unavailable_slots_counts_every_period_of_a_block():
+    c = con(
+        7,
+        "subject_unavailable_slots",
+        {"subject_id": 1, "slots": [{"day": 1, "period": 2}]},
+    )
+    one = [course(1, [2], part(1))]
+    assert run(c, one, lesson(1, 1, 2, 1, length=2)) == []
+    assert run(c, one, lesson(1, 1, 1, 1, length=2)) == [
+        v("subject_unavailable_slots", "subject_unavailable_slot",
+          ("subject", 1), ("course", 1), ("day", 1), ("period", 2), cid=7)
+    ]  # fmt: skip
+    assert run(c, [course(1, [1], part(1, subject=2))], lesson(1, 1, 1, 2)) == []
+
+
+def test_teacher_max_gaps():
+    two = [course(1, [1], part(1)), course(2, [1], part(2))]
+    c = con(7, "teacher_max_gaps", {"teacher_id": 1, "max": 1})
+    day = lambda *ls: check(school(two, [c], periods=(1, 2, 3, 4)), solved(*ls))
+    assert day(lesson(1, 1, 1, 1), lesson(2, 2, 1, 3)) == []  # 1 gap
+    bad = day(lesson(1, 1, 1, 1), lesson(2, 2, 1, 4))  # 2 gaps
+    assert bad == [
+        v("teacher_max_gaps", "teacher_too_many_gaps",
+          ("teacher", 1), ("day", 1), cid=7)
+    ]  # fmt: skip
+    # the same gap on two different days is two separate days of 1 gap: fine
+    assert run(c, two, lesson(1, 1, 1, 1), lesson(2, 2, 2, 3)) == []
+
+
+def test_teacher_min_lessons_per_day():
+    two = [course(1, [1], part(1)), course(2, [1], part(2))]
+    c = con(7, "teacher_min_lessons_per_day", {"teacher_id": 1, "min": 2})
+    assert run(c, two, lesson(1, 1, 1, 1), lesson(2, 2, 1, 2)) == []
+    assert run(c, two, lesson(1, 1, 1, 1), lesson(2, 2, 2, 1)) == [
+        v("teacher_min_lessons_per_day", "teacher_too_few_lessons",
+          ("teacher", 1), ("day", 1), cid=7),
+        v("teacher_min_lessons_per_day", "teacher_too_few_lessons",
+          ("teacher", 1), ("day", 2), cid=7),
+    ]  # fmt: skip
+    assert run(c, two[:1], lesson(1, 1, 1, 1)) != []  # a lone lesson is short
+    assert run(c, [], *()) == []  # no lessons at all: nothing to check

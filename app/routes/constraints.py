@@ -84,6 +84,26 @@ def describe(c: Constraint, names: dict[str, dict[int, str]]) -> str:
                     f"{day(s['day'])}, {s['period']}. час" for s in p["slots"]
                 )
                 return f"{name('teacher', p['teacher_id'])}: не може в {slots}"
+            case "class_unavailable_slots" | "subject_unavailable_slots":
+                slots = ", ".join(
+                    f"{day(s['day'])}, {s['period']}. час" for s in p["slots"]
+                )
+                who = (
+                    f"Клас {name('class', p['class_id'])}"
+                    if "class_id" in p
+                    else f"Предмет {name('subject', p['subject_id'])}"
+                )
+                return f"{who}: без часове в {slots}"
+            case "teacher_max_gaps":
+                return (
+                    f"{name('teacher', p['teacher_id'])}: "
+                    f"най-много {p['max']} прозореца на ден"
+                )
+            case "teacher_min_lessons_per_day":
+                return (
+                    f"{name('teacher', p['teacher_id'])}: "
+                    f"най-малко {p['min']} часа в ден, в който преподава"
+                )
             case "room_type_required":
                 who = (
                     f"Предмет {name('subject', p['subject_id'])}"

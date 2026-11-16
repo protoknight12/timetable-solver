@@ -29,6 +29,10 @@ VALID = {
     "fixed_slot": {"course_id": 3, "blocks": [{"day": 5, "start_period": 1}]},
     "day_starts_first_period": {"scope": "all"},
     "periods_reserved_for_subjects": {"periods": [5, 6], "subject_ids": [3]},
+    "class_unavailable_slots": {"class_id": 1, "slots": [{"day": 1, "period": 1}]},
+    "subject_unavailable_slots": {"subject_id": 2, "slots": [{"day": 5, "period": 7}]},
+    "teacher_max_gaps": {"teacher_id": 2, "max": 0},
+    "teacher_min_lessons_per_day": {"teacher_id": 2, "min": 3},
 }
 
 INVALID = [
@@ -74,6 +78,19 @@ INVALID = [
     ("periods_reserved_for_subjects", {"periods": [9], "subject_ids": [1, 1]}),
     ("periods_reserved_for_subjects", {"periods": [0], "subject_ids": [1]}),
     ("periods_reserved_for_subjects", {"periods": [9]}),
+    ("class_unavailable_slots", {"class_id": 1, "slots": []}),
+    ("class_unavailable_slots", {"slots": [{"day": 1, "period": 1}]}),
+    (
+        "subject_unavailable_slots",
+        {"subject_id": 1, "slots": [{"day": 0, "period": 1}]},
+    ),
+    (
+        "subject_unavailable_slots",
+        {"subject_id": 1, "slots": [{"day": 1, "period": 1}] * 2},
+    ),
+    ("teacher_max_gaps", {"teacher_id": 1, "max": -1}),
+    ("teacher_max_gaps", {"teacher_id": 1}),
+    ("teacher_min_lessons_per_day", {"teacher_id": 1, "min": 0}),
     ("fixed_slot", {"course_id": 3, "blocks": []}),
     ("fixed_slot", {"course_id": 3, "blocks": [{"day": 5}]}),
     ("fixed_slot", {"course_id": 3, "blocks": [{"day": 5, "start_period": "1"}]}),

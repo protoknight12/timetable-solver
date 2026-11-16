@@ -36,6 +36,13 @@ A5e. Alternating weeks (``Course.week``: None = every week, "A", "B"). A course
     and slot or day, whichever week breaks it. ``fixed_slot``, the teacher day
     and slot rules, ``room_type_required`` and ``periods_reserved_for_subjects``
     look at single rows and need no week split.
+A5f. ``class_unavailable_slots`` bans every row whose part has a group of the class,
+    ``subject_unavailable_slots`` every row whose part has the subject, once per
+    covered banned slot (no week split). ``teacher_max_gaps``: free periods
+    between a teacher's first and last taught period of one day, counted per day
+    (not per week) and per week of A/B courses. ``teacher_min_lessons_per_day``:
+    on a day (and week) with any lesson, at least ``min`` taught periods. One
+    violation per teacher and day.
 A6. ``room_type_required`` needs a room of that type on every affected row, even
     if the part says ``needs_room = false``.
 A7. A room id on a part that does not need a room is allowed, and it still uses
@@ -277,6 +284,10 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
             "teacher_max_lessons_per_day",
             "day_starts_first_period",
             "periods_reserved_for_subjects",
+            "class_unavailable_slots",
+            "subject_unavailable_slots",
+            "teacher_max_gaps",
+            "teacher_min_lessons_per_day",
         }:
             add("unknown_constraint_type", "unknown_constraint_type", (), True, con.id)
             continue
@@ -310,6 +321,50 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
                                 [("teacher", params.teacher_id), ("course", course.id)]
                                 + [("day", day), ("period", period)],
                             )
+        elif con.type in ("class_unavailable_slots", "subject_unavailable_slots"):
+            blocked = {(s.day, s.period) for s in params.slots}
+            by_class = con.type == "class_unavailable_slots"
+            members = (
+                {g.id for g in inp.groups if g.class_id == params.class_id}
+                if by_class
+                else set()
+            )
+            for lesson, course, part in rows:
+                if by_class and not members & set(part.group_ids):
+                    continue
+                if not by_class and part.subject_id != params.subject_id:
+                    continue
+                who = ("class", params.class_id) if by_class else None
+                who = who or ("subject", params.subject_id)
+                key = "class" if by_class else "subject"
+                for day, period in _slots(lesson):
+                    if (day, period) in blocked:
+                        ents = [who, ("course", course.id), ("day", day)]
+                        viol(f"{key}_unavailable_slot", ents + [("period", period)])
+        elif con.type in ("teacher_max_gaps", "teacher_min_lessons_per_day"):
+            taught = defaultdict(set)  # (week, day) -> periods the teacher teaches
+            for lesson, course, part in rows:
+                if params.teacher_id in part.teacher_ids:
+                    for w in ("A", "B"):
+                        if _runs_in(course, w):
+                            for day, period in _slots(lesson):
+                                taught[(w, day)].add(period)
+            for day in sorted({d for _, d in taught}):
+                for busy in (taught[(w, day)] for w in ("A", "B")):
+                    if not busy:
+                        continue
+                    if con.type == "teacher_max_gaps":
+                        bad = max(busy) - min(busy) + 1 - len(busy) > params.max
+                    else:
+                        bad = len(busy) < params.min
+                    if bad:
+                        viol(
+                            "teacher_too_many_gaps"
+                            if con.type == "teacher_max_gaps"
+                            else "teacher_too_few_lessons",
+                            [("teacher", params.teacher_id), ("day", day)],
+                        )
+                        break
         elif con.type == "room_type_required":
             for lesson, course, part in rows:
                 if (

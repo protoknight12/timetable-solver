@@ -341,6 +341,28 @@ def constraint(d, constraint_id):
             ),
             "out_of_range",
         ),
+        (
+            lambda d: d["constraints"].append(
+                {
+                    "id": 9,
+                    "type": "class_unavailable_slots",
+                    "hard": True,
+                    "params": {"class_id": 99, "slots": [{"day": 1, "period": 1}]},
+                }
+            ),
+            "unknown_reference",
+        ),
+        (
+            lambda d: d["constraints"].append(
+                {
+                    "id": 9,
+                    "type": "subject_unavailable_slots",
+                    "hard": True,
+                    "params": {"subject_id": 1, "slots": [{"day": 9, "period": 1}]},
+                }
+            ),
+            "out_of_range",
+        ),
     ],
 )
 def test_bad_constraints_are_reported(data, mutate, expected):
