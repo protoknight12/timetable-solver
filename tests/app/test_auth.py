@@ -150,3 +150,55 @@ def test_seed_creates_demo_accounts_from_env(migrated, monkeypatch):
     # --reset replaces school data but keeps accounts.
     assert migrated.test_cli_runner().invoke(seed_command, ["--reset"]).exit_code == 0
     assert roles() == {"admin": "admin", "preglad": "viewer"}
+
+
+def _proxied_client(trusted_proxies):
+    app = create_app(
+        {
+            "TESTING": True,
+            "WTF_CSRF_ENABLED": False,
+            "LOGIN_RATE_LIMIT": "5 per minute",
+            "TRUSTED_PROXIES": trusted_proxies,
+            "SQLALCHEMY_DATABASE_URI": "sqlite://",
+        }
+    )
+    with app.app_context():
+        db.create_all()
+    return app, app.test_client()
+
+
+def _login_codes(client, ip, n):
+    return [
+        client.post(
+            "/login",
+            data={"username": "a", "password": "b"},
+            headers={"X-Forwarded-For": ip},
+        ).status_code
+        for _ in range(n)
+    ]
+
+
+def test_trusted_proxy_gives_each_client_ip_its_own_login_bucket():
+    _, client = _proxied_client(1)
+    assert _login_codes(client, "203.0.113.1", 6)[-1] == 429
+    assert _login_codes(client, "203.0.113.2", 1) == [401]
+
+
+def test_forwarded_for_is_ignored_without_trusted_proxy():
+    _, client = _proxied_client(0)
+    codes = _login_codes(client, "203.0.113.1", 5)
+    assert _login_codes(client, "203.0.113.2", 1) == [429]  # spoofing changes nothing
+    assert codes == [401] * 5
+
+
+def test_forwarded_proto_makes_external_urls_https():
+    app, client = _proxied_client(1)
+
+    @app.get("/_scheme")
+    def _scheme():
+        from flask import url_for
+
+        return url_for("pages.login", _external=True)
+
+    r = client.get("/_scheme", headers={"X-Forwarded-Proto": "https"})
+    assert r.get_data(as_text=True).startswith("https://")
