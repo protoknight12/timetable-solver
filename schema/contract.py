@@ -30,9 +30,11 @@ The model (TECH_STACK.md section 5):
   teacher, room or group in one slot; two A courses, or an every-week and an A
   course, may not. ASSUMPTION: the per-day limits (``no_gaps``,
   ``max_lessons_per_day``, ``max_same_subject_per_day``,
-  ``teacher_max_lessons_per_day``, ``day_starts_first_period``) are evaluated
-  per week and must hold in both weeks. ``fixed_slot`` and
-  ``periods_reserved_for_subjects`` are per slot and need no week split.
+  ``teacher_max_lessons_per_day``, ``day_starts_first_period``,
+  ``teacher_max_gaps``, ``teacher_min_lessons_per_day``) are evaluated
+  per week and must hold in both weeks. ``fixed_slot``,
+  ``periods_reserved_for_subjects``, ``class_unavailable_slots`` and
+  ``subject_unavailable_slots`` are per slot and need no week split.
 
 This file only describes and validates data. It does not implement timetable
 rules: the solver and the checker each implement those on their own.
@@ -68,6 +70,10 @@ CONSTRAINT_TYPES = (
     "teacher_max_lessons_per_day",
     "day_starts_first_period",
     "periods_reserved_for_subjects",
+    "class_unavailable_slots",
+    "subject_unavailable_slots",
+    "teacher_max_gaps",
+    "teacher_min_lessons_per_day",
 )
 
 
@@ -719,6 +725,7 @@ def _check_constraint(
     ref("teacher_id", teacher_ids, "teacher")
     ref("subject_id", subject_ids, "subject")
     ref("course_id", course_ids, "course")
+    ref("class_id", {c.id for c in inp.classes}, "class")
 
     scope = p.get("scope")
     if isinstance(scope, dict):

@@ -219,6 +219,50 @@ class TeacherUnavailableSlotsForm(ConstraintForm):
         }
 
 
+class ClassUnavailableSlotsForm(ConstraintForm):
+    kind, label = "class_unavailable_slots", "Клас: часове без занятия"
+    class_id = BgSelectField("Клас", coerce=int, choices=[], message="Изберете клас.")
+    slots = PairsField(
+        "Часове без занятия („ден:час“, напр. 1:2, 3:1; 1 = понеделник)",
+        validators=[InputRequired(REQUIRED)],
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.class_id.choices = _choices(
+            SchoolClass, lambda c: f"Клас {c.name}", SchoolClass.grade, SchoolClass.name
+        )
+
+    def params(self):
+        return {
+            "class_id": self.class_id.data,
+            "slots": [{"day": d, "period": p} for d, p in self.slots.data],
+        }
+
+
+class SubjectUnavailableSlotsForm(ConstraintForm):
+    kind, label = "subject_unavailable_slots", "Предмет: часове без занятия"
+    subject_id = BgSelectField(
+        "Предмет", coerce=int, choices=[], message="Изберете предмет."
+    )
+    slots = PairsField(
+        "Часове без този предмет („ден:час“, напр. 1:2, 3:1; 1 = понеделник)",
+        validators=[InputRequired(REQUIRED)],
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.subject_id.choices = _choices(
+            Subject, lambda s: s.name, Subject.name, Subject.id
+        )
+
+    def params(self):
+        return {
+            "subject_id": self.subject_id.data,
+            "slots": [{"day": d, "period": p} for d, p in self.slots.data],
+        }
+
+
 class RoomTypeRequiredForm(ConstraintForm):
     kind, label = "room_type_required", "Изискван тип стая"
     subject_id = BgSelectField(
@@ -313,6 +357,44 @@ class TeacherMaxLessonsPerDayForm(ConstraintForm):
         return {"teacher_id": self.teacher.data, "max": self.max.data}
 
 
+class TeacherMaxGapsForm(ConstraintForm):
+    kind, label = "teacher_max_gaps", "Учител: най-много прозорци на ден"
+    teacher = _teacher_field()
+    max = BgIntegerField(
+        "Най-много прозорци на ден (0 = без прозорци)",
+        validators=[
+            InputRequired(REQUIRED),
+            NumberRange(min=0, message="Стойността не може да е отрицателна."),
+        ],
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.teacher.choices = _choices(
+            Teacher, lambda t: t.name, Teacher.name, Teacher.id
+        )
+
+    def params(self):
+        return {"teacher_id": self.teacher.data, "max": self.max.data}
+
+
+class TeacherMinLessonsPerDayForm(ConstraintForm):
+    kind, label = "teacher_min_lessons_per_day", "Учител: най-малко часове на ден"
+    teacher = _teacher_field()
+    min = BgIntegerField(
+        "Най-малко часове в ден, в който преподава", validators=_MAX_RULE
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.teacher.choices = _choices(
+            Teacher, lambda t: t.name, Teacher.name, Teacher.id
+        )
+
+    def params(self):
+        return {"teacher_id": self.teacher.data, "min": self.min.data}
+
+
 class NoGapsForm(ConstraintForm):
     kind, label = "no_gaps", "Без прозорци"
     scope = _scope_field()
@@ -405,5 +487,9 @@ FORMS = {
         TeacherMaxLessonsPerDayForm,
         DayStartsFirstPeriodForm,
         PeriodsReservedForSubjectsForm,
+        ClassUnavailableSlotsForm,
+        SubjectUnavailableSlotsForm,
+        TeacherMaxGapsForm,
+        TeacherMinLessonsPerDayForm,
     )
 }

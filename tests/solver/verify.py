@@ -179,6 +179,31 @@ def measure(inp, result, con) -> int:
             )
             for d in inp.days
         )
+    if con.type in ("class_unavailable_slots", "subject_unavailable_slots"):
+        slots = {(s["day"], s["period"]) for s in p["slots"]}
+        in_class = {g.id for g in inp.groups if g.class_id == p.get("class_id")}
+        return sum(
+            (les.day, q) in slots
+            for les, part in rows
+            if in_class & set(part.group_ids) or part.subject_id == p.get("subject_id")
+            for q in periods(les)
+        )
+    if con.type in ("teacher_max_gaps", "teacher_min_lessons_per_day"):
+        total = 0
+        for d in inp.days:
+            seen = {
+                q
+                for les, part in rows
+                if les.day == d and p["teacher_id"] in part.teacher_ids
+                for q in periods(les)
+            }
+            if not seen:
+                continue
+            if con.type == "teacher_min_lessons_per_day":
+                total += max(0, p["min"] - len(seen))
+            else:
+                total += max(0, max(seen) - min(seen) + 1 - len(seen) - p["max"])
+        return total
     if con.type == "periods_reserved_for_subjects":
         allowed, reserved = set(p["subject_ids"]), set(p["periods"])
         banned = {

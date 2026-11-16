@@ -107,6 +107,49 @@ class TeacherUnavailableSlotsParams(_Model):
         return self
 
 
+class ClassUnavailableSlotsParams(_Model):
+    class_id: PosInt = Field(description="Id of one school class.")
+    slots: list[Slot] = Field(
+        min_length=1,
+        json_schema_extra={"uniqueItems": True},
+        description="Slots in which no group of the class has a lesson.",
+    )
+
+    @model_validator(mode="after")
+    def _check(self) -> ClassUnavailableSlotsParams:
+        _unique([(s.day, s.period) for s in self.slots], "slots")
+        return self
+
+
+class SubjectUnavailableSlotsParams(_Model):
+    subject_id: PosInt = Field(description="Id of the subject.")
+    slots: list[Slot] = Field(
+        min_length=1,
+        json_schema_extra={"uniqueItems": True},
+        description="Slots in which this subject is not taught.",
+    )
+
+    @model_validator(mode="after")
+    def _check(self) -> SubjectUnavailableSlotsParams:
+        _unique([(s.day, s.period) for s in self.slots], "slots")
+        return self
+
+
+class TeacherMaxGapsParams(_Model):
+    teacher_id: TeacherId
+    max: Annotated[int, Field(ge=0)] = Field(
+        description="Most free periods between the teacher's first and last lesson "
+        "in one day; 0 = no gaps."
+    )
+
+
+class TeacherMinLessonsPerDayParams(_Model):
+    teacher_id: TeacherId
+    min: PosInt = Field(
+        description="Fewest periods on every day the teacher teaches at all."
+    )
+
+
 class RoomTypeRequiredParams(_Model):
     subject_id: PosInt | None = Field(
         default=None,
@@ -276,6 +319,34 @@ class PeriodsReservedForSubjects(_Constraint):
     params: PeriodsReservedForSubjectsParams
 
 
+class ClassUnavailableSlots(_Constraint):
+    """No lesson of any group of the class in the listed slots."""
+
+    type: Literal["class_unavailable_slots"]
+    params: ClassUnavailableSlotsParams
+
+
+class SubjectUnavailableSlots(_Constraint):
+    """No lesson of the subject in the listed slots."""
+
+    type: Literal["subject_unavailable_slots"]
+    params: SubjectUnavailableSlotsParams
+
+
+class TeacherMaxGaps(_Constraint):
+    """A teacher has at most N free periods between first and last lesson per day."""
+
+    type: Literal["teacher_max_gaps"]
+    params: TeacherMaxGapsParams
+
+
+class TeacherMinLessonsPerDay(_Constraint):
+    """On every day a teacher teaches, they teach at least N periods."""
+
+    type: Literal["teacher_min_lessons_per_day"]
+    params: TeacherMinLessonsPerDayParams
+
+
 class FixedSlot(_Constraint):
     """Pins every block of a course to a given day and start period."""
 
@@ -293,7 +364,11 @@ ConstraintModel = Annotated[
     | MaxSameSubjectPerDay
     | TeacherMaxLessonsPerDay
     | DayStartsFirstPeriod
-    | PeriodsReservedForSubjects,
+    | PeriodsReservedForSubjects
+    | ClassUnavailableSlots
+    | SubjectUnavailableSlots
+    | TeacherMaxGaps
+    | TeacherMinLessonsPerDay,
     Field(discriminator="type"),
 ]
 

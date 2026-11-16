@@ -56,6 +56,10 @@ def test_every_type_can_be_added_by_hand(admin):
             "periods": ["1"],
             "subject_ids": [subject.id],
         },
+        "class_unavailable_slots": {"class_id": school_class.id, "slots": "1:1, 2:2"},
+        "subject_unavailable_slots": {"subject_id": subject.id, "slots": "1:1"},
+        "teacher_max_gaps": {"teacher": teacher.id, "max": "0"},
+        "teacher_min_lessons_per_day": {"teacher": teacher.id, "min": "2"},
         "fixed_slot": {
             "course_id": course.id,
             "blocks": ", ".join(f"{i}:1" for i, _ in enumerate(course.block_sizes, 1)),

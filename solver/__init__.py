@@ -490,6 +490,101 @@ def _add_periods_reserved_for_subjects(tm: TimetableModel, c) -> None:
         _limit(tm, c, cp_model.LinearExpr.sum(lits), 0, len(lits))
 
 
+def _banned_slot_lits(tm: TimetableModel, course_ids, slots) -> list:
+    return [
+        x
+        for cid in course_ids
+        for (d, p), ls in tm.busy[cid].items()
+        if (d, p) in slots
+        for x in ls
+    ]
+
+
+def _add_class_unavailable_slots(tm: TimetableModel, c) -> None:
+    # ASSUMPTION: every course with a part for any group of the class is banned,
+    # whole-class or split group. Soft pays per period inside the listed slots.
+    in_class = {g.id for g in tm.inp.groups if g.class_id == c.params["class_id"]}
+    cids = [
+        k.id
+        for k in tm.inp.courses
+        if any(set(p.group_ids) & in_class for p in k.parts)
+    ]
+    slots = {(s["day"], s["period"]) for s in c.params["slots"]}
+    lits = _banned_slot_lits(tm, cids, slots)
+    if lits:
+        _limit(tm, c, cp_model.LinearExpr.sum(lits), 0, len(lits))
+
+
+def _add_subject_unavailable_slots(tm: TimetableModel, c) -> None:
+    # Like max_same_subject_per_day: courses with a part of this subject.
+    # Soft pays per period inside the listed slots.
+    cids = [
+        k.id
+        for k in tm.inp.courses
+        if any(p.subject_id == c.params["subject_id"] for p in k.parts)
+    ]
+    slots = {(s["day"], s["period"]) for s in c.params["slots"]}
+    lits = _banned_slot_lits(tm, cids, slots)
+    if lits:
+        _limit(tm, c, cp_model.LinearExpr.sum(lits), 0, len(lits))
+
+
+def _teacher_day_occ(tm: TimetableModel, c, week, day) -> dict:
+    return {
+        p: _teacher_lits(
+            tm,
+            c.params["teacher_id"],
+            lambda d, q, day=day, p=p: (d, q) == (day, p),
+            week,
+        )
+        for p in tm.inp.periods
+    }
+
+
+def _add_teacher_max_gaps(tm: TimetableModel, c) -> None:
+    # ASSUMPTION: a gap is a free period between the teacher's first and last
+    # lesson of one day (like no_gaps, for a teacher); counted per day, not per
+    # week. Soft pays ``weight`` per gap above the maximum.
+    m, periods, cap = tm.model, tm.inp.periods, c.params["max"]
+    for week in _passes(tm):
+        for d in tm.inp.days:
+            occ = _teacher_day_occ(tm, c, week, d)
+            before = _reach(m, occ, periods, f"tbefore{c.id}{week}d{d}")
+            after = _reach(m, occ, periods[::-1], f"tafter{c.id}{week}d{d}")
+            gaps = []
+            for p in periods[1:-1]:
+                if before[p] is not None and after[p] is not None:
+                    gap = m.new_bool_var(f"tgap{c.id}{week}d{d}p{p}")
+                    m.add(
+                        gap
+                        >= before[p] + after[p] - cp_model.LinearExpr.sum(occ[p]) - 1
+                    )
+                    gaps.append(gap)
+            if len(gaps) > cap:
+                _limit(tm, c, cp_model.LinearExpr.sum(gaps), cap, len(gaps))
+
+
+def _add_teacher_min_lessons_per_day(tm: TimetableModel, c) -> None:
+    # ASSUMPTION: a day without lessons is fine (the minimum applies only to
+    # days the teacher teaches); periods are counted, a 2-period block is 2.
+    # Soft pays per period short of the minimum.
+    m, floor = tm.model, c.params["min"]
+    for week in _passes(tm):
+        for d in tm.inp.days:
+            lits = [x for ls in _teacher_day_occ(tm, c, week, d).values() for x in ls]
+            if not lits:
+                continue
+            used = m.new_bool_var(f"tused{c.id}{week}d{d}")
+            m.add_max_equality(used, lits)
+            n = cp_model.LinearExpr.sum(lits)
+            if c.hard:
+                m.add(n >= floor * used).only_enforce_if(tm.enforce[c.id])
+            else:
+                short = m.new_int_var(0, floor, f"tshort{c.id}{week}d{d}")
+                m.add(short >= floor * used - n)
+                tm.penalties.append((c.weight, short))
+
+
 def _add_fixed_slot(tm: TimetableModel, c) -> None:
     # Block i starts at blocks[i]. The contract already checked it fits the day.
     # Soft pays per block that is somewhere else.
@@ -512,6 +607,10 @@ _ADDERS = {
     "teacher_max_lessons_per_day": _add_teacher_max_lessons_per_day,
     "day_starts_first_period": _add_day_starts_first_period,
     "periods_reserved_for_subjects": _add_periods_reserved_for_subjects,
+    "class_unavailable_slots": _add_class_unavailable_slots,
+    "subject_unavailable_slots": _add_subject_unavailable_slots,
+    "teacher_max_gaps": _add_teacher_max_gaps,
+    "teacher_min_lessons_per_day": _add_teacher_min_lessons_per_day,
 }
 
 

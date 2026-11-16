@@ -482,3 +482,66 @@ def test_reserved_periods_soft_pays_per_period():
     con = soft(1, "periods_reserved_for_subjects", 3, periods=[1], subject_ids=[2])
     assert go(build(inp, fix(7, 1, (1, 1)), con)).objective == 3
     assert go(build(inp, con)).objective == 0
+
+
+# --- BE-19: class / subject slots, teacher gaps, teacher minimum ----------------
+
+
+def test_class_unavailable_slots_hard_and_soft():
+    two = make([1], [1, 2], [([1], [1], [1]), ([1], [2], [2])], classes=2)
+    ban = {"class_id": 1, "slots": [{"day": 1, "period": 1}]}
+    res = go(build(two, hard(1, "class_unavailable_slots", **ban)))
+    assert slots(res, 1) == [(1, 2)] and res.status in SOLVED
+    both = make([1], [1, 2], [([1], [1], [1]), ([1], [1], [2])], classes=1)
+    assert go(build(both, hard(1, "class_unavailable_slots", **ban))).status == (
+        "INFEASIBLE"
+    )  # two lessons, one free slot
+    assert go(build(both, soft(1, "class_unavailable_slots", 4, **ban))).objective == 4
+
+
+def test_class_unavailable_slots_bans_split_groups_too():
+    groups = [
+        {"id": 1, "class_id": 1, "is_whole": True},
+        {"id": 2, "class_id": 1, "is_whole": False, "split": "s"},
+    ]
+    inp = make([1], [1, 2], [([1], [2], [1])], groups=groups, classes=1)
+    c = hard(1, "class_unavailable_slots", class_id=1, slots=[{"day": 1, "period": 1}])
+    assert slots(go(build(inp, c)), 1) == [(1, 2)]
+
+
+def test_subject_unavailable_slots_hard_and_soft():
+    inp = make([1], [1, 2], [([1], [1], [1])], classes=1)
+    ban = {"subject_id": 1, "slots": [{"day": 1, "period": 1}]}
+    assert slots(go(build(inp, hard(1, "subject_unavailable_slots", **ban))), 1) == [
+        (1, 2)
+    ]
+    both = make([1], [1, 2], [([1], [1], [1]), ([1], [1], [2])], classes=1)
+    assert (
+        go(build(both, soft(1, "subject_unavailable_slots", 3, **ban))).objective == 3
+    )
+
+
+def test_teacher_max_gaps_hard_and_soft():
+    pin = (fix(7, 1, (1, 1)), fix(8, 2, (1, 4)))  # forced 2-period gap
+    inp = one_class((1, 1), (4, 1))
+    gaps = lambda n: hard(1, "teacher_max_gaps", teacher_id=1, max=n)
+    assert go(build(inp, *pin, gaps(1))).status == "INFEASIBLE"
+    assert go(build(inp, *pin, gaps(2))).status in SOLVED
+    res = go(build(inp, *pin, soft(1, "teacher_max_gaps", 5, teacher_id=1, max=1)))
+    assert res.objective == 5  # one gap over the maximum
+    # free choice: the solver closes the gap
+    res = go(build(inp, gaps(0)))
+    assert res.status in SOLVED and abs(slots(res, 1)[0][1] - slots(res, 2)[0][1]) == 1
+
+
+def test_teacher_min_lessons_per_day_hard_and_soft():
+    inp = make([1, 2], [1, 2], [([1], [1], [1])] * 2, classes=1)
+    low = lambda n: hard(1, "teacher_min_lessons_per_day", teacher_id=1, min=n)
+    res = go(build(inp, low(2)))  # 2 lessons: both on one day, other day free
+    assert res.status in SOLVED and len({x.day for x in res.lessons}) == 1
+    assert go(build(inp, low(3))).status == "INFEASIBLE"
+    pin = (fix(7, 1, (1, 1)), fix(8, 2, (2, 1)))  # one lesson on each day
+    res = go(
+        build(inp, *pin, soft(1, "teacher_min_lessons_per_day", 4, teacher_id=1, min=2))
+    )
+    assert res.objective == 8  # one period short on each of 2 days
