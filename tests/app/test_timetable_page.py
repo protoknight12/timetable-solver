@@ -143,7 +143,7 @@ def test_excel_export_has_one_valid_sheet_per_class(make_client, migrated):
         r = make_client(role).get("/timetable.xlsx")
         assert r.status_code == 200 and "spreadsheetml" in r.content_type
         wb = load_workbook(BytesIO(r.data))
-        assert len(wb.sheetnames) == len(classes)
+        assert wb.sheetnames[:-1] == classes and wb.sheetnames[-1] == "Общ разпис"
         assert all(len(n) <= 31 and not set("[]:*?/\\") & set(n) for n in wb.sheetnames)
         ws = wb[wb.sheetnames[0]]
         assert [c.value for c in ws[1]][:3] == ["Час", "Понеделник", "Вторник"]
@@ -179,3 +179,58 @@ def test_resolve_keeps_the_previous_timetable_and_shows_moves(make_client, migra
     admin.post("/solve")
     third = db.session.scalar(select(m.SolveJob).order_by(m.SolveJob.id.desc()))
     assert third.base_job_id is None
+
+
+def test_room_view_shows_only_that_rooms_lessons(make_client, migrated):
+    from app.routes.solve import _grid
+
+    job_id = _solved("demo_school.json")
+    lessons = list(
+        db.session.scalars(select(m.Lesson).where(m.Lesson.job_id == job_id))
+    )
+    # The demo solve places no rooms; give some lessons one so the view has content.
+    room = db.session.scalars(select(m.Room)).first() or m.Room(name="К1", type="x")
+    db.session.add(room)
+    db.session.flush()
+    for x in lessons[::2]:
+        x.room_id = room.id
+    db.session.commit()
+    rooms = {x.room_id for x in lessons if x.room_id}
+    for rid in rooms:
+        cells = _grid(job_id, room_id=rid)
+        assert sum(len(v) for v in cells.values()) == sum(
+            x.length for x in lessons if x.room_id == rid
+        )
+    room = db.session.get(m.Room, next(iter(rooms)))
+    html = make_client("viewer").get(f"/timetable?room={room.id}").get_data(True)
+    assert f"Седмично разписание на {room.name}" in html
+    assert "Покажи по клас" in html and "Печат" in html
+
+
+def test_overview_has_a_row_per_class_and_is_read_only(make_client, migrated):
+    _solved("demo_school.json")
+    classes = [c.name for c in db.session.scalars(select(m.SchoolClass))]
+    for role in ("admin", "viewer"):
+        html = make_client(role).get("/overview").get_data(as_text=True)
+        body = html.split("<tbody>")[1]
+        assert body.count("<tr>") == len(classes)
+        assert all(f">{n}</th>" in body for n in classes)
+        assert "subject-" in body and "overview-grid" in html
+        assert '<form method="post"' not in body and "data-move-url" not in html
+    assert "Общ разпис" in html  # navbar link
+
+
+def test_overview_without_timetable_redirects_and_needs_login(make_client, migrated):
+    assert migrated.test_client().get("/overview").status_code == 302
+    r = make_client("viewer").get("/overview")
+    assert r.status_code == 302 and r.headers["Location"].endswith("/timetable")
+
+
+def test_excel_overview_sheet_has_a_row_per_class(make_client, migrated):
+    _solved("demo_school.json")
+    classes = [c.name for c in db.session.scalars(select(m.SchoolClass))]
+    wb = load_workbook(BytesIO(make_client("viewer").get("/timetable.xlsx").data))
+    ws = wb["Общ разпис"]
+    assert [ws.cell(r, 1).value for r in range(2, ws.max_row + 1)] == classes
+    assert ws.cell(1, 2).value.startswith("Понеделник 1")
+    assert any(c.value for row in ws.iter_rows(min_row=2, min_col=2) for c in row)

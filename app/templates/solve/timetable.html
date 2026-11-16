@@ -3,7 +3,7 @@
 {% block head %}{% if subject_styles %}<style>{{ subject_styles }}</style>{% endif %}{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 d-print-none">
   <h1 class="h2 mb-0">Разписание</h1>
   {% if current_user.role == 'admin' %}
     <a class="btn btn-outline-secondary" href="{{ url_for('solve.history') }}"><i class="bi bi-clock-history"></i> История на промените</a>
@@ -21,12 +21,12 @@
     </form>
   {% endif %}
 </div>
-<p class="lead">Разписанието се изгражда само от потвърдените ограничения и се проверява поотделно.</p>
+<p class="lead d-print-none">Разписанието се изгражда само от потвърдените ограничения и се проверява поотделно.</p>
 
 {% if not job %}
   <p class="text-body-secondary">Все още не е изграждано разписание.</p>
 {% else %}
-  {% include "solve/_job.html" %}
+  <div class="d-print-none">{% include "solve/_job.html" %}</div>
   {% if job.published_at %}
     <p class="mb-3"><span class="badge text-bg-success"><i class="bi bi-check-circle"></i> Публикувана версия</span></p>
   {% elif published and current_user.role == 'admin' %}
@@ -46,7 +46,7 @@
     {% endif %}
     <div class="row g-4">
       <div class="col-xl-8">
-        <form method="get" class="row g-2 align-items-end mb-3">
+        <form method="get" class="row g-2 align-items-end mb-3 d-print-none">
           <input type="hidden" name="job" value="{{ job.id }}">
           <div class="col-auto">
             <label for="class-picker" class="form-label mb-1">Клас</label>
@@ -66,15 +66,30 @@
             </select>
           </div>
           <div class="col-auto">
+            <label for="room-picker" class="form-label mb-1">Стая</label>
+            <select id="room-picker" name="room" class="form-select">
+              <option value="">Покажи по клас</option>
+              {% for r in rooms %}
+                <option value="{{ r.id }}" {% if room and r.id == room.id %}selected{% endif %}>{{ r.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-auto">
             <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-eye"></i> Покажи</button>
           </div>
           <div class="col-auto">
             <a href="{{ url_for('solve.export_xlsx', job=job.id) }}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-excel"></i> Изтегли в Excel</a>
           </div>
+          <div class="col-auto">
+            <a href="{{ url_for('solve.overview', job=job.id) }}" class="btn btn-outline-secondary"><i class="bi bi-grid-3x3"></i> Общ разпис</a>
+          </div>
+          <div class="col-auto">
+            <button type="button" class="btn btn-outline-secondary" id="print-button"><i class="bi bi-printer"></i> Печат</button>
+          </div>
         </form>
         <div class="table-responsive">
           <table class="table table-bordered align-top timetable-grid">
-            <caption class="visually-hidden">Седмично разписание на {{ teacher.name if teacher else current.name if current else '' }}</caption>
+            <caption class="visually-hidden">Седмично разписание на {{ teacher.name if teacher else room.name if room else current.name if current else '' }}</caption>
             <thead>
               <tr>
                 <th scope="col">Час</th>
@@ -94,7 +109,7 @@
                             {{ l.teachers }}{% if l.room %} · {{ l.room }}{% endif %}{% if l.group %} · {{ l.group }}{% endif %}
                           </small>
                           {% if current_user.role == 'admin' %}
-                            <div class="d-flex flex-wrap gap-1 mt-1">
+                            <div class="d-flex flex-wrap gap-1 mt-1 d-print-none">
                               <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('solve.move_form', lesson_id=l.lesson_id, **back) }}"><i class="bi bi-arrows-move"></i> Премести</a>
                               <form method="post" action="{{ url_for('solve.unpin' if l.pinned else 'solve.pin', lesson_id=l.lesson_id) }}">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -118,10 +133,10 @@
             <input type="hidden" name="day"><input type="hidden" name="start_period">
             {% for k, v in back.items() if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
           </form>
-          <p class="small text-body-secondary">Плъзнете урок до друга клетка или използвайте бутона „Премести“.</p>
+          <p class="small text-body-secondary d-print-none">Плъзнете урок до друга клетка или използвайте бутона „Премести“.</p>
         {% endif %}
       </div>
-      <div class="col-xl-4">
+      <div class="col-xl-4 d-print-none">
         {% include "solve/_report.html" %}
       </div>
     </div>
@@ -149,4 +164,4 @@
   {% endif %}
 {% endif %}
 {% endblock %}
-{% block scripts %}{% if current_user.role == 'admin' %}<script src="{{ url_for('static', filename='js/move.js') }}"></script>{% endif %}{% endblock %}
+{% block scripts %}{% if current_user.role == 'admin' %}<script src="{{ url_for('static', filename='js/move.js') }}"></script>{% endif %}<script src="{{ url_for('static', filename='js/print.js') }}"></script>{% endblock %}

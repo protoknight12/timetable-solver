@@ -88,6 +88,11 @@
         {% endif %}
         {% if current_user.is_authenticated %}
           <li class="nav-item">
+            <a class="nav-link {% if active == 'overview' %}active{% endif %}"
+               {% if active == 'overview' %}aria-current="page"{% endif %}
+               href="{{ url_for('solve.overview') }}">Общ разпис</a>
+          </li>
+          <li class="nav-item">
             <a class="nav-link {% if active == 'timetable' and not own %}active{% endif %}"
                {% if active == 'timetable' and not own %}aria-current="page"{% endif %}
                href="{{ url_for('solve.timetable') }}">Разписание</a>

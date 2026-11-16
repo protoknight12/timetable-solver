@@ -238,6 +238,12 @@ def _subject_fields(subject: Subject) -> dict:
     }
 
 
+def short_teacher(name: str) -> str:
+    """ "Иван Петров" -> "И. Петров". shortcut: switch to Teacher.short_name once the importer adds it."""
+    parts = name.split()
+    return f"{parts[0][0]}. {parts[-1]}" if len(parts) > 1 else name
+
+
 def _pinned_courses() -> set[int]:
     return {
         c.params["course_id"]
@@ -253,9 +259,10 @@ def _grid(
     job_id: int,
     class_id: int | None = None,
     teacher_id: int | None = None,
+    room_id: int | None = None,
     changed: set[tuple[int, int, int, int]] = frozenset(),
 ) -> dict[tuple[int, int], list[dict]]:
-    """(day, period) -> lessons of this class or teacher; a split slot has several.
+    """(day, period) -> lessons of this class, teacher or room; a split slot has several.
 
     ``changed`` holds (part_id, day, start_period, length) of blocks to flag.
     """
@@ -273,10 +280,14 @@ def _grid(
     cells: dict[tuple[int, int], list[dict]] = {}
     for les in db.session.scalars(select(Lesson).where(Lesson.job_id == job_id)):
         part = parts[les.part_id]
-        if teacher_id is not None:
-            if teacher_id not in {t.id for t in part.teachers}:
+        if teacher_id is not None or room_id is not None:
+            if teacher_id is not None and teacher_id not in {
+                t.id for t in part.teachers
+            }:
                 continue
-            # Teacher view reuses the "teachers" slot of the cell for the classes
+            if room_id is not None and les.room_id != room_id:
+                continue
+            # Teacher and room views reuse the "teachers" slot of the cell for the classes
             # (and groups) taught, so the template and the export stay unchanged.
             by_class: dict[int, list] = {}
             for g in part.groups:
@@ -308,6 +319,9 @@ def _grid(
         entry = {
             **_subject_fields(part.subject),
             "teachers": ", ".join(sorted(t.name for t in part.teachers)),
+            "teachers_short": ", ".join(
+                sorted(short_teacher(t.name) for t in part.teachers)
+            ),
             "room": rooms.get(les.room_id, ""),
             "lesson_id": les.id,
             "pinned": les.course_id in pinned,
@@ -359,8 +373,13 @@ def timetable():
     teachers = db.session.scalars(select(Teacher).order_by(Teacher.name)).all()
     teacher_id = request.args.get("teacher", type=int)
     teacher = next((t for t in teachers if t.id == teacher_id), None)
+    rooms = db.session.scalars(select(Room).order_by(Room.name)).all()
+    room_id = request.args.get("room", type=int)
+    room = None if teacher else next((r for r in rooms if r.id == room_id), None)
     ctx = {
         "job": job,
+        "rooms": rooms,
+        "room": room,
         "classes": classes,
         "current": current,
         "teachers": teachers,
@@ -377,7 +396,13 @@ def timetable():
             if before and d["kind"] in ("moved", "room")
         }
         ctx |= {
-            "cells": _grid(job.id, current.id, teacher and teacher.id, moved_blocks)
+            "cells": _grid(
+                job.id,
+                current and current.id,
+                teacher and teacher.id,
+                room and room.id,
+                moved_blocks,
+            )
             if current or teacher
             else {},
             "days": range(1, current_app.config["SCHOOL_DAYS"] + 1),
@@ -385,6 +410,7 @@ def timetable():
             "back": {
                 "class": current and current.id,
                 "teacher": teacher and teacher.id,
+                "room": room and room.id,
             },
             "violations": _violation_rows(job.id),
             "subject_styles": subject_css(db.session.scalars(select(Subject))),
@@ -400,6 +426,36 @@ def timetable():
         day_names={d: n.capitalize() for d, n in DAY_NAMES.items()},
         active_states=ACTIVE,
         **ctx,
+    )
+
+
+def _overview(job_id: int) -> list[tuple[SchoolClass, dict]]:
+    # shortcut: one _grid call (and its queries) per class; fine for a school-sized list.
+    classes = db.session.scalars(select(SchoolClass).order_by(SchoolClass.id))
+    return [(c, _grid(job_id, c.id)) for c in classes]
+
+
+def _overview_text(lesson: dict) -> str:
+    return lesson["subject"] + "\n" + lesson["teachers_short"]
+
+
+@bp.get("/overview")
+@login_required
+def overview():
+    """Whole school on one sheet: rows = classes, columns = day x period (FE-14)."""
+    job = shown_job(current_user.role == "admin", request.args.get("job", type=int))
+    if not (job and job.status == "finished" and job.solver_status in HAS_TIMETABLE):
+        flash("Все още няма изградено разписание.", "warning")
+        return redirect(url_for("solve.timetable"))
+    return render_template(
+        "solve/overview.html",
+        job=job,
+        rows=_overview(job.id),
+        days=range(1, current_app.config["SCHOOL_DAYS"] + 1),
+        day_names={d: n.capitalize() for d, n in DAY_NAMES.items()},
+        periods=db.session.scalars(select(Period).order_by(Period.number)).all(),
+        subject_styles=subject_css(db.session.scalars(select(Subject))),
+        active="overview",
     )
 
 
@@ -458,6 +514,29 @@ def export_xlsx():
         for d in days:
             ws.column_dimensions[ws.cell(1, d + 1).column_letter].width = 28
         ws.freeze_panes = "B2"
+    # One sheet for the teachers' room; last so the class sheets keep their order.
+    ws = wb.create_sheet("Общ разпис")
+    ws.append(
+        ["Клас"]
+        + [f"{DAY_NAMES[d].capitalize()} {p.number}" for d in days for p in periods]
+    )
+    for r, (c, cells) in enumerate(_overview(job.id), 2):
+        ws.append([c.name])
+        for i, (d, p) in enumerate(((d, p) for d in days for p in periods), 2):
+            lessons = cells.get((d, p.number), [])
+            cell = ws.cell(r, i, "\n\n".join(_overview_text(l) for l in lessons))
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+            if len(lessons) == 1:  # same rule as the class sheets: no fill when split
+                color = lessons[0]["color"]
+                cell.fill = PatternFill("solid", fgColor=color[1:])
+                cell.font = Font(color=text_color(color)[1:])
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(wrap_text=True, horizontal="center")
+    ws.column_dimensions["A"].width = 8
+    for i in range(2, len(days) * len(periods) + 2):
+        ws.column_dimensions[ws.cell(1, i).column_letter].width = 14
+    ws.freeze_panes = "B2"
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -668,8 +747,8 @@ def _lesson(lesson_id: int) -> Lesson:
 
 
 def _back(form) -> dict:
-    """Class or teacher the page was showing, so the redirect returns to it."""
-    return {k: form.get(k, type=int) for k in ("class", "teacher")}
+    """Class, teacher or room the page was showing, so the redirect returns to it."""
+    return {k: form.get(k, type=int) for k in ("class", "teacher", "room")}
 
 
 def _to_timetable(job_id: int, form):
