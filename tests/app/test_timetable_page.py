@@ -90,7 +90,7 @@ def test_teacher_view_shows_only_that_teachers_lessons(make_client, migrated):
 def test_infeasible_shows_plain_message(make_client, migrated):
     _load("impossible_school.json")
     run_solve(_job())
-    html = make_client("viewer").get("/timetable").get_data(as_text=True)
+    html = make_client("admin").get("/timetable").get_data(as_text=True)
     assert "Няма решение" in html and "infeasible-explanation" in html
     assert "<table" not in html
 
@@ -105,7 +105,7 @@ def test_infeasible_page_names_the_conflicting_constraints(make_client, migrated
     culprit.original_text = "Учителят не може да преподава никога"
     db.session.commit()
     run_solve(_job())
-    html = make_client("viewer").get("/timetable").get_data(as_text=True)
+    html = make_client("admin").get("/timetable").get_data(as_text=True)
     assert "Ограничения в конфликт" in html
     assert "Учителят не може да преподава никога" in html
     assert "най-много 50" not in html  # the harmless one is not blamed
@@ -118,7 +118,7 @@ def test_infeasible_without_core_lists_confirmed_constraints_to_disable(
     _load("impossible_school.json")  # impossible by itself: the core is empty
     _add_constraint("confirmed", "max_lessons_per_day", {"scope": "all", "max": 50})
     run_solve(_job())
-    html = make_client("viewer").get("/timetable").get_data(as_text=True)
+    html = make_client("admin").get("/timetable").get_data(as_text=True)
     assert "Причината не е ясна" in html and "най-много 50" in html
 
 

@@ -22,11 +22,12 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from redis import Redis
 from rq import Queue
-from sqlalchemy import DateTime, func, select, type_coerce
+from sqlalchemy import DateTime, func, select, type_coerce, update
 from sqlalchemy.orm import selectinload
 
 from app.auth import admin_required, limiter
 from app.constraint_forms import DAY_NAMES
+from app.history import diff_lessons, how_made
 from app.jobs import placements, run_solve, solve_in_thread
 from app.models import (
     Constraint,
@@ -38,6 +39,7 @@ from app.models import (
     SolveJob,
     Subject,
     Teacher,
+    User,
     Violation,
     db,
 )
@@ -79,6 +81,23 @@ def _previous_job(before_id: int | None = None) -> SolveJob | None:
     return db.session.scalar(query.order_by(SolveJob.id.desc()))
 
 
+def published_job() -> SolveJob | None:
+    return db.session.scalar(select(SolveJob).where(SolveJob.published_at.isnot(None)))
+
+
+def shown_job(for_admin: bool, job_id: int | None = None) -> SolveJob | None:
+    """The one job a page shows. Reuse this for every timetable page (FE-15..17).
+
+    Admin: the chosen job, else the newest (a draft, so progress stays visible).
+    Everyone else: the published version, else the newest one with a timetable.
+    """
+    if for_admin:
+        return (job_id and db.session.get(SolveJob, job_id)) or db.session.scalar(
+            select(SolveJob).order_by(SolveJob.id.desc())
+        )
+    return published_job() or _previous_job()
+
+
 @bp.post("/solve")
 @admin_required
 @limiter.limit(
@@ -111,7 +130,10 @@ def start():
     # The checkbox is on by default in the page; no field means a fresh solve.
     previous = _previous_job() if request.form.get("keep_previous") else None
     job = SolveJob(
-        status="queued", time_limit_s=limit, base_job_id=previous and previous.id
+        status="queued",
+        time_limit_s=limit,
+        base_job_id=previous and previous.id,
+        created_by_id=current_user.id,
     )
     db.session.add(job)
     db.session.commit()
@@ -206,9 +228,15 @@ def _subject_fields(subject: Subject) -> dict:
 
 
 def _grid(
-    job_id: int, class_id: int | None = None, teacher_id: int | None = None
+    job_id: int,
+    class_id: int | None = None,
+    teacher_id: int | None = None,
+    changed: set[tuple[int, int, int, int]] = frozenset(),
 ) -> dict[tuple[int, int], list[dict]]:
-    """(day, period) -> lessons of this class or teacher; a split slot has several."""
+    """(day, period) -> lessons of this class or teacher; a split slot has several.
+
+    ``changed`` holds (part_id, day, start_period, length) of blocks to flag.
+    """
     parts = db.session.scalars(
         select(CoursePart).options(
             selectinload(CoursePart.groups),
@@ -244,6 +272,7 @@ def _grid(
                 "teachers": label,
                 "room": rooms.get(les.room_id, ""),
                 "group": "",
+                "changed": (part.id, les.day, les.start_period, les.length) in changed,
             }
             for period in range(les.start_period, les.start_period + les.length):
                 cells.setdefault((les.day, period), []).append(entry)
@@ -259,6 +288,7 @@ def _grid(
             "group": ""
             if any(g.is_whole for g in mine)
             else ", ".join(sorted(g.name for g in mine)),
+            "changed": (part.id, les.day, les.start_period, les.length) in changed,
         }
         for period in range(les.start_period, les.start_period + les.length):
             cells.setdefault((les.day, period), []).append(entry)
@@ -291,9 +321,9 @@ def _conflict_rows(job_id: int) -> tuple[list[dict], list[dict]]:
 @bp.get("/timetable")
 @login_required
 def timetable():
-    job = db.session.get(SolveJob, request.args.get("job", type=int) or 0)
-    if job is None:  # shortcut: no job picker, the newest job is shown
-        job = db.session.scalar(select(SolveJob).order_by(SolveJob.id.desc()))
+    is_admin = current_user.role == "admin"
+    job = shown_job(is_admin, request.args.get("job", type=int))
+    published = published_job()
     classes = db.session.scalars(select(SchoolClass).order_by(SchoolClass.id)).all()
     class_id = request.args.get("class", type=int)
     current = next((c for c in classes if c.id == class_id), None) or (
@@ -309,11 +339,18 @@ def timetable():
         "teachers": teachers,
         "teacher": teacher,
         "active": "timetable",
+        "published": published,
         "can_keep_previous": _previous_job() is not None,
     }
     if job and job.status == "finished" and job.solver_status in HAS_TIMETABLE:
+        before = _previous_job(job.id)
+        moved_blocks = {
+            (d["after"].part_id, *_slot(d["after"]))
+            for d in diff_lessons(placements(before and before.id), placements(job.id))
+            if before and d["kind"] in ("moved", "room")
+        }
         ctx |= {
-            "cells": _grid(job.id, current.id, teacher and teacher.id)
+            "cells": _grid(job.id, current.id, teacher and teacher.id, moved_blocks)
             if current or teacher
             else {},
             "days": range(1, current_app.config["SCHOOL_DAYS"] + 1),
@@ -339,9 +376,7 @@ def timetable():
 @login_required
 def export_xlsx():
     """One sheet per class, same data as the page grid (FE-10)."""
-    job = db.session.get(SolveJob, request.args.get("job", type=int) or 0)
-    if job is None:
-        job = db.session.scalar(select(SolveJob).order_by(SolveJob.id.desc()))
+    job = shown_job(current_user.role == "admin", request.args.get("job", type=int))
     if not (job and job.status == "finished" and job.solver_status in HAS_TIMETABLE):
         flash("Все още няма изградено разписание за изтегляне.", "warning")
         return redirect(url_for("solve.timetable"))
@@ -420,3 +455,161 @@ def job_card(job_id: int):
     if job.status not in ACTIVE:
         resp.headers["HX-Refresh"] = "true"
     return resp
+
+
+def _slot(p) -> tuple[int, int, int]:
+    return p.day, p.start_period, p.length
+
+
+def _version(job_id: int) -> SolveJob:
+    """A job that holds a timetable (a "version"), else 404."""
+    job = db.session.get(SolveJob, job_id) or abort(404)
+    if job.status != "finished" or job.solver_status not in HAS_TIMETABLE:
+        abort(404)
+    return job
+
+
+@bp.get("/history")
+@admin_required
+def history():
+    versions = db.session.scalars(
+        select(SolveJob)
+        .where(SolveJob.status == "finished", SolveJob.solver_status.in_(HAS_TIMETABLE))
+        .order_by(SolveJob.id.desc())
+    ).all()
+    users = {u.id: u.username for u in db.session.scalars(select(User))}
+    rows = []
+    for i, job in enumerate(versions):
+        prev = versions[i + 1] if i + 1 < len(versions) else None
+        rows.append(
+            {
+                "job": job,
+                "who": users.get(job.created_by_id, "—"),
+                "how": how_made(job)[1],
+                "moved": prev and count_moved(placements(prev.id), placements(job.id)),
+            }
+        )
+    return render_template(
+        "solve/history.html", rows=rows, solver_status=SOLVER_STATUS, active="timetable"
+    )
+
+
+@bp.get("/history/<int:job_id>")
+@admin_required
+def version(job_id: int):
+    """Changes of a version against the previous one (or ?against=<id>)."""
+    job = _version(job_id)
+    against = request.args.get("against", type=int)
+    other = _version(against) if against else _previous_job(job.id)
+    names = _entity_names()
+    parts = {
+        p.id: p
+        for p in db.session.scalars(
+            select(CoursePart).options(
+                selectinload(CoursePart.groups),
+                selectinload(CoursePart.teachers),
+                selectinload(CoursePart.subject),
+            )
+        )
+    }
+    class_id = request.args.get("class", type=int)
+    teacher_id = request.args.get("teacher", type=int)
+    by = "teacher" if request.args.get("by") == "teacher" else "class"
+
+    def where(p) -> str:
+        end = f"–{p.start_period + p.length - 1}" if p.length > 1 else ""
+        room = names["room"].get(p.room_id)
+        return f"{names['day'][p.day]}, {p.start_period}{end}. час" + (
+            f", {room}" if room else ""
+        )
+
+    groups: dict[str, list[dict]] = {}
+    counts = {"added": 0, "removed": 0, "moved": 0, "room": 0}
+    for d in diff_lessons(placements(other and other.id), placements(job.id)):
+        p = d["before"] or d["after"]
+        part = parts[p.part_id]
+        classes = sorted({names["class"][g.class_id] for g in part.groups})
+        teachers = sorted(t.name for t in part.teachers)
+        if class_id and class_id not in {g.class_id for g in part.groups}:
+            continue
+        if teacher_id and teacher_id not in {t.id for t in part.teachers}:
+            continue
+        counts[d["kind"]] += 1
+        row = {
+            "kind": d["kind"],
+            "subject": part.subject.name,
+            "before": d["before"] and where(d["before"]),
+            "after": d["after"] and where(d["after"]),
+        }
+        for key in (teachers if by == "teacher" else classes) or ["—"]:
+            groups.setdefault(key, []).append(row)
+    return render_template(
+        "solve/version.html",
+        job=job,
+        other=other,
+        groups=dict(sorted(groups.items())),
+        counts=counts,
+        by=by,
+        classes=db.session.scalars(select(SchoolClass).order_by(SchoolClass.id)).all(),
+        teachers=db.session.scalars(select(Teacher).order_by(Teacher.name)).all(),
+        class_id=class_id,
+        teacher_id=teacher_id,
+        how=how_made(job)[1],
+        solver_status=SOLVER_STATUS,
+        active="timetable",
+    )
+
+
+@bp.post("/jobs/<int:job_id>/publish")
+@admin_required
+def publish(job_id: int):
+    job = _version(job_id)
+    # One transaction: unpublish the others and publish this one.
+    db.session.execute(update(SolveJob).values(published_at=None))
+    job.published_at = func.now()
+    db.session.commit()
+    flash(f"Версия №{job.id} е публикувана.", "success")
+    return redirect(url_for("solve.history"))
+
+
+@bp.post("/jobs/<int:job_id>/restore")
+@admin_required
+def restore(job_id: int):
+    """Copy a version into a NEW one; history is never rewritten."""
+    src = _version(job_id)
+    new = SolveJob(
+        status="finished",
+        finished_at=func.now(),
+        solver_status=src.solver_status,
+        objective=src.objective,
+        base_job_id=src.id,
+        created_by_id=current_user.id,
+    )
+    db.session.add(new)
+    db.session.flush()
+    for les in db.session.scalars(select(Lesson).where(Lesson.job_id == src.id)):
+        db.session.add(
+            Lesson(
+                job_id=new.id,
+                course_id=les.course_id,
+                part_id=les.part_id,
+                day=les.day,
+                start_period=les.start_period,
+                length=les.length,
+                room_id=les.room_id,
+            )
+        )
+    for v in db.session.scalars(select(Violation).where(Violation.job_id == src.id)):
+        db.session.add(
+            Violation(
+                job_id=new.id,
+                type=v.type,
+                entity_ids=v.entity_ids,
+                message_key=v.message_key,
+                hard=v.hard,
+                constraint_id=v.constraint_id,
+            )
+        )
+    db.session.commit()
+    flash(f"Версия №{src.id} е възстановена като нова версия №{new.id}.", "success")
+    return redirect(url_for("solve.history"))

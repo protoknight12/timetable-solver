@@ -6,6 +6,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
   <h1 class="h2 mb-0">Разписание</h1>
   {% if current_user.role == 'admin' %}
+    <a class="btn btn-outline-secondary" href="{{ url_for('solve.history') }}"><i class="bi bi-clock-history"></i> История на промените</a>
     <form method="post" action="{{ url_for('solve.start') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       {% if can_keep_previous %}
@@ -26,6 +27,14 @@
   <p class="text-body-secondary">Все още не е изграждано разписание.</p>
 {% else %}
   {% include "solve/_job.html" %}
+  {% if job.published_at %}
+    <p class="mb-3"><span class="badge text-bg-success"><i class="bi bi-check-circle"></i> Публикувана версия</span></p>
+  {% elif published and current_user.role == 'admin' %}
+    <p id="draft-banner" class="alert alert-warning" role="status">
+      <i class="bi bi-pencil-square"></i> Показва се чернова, публикувана е версия от {{ published.published_at.strftime('%d.%m.%Y %H:%M') }}.
+      <a href="{{ url_for('solve.timetable', job=published.id) }}">Към публикуваната</a>
+    </p>
+  {% endif %}
 
   {% if job.status == 'finished' and cells is defined %}
     {% if moved is defined %}
@@ -80,7 +89,7 @@
                     <td>
                       {% for l in cells.get((d, p.number), []) %}
                         <div class="border rounded p-1 subject-{{ l.subject_id }} {% if not loop.last %}mb-1{% endif %}">
-                          <div class="fw-semibold" title="{{ l.subject_full }}">{{ l.subject }}</div>
+                          <div class="fw-semibold" title="{{ l.subject_full }}">{{ l.subject }}{% if l.changed %} <span class="badge text-bg-warning">променен</span>{% endif %}</div>
                           <small>
                             {{ l.teachers }}{% if l.room %} · {{ l.room }}{% endif %}{% if l.group %} · {{ l.group }}{% endif %}
                           </small>
