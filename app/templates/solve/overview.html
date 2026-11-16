@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Общ разпис{% endblock %}
+{% block head %}{% if subject_styles %}<style>{{ subject_styles }}</style>{% endif %}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h2 mb-0">Общ разпис</h1>
+  <div class="d-flex gap-2 d-print-none">
+    <a class="btn btn-outline-secondary" href="{{ url_for('solve.timetable', job=job.id) }}"><i class="bi bi-calendar3"></i> Към разписанието</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('solve.export_xlsx', job=job.id) }}"><i class="bi bi-file-earmark-excel"></i> Изтегли в Excel</a>
+    <button type="button" class="btn btn-outline-secondary" id="print-button"><i class="bi bi-printer"></i> Печат</button>
+  </div>
+</div>
+<p class="lead d-print-none">Всички класове на едно място: предмет и учител във всеки час.</p>
+<div class="table-responsive">
+  <table class="table table-bordered align-top overview-grid">
+    <caption class="visually-hidden">Общо седмично разписание на всички класове</caption>
+    <thead>
+      <tr>
+        <th scope="col" rowspan="2">Клас</th>
+        {% for d in days %}<th scope="colgroup" colspan="{{ periods|length }}" class="text-center">{{ day_names[d] }}</th>{% endfor %}
+      </tr>
+      <tr>
+        {% for d in days %}{% for p in periods %}<th scope="col" class="text-center">{{ p.number }}</th>{% endfor %}{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for c, cells in rows %}
+        <tr>
+          <th scope="row" class="text-nowrap">{{ c.name }}</th>
+          {% for d in days %}{% for p in periods %}
+            <td data-day="{{ d }}" data-period="{{ p.number }}">
+              {% for l in cells.get((d, p.number), []) %}
+                <div class="rounded p-1 subject-{{ l.subject_id }} {% if not loop.last %}mb-1{% endif %}" title="{{ l.subject_full }}">
+                  <div class="fw-semibold">{{ l.subject }}{% if l.group %} ({{ l.group }}){% endif %}</div>
+                  <div>{{ l.teachers_short }}</div>
+                </div>
+              {% endfor %}
+            </td>
+          {% endfor %}{% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/print.js') }}"></script>{% endblock %}

@@ -14,3 +14,50 @@
   vertical-align: middle;
   border-radius: 0.25rem;
 }
+
+/* Whole-school overview (FE-14): the first column stays while the table scrolls sideways. */
+.overview-grid {
+  font-size: 0.75rem;
+}
+
+.overview-grid th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--bs-body-bg);
+}
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 1cm;
+  }
+
+  /* A dark theme must not print light text on white paper. */
+  html[data-bs-theme] {
+    color-scheme: light;
+    --bs-body-color: #000;
+    --bs-body-bg: #fff;
+    --bs-border-color: #999;
+    --bs-secondary-color: #333;
+  }
+
+  .navbar,
+  .alert,
+  .btn {
+    display: none !important;
+  }
+
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  tr {
+    break-inside: avoid;
+  }
+
+  .table-responsive {
+    overflow: visible;
+  }
+}
