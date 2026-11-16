@@ -47,6 +47,34 @@ tr {
   break-inside: avoid;
 }
 
+/* FE-19: 35 narrow columns; never break a word mid-word, wrap the teacher line at spaces only. */
 .overview {
   font-size: 6pt;
+}
+
+.overview td,
+.overview th {
+  padding: 1pt;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
+.overview td div {
+  padding: 1pt;
+  margin-bottom: 1pt;
+}
+
+.overview .subj {
+  white-space: nowrap;
+}
+
+/* Surnames are the widest words: condensed face + smaller size so they fit a column. */
+.overview .teachers {
+  font-family: "DejaVu Sans Condensed", "DejaVu Sans", sans-serif;
+  font-size: 5pt;
+}
+
+.overview th:first-child {
+  width: 0.9cm;
 }

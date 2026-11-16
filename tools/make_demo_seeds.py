@@ -62,6 +62,32 @@ def lesson(class_id, subject_id, teacher, blocks, group=None):
     }
 
 
+# Usual Bulgarian school abbreviations (FE-19); a subject missing here has no short name.
+SHORT_NAMES = {
+    "Български език и литература": "БЕЛ",
+    "Математика": "Мат.",
+    "Английски език": "АЕ",
+    "Немски език": "НЕ",
+    "История и цивилизации": "ИЦ",
+    "География и икономика": "ГИ",
+    "Биология и здравно образование": "БЗО",
+    "Физика и астрономия": "ФА",
+    "Химия и опазване на околната среда": "ХООС",
+    "Философия": "Фил.",
+    "Физическо възпитание и спорт": "ФВС",
+    "Увод в програмирането": "УП",
+    "Информационни технологии": "ИТ",
+    "Програмиране": "Про.",
+    "Операционни системи": "ОС",
+    "Обектно-ориентирано програмиране": "ООП",
+    "Компютърни мрежи": "КМ",
+    "Бази данни": "БД",
+    "Софтуерно инженерство": "СИ",
+    "Интернет програмиране": "ИП",
+    "Час на класа": "ЧК",
+}
+
+
 def make_school(description, periods, class_names, plan, rooms):
     classes = [
         {
@@ -74,7 +100,14 @@ def make_school(description, periods, class_names, plan, rooms):
         for i, name in enumerate(class_names, 1)
     ]
     names = list(dict.fromkeys(row[0] for row in plan)) + ["Час на класа"]
-    subjects = [{"id": f"S{i:02d}", "name": n} for i, n in enumerate(names, 1)]
+    subjects = [
+        {
+            "id": f"S{i:02d}",
+            "name": n,
+            **({"short_name": SHORT_NAMES[n]} if n in SHORT_NAMES else {}),
+        }
+        for i, n in enumerate(names, 1)
+    ]
     subject_id = {s["name"]: s["id"] for s in subjects}
 
     curriculum = []

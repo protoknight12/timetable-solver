@@ -20,6 +20,18 @@
   font-size: 0.75rem;
 }
 
+/* FE-19: cells keep words whole; the subject line stays on one line, the teacher wraps at spaces. */
+.overview-grid td {
+  min-width: 4.5rem;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
+.overview-grid .subj {
+  white-space: nowrap;
+}
+
 .overview-grid th:first-child {
   position: sticky;
   left: 0;

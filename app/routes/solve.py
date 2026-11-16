@@ -244,6 +244,27 @@ def short_teacher(name: str) -> str:
     return f"{parts[0][0]}. {parts[-1]}" if len(parts) > 1 else name
 
 
+_SKIP_WORDS = {"и", "на", "в", "за", "с"}
+
+
+def short_subject(name: str) -> str:
+    """Automatic short name for a subject without Subject.short_name (FE-19).
+
+    One word -> "Мат."; several words -> initials ("Български език и литература" -> "БЕЛ").
+    """
+    words = [w for w in re.split(r"[\s-]+", name) if any(ch.isalpha() for ch in w)]
+    words = [w for w in words if w.lower() not in _SKIP_WORDS] or words
+    if len(words) > 1:
+        return "".join(w[0].upper() for w in words)
+    return words[0][:3] + "." if words and len(words[0]) > 4 else name
+
+
+def short_group(label: str) -> str:
+    """ "Първа група" -> "1 гр."; any other group name stays as it is."""
+    short = {"Първа група": "1 гр.", "Втора група": "2 гр."}
+    return ", ".join(short.get(g, g) for g in label.split(", "))
+
+
 def _pinned_courses() -> set[int]:
     return {
         c.params["course_id"]
@@ -432,7 +453,24 @@ def timetable():
 def _overview(job_id: int) -> list[tuple[SchoolClass, dict]]:
     # shortcut: one _grid call (and its queries) per class; fine for a school-sized list.
     classes = db.session.scalars(select(SchoolClass).order_by(SchoolClass.id))
-    return [(c, _grid(job_id, c.id)) for c in classes]
+    return [(c, _short_cells(_grid(job_id, c.id))) for c in classes]
+
+
+def _short_cells(cells: dict) -> dict:
+    """Overview cells are narrow: short subject (full name stays in subject_full) and group."""
+    return {
+        k: [
+            {
+                **l,
+                "subject": short_subject(l["subject_full"])
+                if l["subject"] == l["subject_full"]
+                else l["subject"],
+                "group": short_group(l["group"]),
+            }
+            for l in v
+        ]
+        for k, v in cells.items()
+    }
 
 
 def _overview_text(lesson: dict) -> str:

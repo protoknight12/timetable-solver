@@ -234,3 +234,32 @@ def test_excel_overview_sheet_has_a_row_per_class(make_client, migrated):
     assert [ws.cell(r, 1).value for r in range(2, ws.max_row + 1)] == classes
     assert ws.cell(1, 2).value.startswith("Понеделник 1")
     assert any(c.value for row in ws.iter_rows(min_row=2, min_col=2) for c in row)
+
+
+def test_short_subject_and_group_rules():
+    from app.routes.solve import short_group, short_subject
+
+    for full, short in {
+        "Математика": "Мат.",
+        "Философия": "Фил.",
+        "Български език и литература": "БЕЛ",
+        "Физическо възпитание и спорт": "ФВС",
+        "Информационни технологии": "ИТ",
+        "Час на класа": "ЧК",
+        "Химия и опазване на околната среда": "ХООС",
+    }.items():
+        assert short_subject(full) == short
+    assert (
+        short_group("Първа група") == "1 гр." and short_group("Втора група") == "2 гр."
+    )
+    assert short_group("Момчета") == "Момчета" and short_group("") == ""
+
+
+def test_overview_uses_short_names_and_keeps_full_name_as_title(make_client, migrated):
+    _solved("demo_school.json")
+    subject = db.session.scalars(select(m.Subject)).first()
+    subject.short_name = None  # the automatic rule must cover a missing short name
+    db.session.commit()
+    html = make_client("viewer").get("/overview").get_data(as_text=True)
+    body = html.split("<tbody>")[1]
+    assert f'title="{subject.name}"' in body and f">{subject.name}<" not in body
