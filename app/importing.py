@@ -9,13 +9,17 @@ Assumptions (no school rule is invented here):
   accounts are kept). A CSV file holds one sheet and is ADDED to the existing data;
   names that already exist count as duplicates;
 - rows refer to each other by name, so a name may appear only once per sheet;
-- the whole-class group is created with its class (as on the data pages).
+- the whole-class group is created with its class (as on the data pages);
+- a class written as the school's 3-digit code (234) is converted to 10Г (BE-15; the rule
+  is an unconfirmed assumption, see app/class_names.py) in the sheets Класове, Групи and
+  Учебен план. The admin sees every conversion in the preview before saving.
 """
 
 from __future__ import annotations
 
 import csv
 import io
+import re
 import zipfile
 from datetime import time
 
@@ -26,6 +30,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.datastructures import MultiDict
 
 from app import models as m
+from app.class_names import class_name_from_code, current_school_year_start
 from app.cli import reset_school_data
 from app.forms import (
     ClassForm,
@@ -87,6 +92,8 @@ INSTRUCTION_LINES = [
     "Блокове: например 2, 1. Изисква стая: да или не.",
     "Внимание: качването на Excel файл ЗАМЕСТВА всички текущи данни.",
 ]
+# The column of each sheet that names classes (the course sheet lists several, split by SEP).
+CLASS_COLUMN = {CLASSES: "Име", GROUPS: "Клас", COURSES: "Групи"}
 MAX_ROWS = 5000
 MAX_UNZIPPED = 50 * 1024 * 1024  # a small .xlsx can inflate hugely (zip bomb)
 SEP = ";"
@@ -179,9 +186,11 @@ def _ref(group: m.StudentGroup) -> str:
 
 
 class _Import:
-    def __init__(self, sheets):
+    def __init__(self, sheets, school_year_start):
         self.errors: list[str] = []
         self.counts: dict[str, int] = {}
+        self.conversions: dict[str, str] = {}  # "234" -> "10Г", for the preview
+        self.year = school_year_start
         self.tables = {s: self._table(s, sheets.get(s)) for s in HEADERS}
 
     def _table(self, sheet, raw):
@@ -200,8 +209,28 @@ class _Import:
         for n, row in enumerate(raw[1:], 2):
             cells = {h: row[i] if i < len(row) else "" for h, i in at.items()}
             if any(cells.values()):
+                if sheet in CLASS_COLUMN:
+                    h = CLASS_COLUMN[sheet]
+                    cells[h] = SEP.join(
+                        self._class_ref(sheet, n, t) for t in cells[h].split(SEP)
+                    )
                 rows.append((n, cells))
         return rows
+
+    def _class_ref(self, sheet, n, token):
+        """A class code ("234" or "234 — Група") becomes its standard name; other text is kept."""
+        head, dash, tail = token.strip().partition(" — ")
+        if not re.fullmatch(r"\d{3}", head.strip()):
+            return token
+        try:
+            name = (
+                self.conversions.get(head) or class_name_from_code(head, self.year)[1]
+            )
+        except ValueError as e:
+            self.error(sheet, n, str(e))
+            return token
+        self.conversions[head] = name
+        return name + dash + tail
 
     def error(self, sheet, n, message):
         self.errors.append(f"Лист „{sheet}“, ред {n}: {message}")
@@ -453,25 +482,34 @@ class _Import:
 
 
 def import_sheets(
-    sheets: dict[str, list[list[str]]], replace: bool
-) -> tuple[list[str], dict[str, int]]:
-    """Import all or nothing. Returns (errors, rows imported per sheet)."""
-    run = _Import(sheets)
+    sheets: dict[str, list[list[str]]],
+    replace: bool,
+    school_year_start: int | None = None,
+    dry_run: bool = False,
+) -> tuple[list[str], dict[str, int], dict[str, str]]:
+    """Import all or nothing (dry_run: check, then roll back).
+
+    Returns (errors, rows imported per sheet, class code -> name conversions).
+    """
+    run = _Import(sheets, school_year_start or current_school_year_start())
     if not run.errors and not any(run.tables.values()):
         run.errors.append("Във файла няма данни за импорт.")
     if run.errors:
-        return run.errors, {}
+        return run.errors, {}, run.conversions
     try:
         if replace:
             reset_school_data()
         run.run()
-        if not run.errors:
+        if not run.errors and not dry_run:
             db.session.commit()
-            return [], run.counts
+            return [], run.counts, run.conversions
+        if not run.errors:
+            db.session.rollback()
+            return [], run.counts, run.conversions
     except SQLAlchemyError:
         run.errors.append("Данните не бяха запазени: те влизат в конфликт.")
     db.session.rollback()
-    return run.errors, {}
+    return run.errors, {}, run.conversions
 
 
 # --- export / template ---

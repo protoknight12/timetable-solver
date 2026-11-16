@@ -27,6 +27,7 @@ from wtforms.validators import (
     Regexp,
 )
 
+from app.class_names import NAME_ERROR, NAME_RE, normalize_class_name
 from app.models import (
     ROLES,
     Period,
@@ -140,7 +141,14 @@ class RoomForm(DataForm):
 
 
 class ClassForm(DataForm):
-    name = _name("Име (например 10А)", 40)
+    name = StringField(
+        "Име (например 10А)",
+        filters=[normalize_class_name],
+        validators=[
+            DataRequired(REQUIRED),
+            Regexp(NAME_RE.pattern + "$", message=NAME_ERROR),
+        ],
+    )
     grade = BgIntegerField(
         "Година на обучение (1–12, по избор)",
         validators=[
@@ -148,6 +156,19 @@ class ClassForm(DataForm):
             NumberRange(1, 12, "Годината на обучение трябва да е между 1 и 12."),
         ],
     )
+
+    def validate(self, extra_validators=None):
+        ok = super().validate(extra_validators)
+        if ok:
+            from_name = int(NAME_RE.fullmatch(self.name.data).group(1))
+            if self.grade.data is None:
+                self.grade.data = from_name
+            elif self.grade.data != from_name:
+                self.grade.errors.append(
+                    "Годината на обучение не съвпада с името на класа."
+                )
+                ok = False
+        return ok
 
 
 class GroupForm(DataForm):
