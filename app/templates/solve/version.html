@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Версия №{{ job.id }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h2 mb-0">Версия №{{ job.id }}</h1>
+  <a class="btn btn-outline-secondary" href="{{ url_for('solve.history') }}"><i class="bi bi-arrow-left"></i> Към историята</a>
+</div>
+<p class="lead">{{ how }}.
+  {% if other %}Сравнение с версия №{{ other.id }}.{% else %}Няма предишна версия за сравнение.{% endif %}</p>
+
+<form method="get" class="row g-2 align-items-end mb-3">
+  <div class="col-auto">
+    <label class="form-label" for="f-class">Клас</label>
+    <select class="form-select" id="f-class" name="class">
+      <option value="">Всички</option>
+      {% for c in classes %}<option value="{{ c.id }}" {{ 'selected' if c.id == class_id }}>{{ c.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <label class="form-label" for="f-teacher">Учител</label>
+    <select class="form-select" id="f-teacher" name="teacher">
+      <option value="">Всички</option>
+      {% for t in teachers %}<option value="{{ t.id }}" {{ 'selected' if t.id == teacher_id }}>{{ t.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <label class="form-label" for="f-by">Групиране</label>
+    <select class="form-select" id="f-by" name="by">
+      <option value="class" {{ 'selected' if by == 'class' }}>По клас</option>
+      <option value="teacher" {{ 'selected' if by == 'teacher' }}>По учител</option>
+    </select>
+  </div>
+  {% if other %}<input type="hidden" name="against" value="{{ other.id }}">{% endif %}
+  <div class="col-auto"><button class="btn btn-primary" type="submit"><i class="bi bi-funnel"></i> Покажи</button></div>
+</form>
+
+<p id="diff-counts">Добавени: {{ counts.added }} · Премахнати: {{ counts.removed }} · Преместени: {{ counts.moved }} · Сменена стая: {{ counts.room }}</p>
+{% set labels = {'added': 'Добавен', 'removed': 'Премахнат', 'moved': 'Преместен', 'room': 'Сменена стая'} %}
+{% for name, rows in groups.items() %}
+  <h2 class="h5 mt-4">{{ name }}</h2>
+  <ul class="list-group">
+    {% for r in rows %}
+      <li class="list-group-item">
+        <span class="badge text-bg-secondary">{{ labels[r.kind] }}</span>
+        <strong>{{ r.subject }}</strong>:
+        {% if r.before and r.after %}{{ r.before }} → {{ r.after }}{% else %}{{ r.before or r.after }}{% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="text-body-secondary">Няма промени.</p>
+{% endfor %}
+{% endblock %}

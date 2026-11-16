@@ -204,6 +204,11 @@ class SolveJob(Base):
     base_job_id: Mapped[int | None] = mapped_column(
         ForeignKey("solve_jobs.id", ondelete="SET NULL")
     )
+    # BE-21: at most one job is published; teachers and public pages show it.
+    published_at: Mapped[datetime | None]
+    created_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
 
 
 class Lesson(Base):
