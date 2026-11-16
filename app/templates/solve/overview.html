@@ -8,6 +8,7 @@
   <div class="d-flex gap-2 d-print-none">
     <a class="btn btn-outline-secondary" href="{{ url_for('solve.timetable', job=job.id) }}"><i class="bi bi-calendar3"></i> Към разписанието</a>
     <a class="btn btn-outline-secondary" href="{{ url_for('solve.export_xlsx', job=job.id) }}"><i class="bi bi-file-earmark-excel"></i> Изтегли в Excel</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('solve.overview_pdf', job=job.id) }}"><i class="bi bi-file-earmark-pdf"></i> Изтегли в PDF</a>
     <button type="button" class="btn btn-outline-secondary" id="print-button"><i class="bi bi-printer"></i> Печат</button>
   </div>
 </div>

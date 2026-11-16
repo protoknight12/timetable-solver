@@ -548,6 +548,91 @@ def export_xlsx():
     )
 
 
+def _pdf(template: str, download_name: str, back: dict, **ctx):
+    """Render a standalone print template to an A4 landscape PDF (FE-18)."""
+    try:  # lazy: Windows dev machines without GTK cannot import it
+        from weasyprint import CSS, HTML
+    except (ImportError, OSError):
+        flash(
+            "PDF изтеглянето не е налично на този сървър. Използвайте „Печат“.",
+            "warning",
+        )
+        return redirect(url_for("solve.timetable", **back))
+    job = ctx["job"]
+    html = render_template(
+        template,
+        days=range(1, current_app.config["SCHOOL_DAYS"] + 1),
+        day_names={d: n.capitalize() for d, n in DAY_NAMES.items()},
+        periods=db.session.scalars(select(Period).order_by(Period.number)).all(),
+        subject_styles=subject_css(db.session.scalars(select(Subject))),
+        **ctx,
+    )
+    css = CSS(filename=f"{current_app.static_folder}/css/pdf.css")
+    pdf = HTML(string=html).write_pdf(stylesheets=[css])
+    return send_file(
+        BytesIO(pdf),
+        as_attachment=True,
+        download_name=f"{download_name}-{job.id}.pdf",
+        mimetype="application/pdf",
+    )
+
+
+@bp.get("/timetable.pdf")
+@login_required
+def timetable_pdf():
+    """One class, teacher (?teacher=) or room (?room=): same choice rules as the page."""
+    job = shown_job(current_user.role == "admin", request.args.get("job", type=int))
+    if not (job and job.status == "finished" and job.solver_status in HAS_TIMETABLE):
+        flash("Все още няма изградено разписание за изтегляне.", "warning")
+        return redirect(url_for("solve.timetable"))
+    teacher = db.session.get(Teacher, request.args.get("teacher", type=int) or 0)
+    room = (
+        None
+        if teacher
+        else db.session.get(Room, request.args.get("room", type=int) or 0)
+    )
+    school_class = None
+    if not (teacher or room):
+        school_class = (
+            db.session.get(SchoolClass, request.args.get("class", type=int) or 0)
+            or db.session.scalars(select(SchoolClass).order_by(SchoolClass.id)).first()
+        )
+        if not school_class:
+            abort(404)
+    subject = teacher or room or school_class
+    title = ("Учител " if teacher else "Стая " if room else "Клас ") + subject.name
+    return _pdf(
+        "solve/pdf.html",
+        "razpisanie",
+        {"job": job.id},
+        job=job,
+        title=title,
+        cells=_grid(
+            job.id,
+            school_class and school_class.id,
+            teacher and teacher.id,
+            room and room.id,
+        ),
+    )
+
+
+@bp.get("/overview.pdf")
+@login_required
+def overview_pdf():
+    job = shown_job(current_user.role == "admin", request.args.get("job", type=int))
+    if not (job and job.status == "finished" and job.solver_status in HAS_TIMETABLE):
+        flash("Все още няма изградено разписание за изтегляне.", "warning")
+        return redirect(url_for("solve.timetable"))
+    return _pdf(
+        "solve/pdf_overview.html",
+        "obsht-razpis",
+        {"job": job.id},
+        job=job,
+        title="Общ разпис",
+        rows=_overview(job.id),
+    )
+
+
 @bp.get("/jobs/<int:job_id>/card")
 @login_required
 def job_card(job_id: int):

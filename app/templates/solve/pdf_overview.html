@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<style>{{ subject_styles }}</style>
+</head>
+<body>
+<h1>{{ title }}</h1>
+<table class="overview">
+  <thead>
+    <tr>
+      <th rowspan="2">Клас</th>
+      {% for d in days %}<th colspan="{{ periods|length }}">{{ day_names[d] }}</th>{% endfor %}
+    </tr>
+    <tr>
+      {% for d in days %}{% for p in periods %}<th>{{ p.number }}</th>{% endfor %}{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for c, cells in rows %}
+      <tr>
+        <th>{{ c.name }}</th>
+        {% for d in days %}{% for p in periods %}
+          <td>
+            {% for l in cells.get((d, p.number), []) %}
+              <div class="subject-{{ l.subject_id }}">
+                <strong>{{ l.subject }}{% if l.group %} ({{ l.group }}){% endif %}</strong><br>{{ l.teachers_short }}
+              </div>
+            {% endfor %}
+          </td>
+        {% endfor %}{% endfor %}
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</body>
+</html>

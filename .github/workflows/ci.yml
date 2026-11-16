@@ -20,6 +20,7 @@ jobs:
           --health-cmd "pg_isready -U saturn"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
+      REQUIRE_PDF: "1"  # the PDF tests must run here, not skip
       # DB tests run on PostgreSQL here; locally they fall back to SQLite.
       TEST_DATABASE_URL: postgresql+psycopg://saturn:saturn@localhost:5432/saturn_test
     steps:
@@ -27,6 +28,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.12"
+      # WeasyPrint runtime libraries and a font with Cyrillic.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libharfbuzz-subset0 fontconfig fonts-dejavu-core
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
