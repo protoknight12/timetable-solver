@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ e.plural }}{% endblock %}
+{% block head %}{% if e.key == 'subjects' %}<style>{{ subject_css(items) }}</style>{% endif %}{% endblock %}
 
 {% block content %}
 {% set is_admin = current_user.role == 'admin' %}

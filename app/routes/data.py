@@ -22,6 +22,7 @@ from dataclasses import dataclass
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import login_required
+from markupsafe import Markup
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
@@ -86,6 +87,13 @@ def teacher_usages(teacher: Teacher) -> list[str]:
         .join(course_part_teachers, course_part_teachers.c.part_id == CoursePart.id)
         .where(course_part_teachers.c.teacher_id == teacher.id)
     )
+
+
+def _subject_name(subject: Subject) -> Markup:
+    # Swatch plus text, never color alone; its color comes from the page's <style> block.
+    return Markup(
+        '<span class="subject-swatch subject-{} border me-2" aria-hidden="true"></span>{}'
+    ).format(subject.id, subject.name)
 
 
 def subject_usages(subject: Subject) -> list[str]:
@@ -286,7 +294,8 @@ ENTITIES = (
         "Предметът",
         "",
         (
-            ("Име", lambda s: s.name),
+            ("Име", _subject_name),
+            ("Кратко име", lambda s: s.short_name or "—"),
             ("Тип стая по подразбиране", lambda s: s.default_room_type or "—"),
         ),
         (Subject.name, Subject.id),

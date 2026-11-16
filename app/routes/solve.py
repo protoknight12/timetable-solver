@@ -19,7 +19,7 @@ from flask import (
 )
 from flask_login import current_user, login_required
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font
+from openpyxl.styles import Alignment, Font, PatternFill
 from redis import Redis
 from rq import Queue
 from sqlalchemy import DateTime, func, select, type_coerce
@@ -36,6 +36,7 @@ from app.models import (
     Room,
     SchoolClass,
     SolveJob,
+    Subject,
     Teacher,
     Violation,
     db,
@@ -43,6 +44,7 @@ from app.models import (
 from app.routes.constraints import _names as constraint_names
 from app.routes.constraints import describe
 from app.solve_text import FALLBACK_MESSAGE, JOB_STATUS, MESSAGES, SOLVER_STATUS
+from app.subject_colors import subject_color, subject_css, text_color
 from solver import count_moved
 
 bp = Blueprint("solve", __name__)
@@ -193,6 +195,16 @@ def _violation_rows(job_id: int) -> list[dict]:
     return rows
 
 
+def _subject_fields(subject: Subject) -> dict:
+    # The short name (if any) is what the cell shows; the page and the export share this.
+    return {
+        "subject": subject.short_name or subject.name,
+        "subject_full": subject.name,
+        "subject_id": subject.id,
+        "color": subject_color(subject),
+    }
+
+
 def _grid(
     job_id: int, class_id: int | None = None, teacher_id: int | None = None
 ) -> dict[tuple[int, int], list[dict]]:
@@ -228,7 +240,7 @@ def _grid(
                 for cid, gs in sorted(by_class.items())
             )
             entry = {
-                "subject": part.subject.name,
+                **_subject_fields(part.subject),
                 "teachers": label,
                 "room": rooms.get(les.room_id, ""),
                 "group": "",
@@ -240,7 +252,7 @@ def _grid(
         if not mine:
             continue
         entry = {
-            "subject": part.subject.name,
+            **_subject_fields(part.subject),
             "teachers": ", ".join(sorted(t.name for t in part.teachers)),
             "room": rooms.get(les.room_id, ""),
             # The whole class needs no group label.
@@ -307,6 +319,7 @@ def timetable():
             "days": range(1, current_app.config["SCHOOL_DAYS"] + 1),
             "periods": db.session.scalars(select(Period).order_by(Period.number)).all(),
             "violations": _violation_rows(job.id),
+            "subject_styles": subject_css(db.session.scalars(select(Subject))),
         }
         if job.base_job_id:
             ctx["moved"] = count_moved(placements(job.base_job_id), placements(job.id))
@@ -366,6 +379,15 @@ def export_xlsx():
         for row in ws.iter_rows():
             for cell in row:
                 cell.alignment = Alignment(wrap_text=True, vertical="top")
+        for r, p in enumerate(periods, 2):
+            for d in days:
+                # shortcut: a split cell (several lessons) has no single color, so it stays plain.
+                lessons = cells.get((d, p.number), [])
+                if len(lessons) == 1:
+                    color = lessons[0]["color"]
+                    cell = ws.cell(r, d + 1)
+                    cell.fill = PatternFill("solid", fgColor=color[1:])
+                    cell.font = Font(color=text_color(color)[1:])
         ws.column_dimensions["A"].width = 12
         for d in days:
             ws.column_dimensions[ws.cell(1, d + 1).column_letter].width = 28

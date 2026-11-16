@@ -45,7 +45,12 @@ def load_school(seed: dict) -> None:
         for t, r in zip(inp.teachers, seed["teachers"], strict=True)
     )
     s.add_all(
-        m.Subject(id=x.id, name=r["name"])
+        m.Subject(
+            id=x.id,
+            name=r["name"],
+            color=r.get("color"),
+            short_name=r.get("short_name"),
+        )
         for x, r in zip(inp.subjects, seed["subjects"], strict=True)
     )
     s.add_all(m.SchoolClass(id=k.id, name=k.name, grade=k.grade) for k in inp.classes)

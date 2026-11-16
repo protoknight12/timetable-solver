@@ -86,6 +86,8 @@ class Subject(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
     default_room_type: Mapped[str | None] = mapped_column(String(40))
+    color: Mapped[str | None] = mapped_column(String(7))  # '#rrggbb'; None = automatic
+    short_name: Mapped[str | None] = mapped_column(String(20))
 
 
 class SchoolClass(Base):
