@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>{{ title }}</title>
 <style>{{ subject_styles }}</style>
+<style>@page { size: A3 landscape; }</style>
 </head>
 <body>
 <h1>{{ title }}</h1>
@@ -24,8 +25,8 @@
         {% for d in days %}{% for p in periods %}
           <td>
             {% for l in cells.get((d, p.number), []) %}
-              <div class="subject-{{ l.subject_id }}">
-                <strong>{{ l.subject }}{% if l.group %} ({{ l.group }}){% endif %}</strong><br>{{ l.teachers_short }}
+              <div class="subject-{{ l.subject_id }}" title="{{ l.subject_full }}">
+                <strong><span class="subj">{{ l.subject }}</span>{% if l.group %} <span class="subj">({{ l.group }})</span>{% endif %}</strong><br><span class="teachers">{{ l.teachers_short }}</span>
               </div>
             {% endfor %}
           </td>

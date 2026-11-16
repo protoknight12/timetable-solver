@@ -33,7 +33,7 @@
             <td data-day="{{ d }}" data-period="{{ p.number }}">
               {% for l in cells.get((d, p.number), []) %}
                 <div class="rounded p-1 subject-{{ l.subject_id }} {% if not loop.last %}mb-1{% endif %}" title="{{ l.subject_full }}">
-                  <div class="fw-semibold">{{ l.subject }}{% if l.group %} ({{ l.group }}){% endif %}</div>
+                  <div class="fw-semibold subj">{{ l.subject }}{% if l.group %} ({{ l.group }}){% endif %}</div>
                   <div>{{ l.teachers_short }}</div>
                 </div>
               {% endfor %}
