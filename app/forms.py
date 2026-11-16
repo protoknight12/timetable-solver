@@ -114,6 +114,11 @@ class DataForm(FlaskForm):
 
 class TeacherForm(DataForm):
     name = _name("Име", 120)
+    short_name = StringField(
+        "Кратко име (по избор, например И. Петров)",
+        filters=[_strip_or_none],
+        validators=[Optional(), Length(max=40, message=_too_long(40))],
+    )
     # "" = no login. Only viewers not yet linked to another teacher are offered.
     account = SelectField("Профил за вход", default="")
 
@@ -133,9 +138,8 @@ class TeacherForm(DataForm):
             self.account.data = str(linked or "")
 
     def populate_obj(self, obj):
-        obj.name = (
-            self.name.data
-        )  # `account` is not a Teacher column; see _link_account
+        obj.name = self.name.data
+        obj.short_name = self.short_name.data  # `account`: see _link_account
 
 
 class SubjectForm(DataForm):
@@ -208,6 +212,21 @@ class ClassForm(DataForm):
             NumberRange(1, 12, "Годината на обучение трябва да е между 1 и 12."),
         ],
     )
+    # "" = none. Plain SelectField, so form.html styles it as a select.
+    class_teacher_id = SelectField(
+        "Класен ръководител (по избор)",
+        coerce=lambda v: int(v) if v else None,
+        default="",
+    )
+
+    def __init__(self, *args, obj=None, **kwargs):
+        super().__init__(*args, obj=obj, **kwargs)
+        teachers = db.session.scalars(
+            select(Teacher).order_by(Teacher.name, Teacher.id)
+        )
+        self.class_teacher_id.choices = [("", "Без класен ръководител")] + [
+            (t.id, t.name) for t in teachers
+        ]
 
     def validate(self, extra_validators=None):
         ok = super().validate(extra_validators)

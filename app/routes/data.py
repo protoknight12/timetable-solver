@@ -301,7 +301,7 @@ ENTITIES = (
         "Добави учител",
         "Учителят",
         "",
-        (("Име", lambda t: t.name),),
+        (("Име", lambda t: t.name), ("Кратко име", lambda t: t.short_name or "—")),
         (Teacher.name, Teacher.id),
         teacher_usages,
         after_save=_link_account,
@@ -355,6 +355,10 @@ ENTITIES = (
         (
             ("Име", lambda c: c.name),
             ("Година на обучение", lambda c: c.grade or "—"),
+            (
+                "Класен ръководител",
+                lambda c: c.class_teacher.name if c.class_teacher else "—",
+            ),
             ("Групи", _extra_groups),
         ),
         (SchoolClass.grade, SchoolClass.name, SchoolClass.id),

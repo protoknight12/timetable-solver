@@ -32,6 +32,7 @@ from werkzeug.datastructures import MultiDict
 from app import models as m
 from app.class_names import class_name_from_code, current_school_year_start
 from app.cli import reset_school_data
+from app.constraint_forms import constraint_problem
 from app.forms import (
     ClassForm,
     CourseForm,
@@ -47,6 +48,7 @@ from app.models import db
 
 # shortcut: private helpers of the data pages, reused so both paths build rows alike.
 from app.routes.data import _add_whole_group, _fill_part
+from app.solver_input import build_solver_input
 
 TEACHERS, SUBJECTS, ROOMS, CLASSES, GROUPS, PERIODS, COURSES = (
     "Учители",
@@ -58,10 +60,10 @@ TEACHERS, SUBJECTS, ROOMS, CLASSES, GROUPS, PERIODS, COURSES = (
     "Учебен план",
 )
 HEADERS = {
-    TEACHERS: ["Име"],
+    TEACHERS: ["Име", "Кратко име"],
     SUBJECTS: ["Име", "Тип стая по подразбиране", "Кратко име", "Цвят"],
     ROOMS: ["Име", "Тип", "Едновременни часове"],
-    CLASSES: ["Име", "Година на обучение"],
+    CLASSES: ["Име", "Година на обучение", "Класен ръководител"],
     GROUPS: ["Клас", "Име", "Разделяне"],
     PERIODS: ["Номер", "Начало", "Край"],
     COURSES: [
@@ -79,7 +81,13 @@ HEADERS = {
     ],
 }
 # Columns older files may lack (they import without them); a Subject without a color is automatic.
-OPTIONAL = {SUBJECTS: ("Кратко име", "Цвят"), COURSES: ("Седмица",)}
+OPTIONAL = {
+    TEACHERS: ("Кратко име",),
+    SUBJECTS: ("Кратко име", "Цвят"),
+    CLASSES: ("Класен ръководител",),
+    COURSES: ("Седмица",),
+}
+CONSTRAINTS = "Ограничения"  # counted like a sheet, but only aSc files carry them
 INSTRUCTIONS = "Инструкции"
 INSTRUCTION_LINES = [
     "Попълнете листовете. Не променяйте имената на листовете и заглавията в първия ред.",
@@ -94,6 +102,7 @@ INSTRUCTION_LINES = [
     ),
     "Блокове: например 2, 1. Изисква стая: да или не.",
     "Седмица (не е задължителна): празно или „всяка“ за всяка седмица, „A“ или „B“ за час през седмица.",
+    "Учители: „Кратко име“ не е задължително. Класове: „Класен ръководител“ не е задължително (име на учител от лист „Учители“).",
     "Предмети: „Кратко име“ и „Цвят“ (например #4e79a7) не са задължителни; без цвят се избира автоматичен.",
     "Внимание: качването на Excel файл ЗАМЕСТВА всички текущи данни.",
 ]
@@ -200,7 +209,8 @@ def _ref(group: m.StudentGroup) -> str:
 
 
 class _Import:
-    def __init__(self, sheets, school_year_start):
+    def __init__(self, sheets, school_year_start, rules=()):
+        self.rules = rules  # BE-17: constraints from an aSc file, see constraints()
         self.errors: list[str] = []
         self.counts: dict[str, int] = {}
         self.conversions: dict[str, str] = {}  # "234" -> "10Г", for the preview
@@ -263,7 +273,12 @@ class _Import:
 
     def run(self):
         self.periods()
-        self.named(TEACHERS, m.Teacher, TeacherForm, {"name": "Име"})
+        self.named(
+            TEACHERS,
+            m.Teacher,
+            TeacherForm,
+            {"name": "Име", "short_name": "Кратко име"},
+        )
         self.named(
             SUBJECTS,
             m.Subject,
@@ -285,15 +300,68 @@ class _Import:
                 "concurrent_capacity": "Едновременни часове",
             },
         )
+        self.class_teachers()
         self.named(
             CLASSES,
             m.SchoolClass,
             ClassForm,
-            {"name": "Име", "grade": "Година на обучение"},
+            {
+                "name": "Име",
+                "grade": "Година на обучение",
+                "class_teacher_id": "Класен ръководител",
+            },
             after=_add_whole_group,
         )
         self.groups()
         self.courses()
+        self.constraints()
+
+    def class_teachers(self):
+        """The class teacher is written as a name; the class form wants the id."""
+        teachers = _by_name(m.Teacher)  # the query also flushes the new teachers
+        for n, r in self.tables[CLASSES]:
+            name = r.get("Класен ръководител", "")
+            if not name:
+                continue
+            if name in teachers:
+                r["Класен ръководител"] = str(teachers[name].id)
+            else:
+                self.error(CLASSES, n, f"Класен ръководител: Непознат учител „{name}“.")
+                r["Класен ръководител"] = ""
+
+    def constraints(self):
+        """BE-17: rules read from an aSc file; confirmed, as they are the school's own."""
+        if not self.rules or self.errors:
+            return
+        db.session.flush()
+        ids = {
+            "teacher": _by_name(m.Teacher),
+            "subject": _by_name(m.Subject),
+            "class": _by_name(m.SchoolClass),
+        }
+        inp = build_solver_input(db.session)
+        for sheet, n, type_, kind, name, extra in self.rules:
+            if kind == "class":
+                name = self._class_ref(sheet, n, name)
+            if name not in ids[kind]:
+                self.error(sheet, n, f"Ограничение: непознат запис „{name}“.")
+                continue
+            params = {f"{kind}_id": ids[kind][name].id, **extra}
+            data = {"type": type_, "hard": True, "weight": None, "params": params}
+            _, problem = constraint_problem(data, inp)
+            if problem:
+                self.error(sheet, n, problem)
+                continue
+            db.session.add(
+                m.Constraint(
+                    type=type_,
+                    params=params,
+                    hard=True,
+                    status="confirmed",
+                    source="import",
+                )
+            )
+            self.done(CONSTRAINTS)
 
     def periods(self):
         rows = self.tables[PERIODS]
@@ -512,12 +580,13 @@ def import_sheets(
     replace: bool,
     school_year_start: int | None = None,
     dry_run: bool = False,
+    rules: tuple = (),
 ) -> tuple[list[str], dict[str, int], dict[str, str]]:
     """Import all or nothing (dry_run: check, then roll back).
 
     Returns (errors, rows imported per sheet, class code -> name conversions).
     """
-    run = _Import(sheets, school_year_start or current_school_year_start())
+    run = _Import(sheets, school_year_start or current_school_year_start(), rules)
     if not run.errors and not any(run.tables.values()):
         run.errors.append("Във файла няма данни за импорт.")
     if run.errors:
@@ -547,7 +616,10 @@ def build_workbook(with_data: bool) -> Workbook:
     s = db.session.scalars
     rows = {sheet: [] for sheet in HEADERS}
     if with_data:
-        rows[TEACHERS] = [[t.name] for t in s(select(m.Teacher).order_by(m.Teacher.id))]
+        rows[TEACHERS] = [
+            [t.name, t.short_name or ""]
+            for t in s(select(m.Teacher).order_by(m.Teacher.id))
+        ]
         rows[SUBJECTS] = [
             [x.name, x.default_room_type or "", x.short_name or "", x.color or ""]
             for x in s(select(m.Subject).order_by(m.Subject.id))
@@ -557,7 +629,8 @@ def build_workbook(with_data: bool) -> Workbook:
             for x in s(select(m.Room).order_by(m.Room.id))
         ]
         for c in s(select(m.SchoolClass).order_by(m.SchoolClass.id)):
-            rows[CLASSES].append([c.name, c.grade or ""])
+            teacher = c.class_teacher.name if c.class_teacher else ""
+            rows[CLASSES].append([c.name, c.grade or "", teacher])
             rows[GROUPS] += [
                 [c.name, g.name, g.split]
                 for g in sorted(c.groups, key=lambda g: g.id)
