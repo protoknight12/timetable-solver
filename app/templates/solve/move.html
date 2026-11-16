@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Преместване на урок{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h4 mb-3">Преместване на урок</h1>
+        <p>{{ subject }}: {{ days[les.day] }}, {{ les.start_period }}. час. Всички части на този урок се преместват заедно.</p>
+        <form method="post" action="{{ url_for('solve.move', lesson_id=les.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {% for k, v in back.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+          <div class="form-floating mb-3">
+            <select class="form-select" id="m-day" name="day" required>
+              {% for d, name in days.items() %}<option value="{{ d }}" {{ 'selected' if d == les.day }}>{{ name }}</option>{% endfor %}
+            </select>
+            <label for="m-day">Ден</label>
+          </div>
+          <div class="form-floating mb-3">
+            <select class="form-select" id="m-period" name="start_period" required>
+              {% for p in periods %}<option value="{{ p.number }}" {{ 'selected' if p.number == les.start_period }}>{{ p.number }}. час</option>{% endfor %}
+            </select>
+            <label for="m-period">Начален час</label>
+          </div>
+          <div class="form-floating mb-3">
+            <select class="form-select" id="m-room" name="room_id">
+              <option value="">Без промяна</option>
+              {% for r in rooms %}<option value="{{ r.id }}" {{ 'selected' if r.id == les.room_id }}>{{ r.name }}</option>{% endfor %}
+            </select>
+            <label for="m-room">Стая</label>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-arrows-move"></i> Премести</button>
+            <a class="btn btn-outline-secondary" href="{{ url_for('solve.timetable', job=les.job_id, **back) }}">Откажи</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

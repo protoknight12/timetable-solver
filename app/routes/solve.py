@@ -31,6 +31,7 @@ from app.history import diff_lessons, how_made
 from app.jobs import placements, run_solve, solve_in_thread
 from app.models import (
     Constraint,
+    Course,
     CoursePart,
     Lesson,
     Period,
@@ -46,7 +47,10 @@ from app.models import (
 from app.routes.constraints import _names as constraint_names
 from app.routes.constraints import describe
 from app.solve_text import FALLBACK_MESSAGE, JOB_STATUS, MESSAGES, SOLVER_STATUS
+from app.solver_input import build_solver_input
 from app.subject_colors import subject_color, subject_css, text_color
+from checker import check
+from schema.contract import LessonPlacement, SolveResult
 from solver import count_moved
 
 bp = Blueprint("solve", __name__)
@@ -186,6 +190,15 @@ def _entity_names() -> dict[str, dict[int, str]]:
 
 
 def _violation_rows(job_id: int) -> list[dict]:
+    return _format_violations(
+        db.session.scalars(
+            select(Violation).where(Violation.job_id == job_id).order_by(Violation.id)
+        )
+    )
+
+
+def _format_violations(violations) -> list[dict]:
+    """Bulgarian rows for saved or not yet saved ``Violation`` objects."""
     names = _entity_names()
     kinds = {
         "teacher": "Учител",
@@ -198,9 +211,7 @@ def _violation_rows(job_id: int) -> list[dict]:
         "block": "Блок №",
     }
     rows = []
-    for v in db.session.scalars(
-        select(Violation).where(Violation.job_id == job_id).order_by(Violation.id)
-    ):
+    for v in violations:
         about = []
         for kind, ident in v.entity_ids:
             value = names.get(kind, {}).get(ident, ident + (kind == "block"))
@@ -227,6 +238,17 @@ def _subject_fields(subject: Subject) -> dict:
     }
 
 
+def _pinned_courses() -> set[int]:
+    return {
+        c.params["course_id"]
+        for c in db.session.scalars(
+            select(Constraint).where(
+                Constraint.type == "fixed_slot", Constraint.status == "confirmed"
+            )
+        )
+    }
+
+
 def _grid(
     job_id: int,
     class_id: int | None = None,
@@ -247,6 +269,7 @@ def _grid(
     parts = {p.id: p for p in parts}
     names = _entity_names()
     rooms = names["room"]
+    pinned = _pinned_courses()
     cells: dict[tuple[int, int], list[dict]] = {}
     for les in db.session.scalars(select(Lesson).where(Lesson.job_id == job_id)):
         part = parts[les.part_id]
@@ -272,6 +295,8 @@ def _grid(
                 "teachers": label,
                 "room": rooms.get(les.room_id, ""),
                 "group": "",
+                "lesson_id": les.id,
+                "pinned": les.course_id in pinned,
                 "changed": (part.id, les.day, les.start_period, les.length) in changed,
             }
             for period in range(les.start_period, les.start_period + les.length):
@@ -284,6 +309,8 @@ def _grid(
             **_subject_fields(part.subject),
             "teachers": ", ".join(sorted(t.name for t in part.teachers)),
             "room": rooms.get(les.room_id, ""),
+            "lesson_id": les.id,
+            "pinned": les.course_id in pinned,
             # The whole class needs no group label.
             "group": ""
             if any(g.is_whole for g in mine)
@@ -355,6 +382,10 @@ def timetable():
             else {},
             "days": range(1, current_app.config["SCHOOL_DAYS"] + 1),
             "periods": db.session.scalars(select(Period).order_by(Period.number)).all(),
+            "back": {
+                "class": current and current.id,
+                "teacher": teacher and teacher.id,
+            },
             "violations": _violation_rows(job.id),
             "subject_styles": subject_css(db.session.scalars(select(Subject))),
         }
@@ -461,6 +492,17 @@ def _slot(p) -> tuple[int, int, int]:
     return p.day, p.start_period, p.length
 
 
+def _edited(job: SolveJob) -> bool:
+    """A copy that differs from its base was edited by hand (FE-15), else restored.
+
+    shortcut: an edit moved back to the base layout reads as a restore; a marker
+    column would fix that, but needs the schema owner's approval.
+    """
+    return bool(job.base_job_id) and bool(
+        diff_lessons(placements(job.base_job_id), placements(job.id))
+    )
+
+
 def _version(job_id: int) -> SolveJob:
     """A job that holds a timetable (a "version"), else 404."""
     job = db.session.get(SolveJob, job_id) or abort(404)
@@ -485,7 +527,7 @@ def history():
             {
                 "job": job,
                 "who": users.get(job.created_by_id, "—"),
-                "how": how_made(job)[1],
+                "how": how_made(job, _edited(job))[1],
                 "moved": prev and count_moved(placements(prev.id), placements(job.id)),
             }
         )
@@ -554,7 +596,7 @@ def version(job_id: int):
         teachers=db.session.scalars(select(Teacher).order_by(Teacher.name)).all(),
         class_id=class_id,
         teacher_id=teacher_id,
-        how=how_made(job)[1],
+        how=how_made(job, _edited(job))[1],
         solver_status=SOLVER_STATUS,
         active="timetable",
     )
@@ -613,3 +655,228 @@ def restore(job_id: int):
     db.session.commit()
     flash(f"Версия №{src.id} е възстановена като нова версия №{new.id}.", "success")
     return redirect(url_for("solve.history"))
+
+
+# --- FE-15: manual editing (a human action only; the LLM never places lessons) ---
+
+
+def _lesson(lesson_id: int) -> Lesson:
+    """A lesson of a saved version, else 404."""
+    les = db.session.get(Lesson, lesson_id) or abort(404)
+    _version(les.job_id)
+    return les
+
+
+def _back(form) -> dict:
+    """Class or teacher the page was showing, so the redirect returns to it."""
+    return {k: form.get(k, type=int) for k in ("class", "teacher")}
+
+
+def _to_timetable(job_id: int, form):
+    return redirect(url_for("solve.timetable", job=job_id, **_back(form)))
+
+
+def _block_index(les: Lesson) -> int:
+    """Index of this row among the rows of its part = its block number (checker A3)."""
+    ids = db.session.scalars(
+        select(Lesson.id)
+        .where(Lesson.job_id == les.job_id, Lesson.part_id == les.part_id)
+        .order_by(Lesson.id)
+    ).all()
+    return ids.index(les.id)
+
+
+@bp.get("/lessons/<int:lesson_id>/move")
+@admin_required
+def move_form(lesson_id: int):
+    """No-JavaScript way to move a lesson: day, period and room selects."""
+    les = _lesson(lesson_id)
+    part = db.session.get(CoursePart, les.part_id)
+    return render_template(
+        "solve/move.html",
+        les=les,
+        subject=part.subject.name,
+        days=_entity_names()["day"],
+        periods=db.session.scalars(select(Period).order_by(Period.number)).all(),
+        rooms=db.session.scalars(select(Room).order_by(Room.name)).all(),
+        back={k: v for k, v in _back(request.args).items() if v},
+        active="timetable",
+    )
+
+
+@bp.post("/lessons/<int:lesson_id>/move")
+@admin_required
+def move(lesson_id: int):
+    """Move a lesson block (with all parts of its course) into a NEW version.
+
+    The checker runs on the whole edited timetable first. Hard violations that
+    the edited version did not already have need a confirmation ("confirm=1").
+    """
+    les = _lesson(lesson_id)
+    src = db.session.get(SolveJob, les.job_id)
+    day = request.form.get("day", type=int)
+    start = request.form.get("start_period", type=int)
+    room = request.form.get("room_id", type=int)
+    numbers = set(db.session.scalars(select(Period.number)))
+    valid = (
+        day in range(1, current_app.config["SCHOOL_DAYS"] + 1)
+        and start is not None
+        and all(p in numbers for p in range(start, start + les.length))
+        and (room is None or db.session.get(Room, room) is not None)
+    )
+    if not valid:
+        flash(
+            "Урокът не може да бъде поставен там: неверен ден, час или стая.", "danger"
+        )
+        return _to_timetable(src.id, request.form)
+    if (day, start, room or les.room_id) == (les.day, les.start_period, les.room_id):
+        flash("Урокът вече е на това място.", "info")
+        return _to_timetable(src.id, request.form)
+
+    block = _block_index(les)
+    seen: dict[int, int] = {}  # part_id -> rows seen so far = block number of the next
+    edited = []
+    for x in db.session.scalars(
+        select(Lesson).where(Lesson.job_id == src.id).order_by(Lesson.id)
+    ):
+        i, seen[x.part_id] = seen.get(x.part_id, 0), seen.get(x.part_id, 0) + 1
+        moves = x.course_id == les.course_id and i == block
+        edited.append(
+            LessonPlacement(
+                x.course_id,
+                x.part_id,
+                day if moves else x.day,
+                start if moves else x.start_period,
+                x.length,
+                (room or x.room_id) if x.id == les.id else x.room_id,
+            )
+        )
+    inp = build_solver_input(db.session)
+    if inp.problems():
+        flash(
+            "Входните данни не са пълни. Прегледайте данните и ограниченията.", "danger"
+        )
+        return _to_timetable(src.id, request.form)
+    violations = [
+        Violation(
+            type=v.rule,
+            entity_ids=[list(e) for e in v.entities],
+            message_key=v.message_key,
+            hard=v.hard,
+            constraint_id=v.constraint_id,
+        )
+        for v in check(inp, SolveResult(src.solver_status, tuple(edited)))
+    ]
+
+    def key(v) -> tuple:
+        return v.message_key, v.constraint_id, tuple(map(tuple, v.entity_ids))
+
+    known = {
+        key(v)
+        for v in db.session.scalars(select(Violation).where(Violation.job_id == src.id))
+    }
+    new_hard = [v for v in violations if v.hard and key(v) not in known]
+    if new_hard and not request.form.get("confirm"):
+        return render_template(
+            "solve/move_confirm.html",
+            les=les,
+            rows=_format_violations(new_hard),
+            form=request.form,
+            back={k: v for k, v in _back(request.form).items() if v},
+            active="timetable",
+        )
+
+    new = SolveJob(
+        status="finished",
+        finished_at=func.now(),
+        solver_status=src.solver_status,
+        base_job_id=src.id,
+        created_by_id=current_user.id,
+    )
+    db.session.add(new)
+    db.session.flush()
+    db.session.add_all(
+        Lesson(
+            job_id=new.id,
+            course_id=x.course_id,
+            part_id=x.part_id,
+            day=x.day,
+            start_period=x.start_period,
+            length=x.length,
+            room_id=x.room_id,
+        )
+        for x in edited
+    )
+    for v in violations:
+        v.job_id = new.id
+    db.session.add_all(violations)
+    db.session.commit()
+    flash(f"Промяната е запазена като нова версия №{new.id}.", "success")
+    return _to_timetable(new.id, request.form)
+
+
+def _fixed_slots(course_id: int) -> list[Constraint]:
+    return [
+        c
+        for c in db.session.scalars(
+            select(Constraint).where(Constraint.type == "fixed_slot")
+        )
+        if c.params.get("course_id") == course_id
+    ]
+
+
+@bp.post("/lessons/<int:lesson_id>/pin")
+@admin_required
+def pin(lesson_id: int):
+    """Confirmed fixed_slot for the lesson's course at its current blocks."""
+    les = _lesson(lesson_id)
+    course = db.session.get(Course, les.course_id)
+    first_part = db.session.scalar(
+        select(func.min(Lesson.part_id)).where(
+            Lesson.job_id == les.job_id, Lesson.course_id == course.id
+        )
+    )
+    rows = db.session.scalars(
+        select(Lesson)
+        .where(Lesson.job_id == les.job_id, Lesson.part_id == first_part)
+        .order_by(Lesson.id)
+    ).all()
+    if len(rows) != len(course.block_sizes):
+        flash(
+            "Урокът не може да бъде закачен: блоковете не съвпадат с учебния план.",
+            "danger",
+        )
+        return _to_timetable(les.job_id, request.form)
+    params = {
+        "course_id": course.id,
+        "blocks": [{"day": r.day, "start_period": r.start_period} for r in rows],
+    }
+    existing = _fixed_slots(course.id)
+    if existing:  # update instead of adding a duplicate
+        existing[0].params, existing[0].status = params, "confirmed"
+    else:
+        db.session.add(
+            Constraint(
+                type="fixed_slot",
+                params=params,
+                hard=True,
+                status="confirmed",
+                source="manual",
+            )
+        )
+    db.session.commit()
+    flash(
+        "Урокът е закачен: следващото изчисление ще го запази на това място.", "success"
+    )
+    return _to_timetable(les.job_id, request.form)
+
+
+@bp.post("/lessons/<int:lesson_id>/unpin")
+@admin_required
+def unpin(lesson_id: int):
+    les = _lesson(lesson_id)
+    for c in _fixed_slots(les.course_id):
+        db.session.delete(c)
+    db.session.commit()
+    flash("Урокът е откачен.", "success")
+    return _to_timetable(les.job_id, request.form)
