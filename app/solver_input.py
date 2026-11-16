@@ -50,6 +50,7 @@ def build_solver_input(
                 tuple(course.block_sizes),
                 parts,
                 course.label,
+                course.week,
             )
         )
 

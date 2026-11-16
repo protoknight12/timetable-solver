@@ -88,6 +88,7 @@ def load_school(seed: dict) -> None:
             periods_per_week=x.periods_per_week,
             block_sizes=list(x.block_sizes),
             label=x.label,
+            week=x.week,
         )
         for x in inp.courses
     )

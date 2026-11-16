@@ -1,0 +1,19 @@
+{
+  "contract_version": 3,
+  "days": [1, 2],
+  "periods": [1, 2, 3],
+  "teachers": [{"id": 1}],
+  "subjects": [{"id": 1}],
+  "classes": [{"id": 1, "name": "8А", "grade": 8}],
+  "groups": [{"id": 1, "class_id": 1, "is_whole": true, "name": "Цял клас"}],
+  "rooms": [{"id": 1, "type": "lab"}],
+  "courses": [
+    {"id": 1, "periods_per_week": 2, "block_sizes": [1, 1], "label": "всяка седмица",
+     "parts": [{"id": 1, "subject_id": 1, "group_ids": [1], "teacher_ids": [1]}]},
+    {"id": 2, "periods_per_week": 1, "block_sizes": [1], "label": "само A", "week": "A",
+     "parts": [{"id": 2, "subject_id": 1, "group_ids": [1], "teacher_ids": [1]}]},
+    {"id": 3, "periods_per_week": 1, "block_sizes": [1], "label": "само B", "week": "B",
+     "parts": [{"id": 3, "subject_id": 1, "group_ids": [1], "teacher_ids": [1]}]}
+  ],
+  "constraints": []
+}

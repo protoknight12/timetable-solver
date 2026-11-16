@@ -26,6 +26,16 @@ A5c. ``day_starts_first_period`` uses A5's combinations: on a day a combination
     violation per class and day.
 A5d. ``periods_reserved_for_subjects``: every row whose part has another subject
     and that covers a reserved period breaks it, once per such period.
+A5e. Alternating weeks (``Course.week``: None = every week, "A", "B"). A course
+    runs in week A if its week is None or "A", and in week B if None or "B".
+    Two lessons can clash only if some week has both of them. So a teacher
+    clash, a group clash and a room over capacity are judged per week: an A and
+    a B course may share a slot, two A courses or an every-week and an A course
+    may not. The per-day rules (A5, A5b, A5c and the teacher maximum) are
+    evaluated per week and must hold in both weeks. One violation per entity
+    and slot or day, whichever week breaks it. ``fixed_slot``, the teacher day
+    and slot rules, ``room_type_required`` and ``periods_reserved_for_subjects``
+    look at single rows and need no week split.
 A6. ``room_type_required`` needs a room of that type on every affected row, even
     if the part says ``needs_room = false``.
 A7. A room id on a part that does not need a room is allowed, and it still uses
@@ -67,6 +77,15 @@ def _slots(lesson: LessonPlacement) -> list[tuple[int, int]]:
         (lesson.day, p)
         for p in range(lesson.start_period, lesson.start_period + lesson.length)
     ]
+
+
+def _runs_in(course, week: str) -> bool:
+    return course.week in (None, week)
+
+
+def _share_week(a, b) -> bool:
+    """True if two courses run together in at least one of the weeks."""
+    return a.week is None or b.week is None or a.week == b.week
 
 
 def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
@@ -146,9 +165,9 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
     for lesson, course, part in rows:
         for t in set(part.teacher_ids):
             for day, period in _slots(lesson):
-                teacher_at[(t, day, period)].append(course.id)
-    for (t, day, period), course_ids in teacher_at.items():
-        if len(course_ids) > 1:
+                teacher_at[(t, day, period)].append(course)
+    for (t, day, period), here in teacher_at.items():
+        if any(_share_week(a, b) for a, b in combinations(here, 2)):
             ents = [("teacher", t), ("day", day), ("period", period)]
             add("teacher_conflict", "teacher_double_booked", ents)
 
@@ -160,11 +179,13 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
         return a.is_whole or b.is_whole or a.id == b.id or a.split != b.split
 
     in_slot = defaultdict(list)
-    for lesson, _course, part in rows:
+    for lesson, course, part in rows:
         for slot in _slots(lesson):
-            in_slot[slot].append(part)
+            in_slot[slot].append((course, part))
     for (day, period), items in in_slot.items():
-        for p1, p2 in combinations(items, 2):
+        for (c1, p1), (c2, p2) in combinations(items, 2):
+            if not _share_week(c1, c2):
+                continue
             pair = next(
                 (
                     (a, b)
@@ -180,11 +201,13 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
                 add("group_conflict", "groups_double_booked", ents)
 
     # --- rooms: capacity, and a matching room where one is needed ----------
-    room_use: dict[tuple[int, int, int], int] = defaultdict(int)
+    room_use: dict[tuple[int, str, int, int], int] = defaultdict(int)
     for lesson, course, part in rows:
         if lesson.room_id in rooms:
             for day, period in _slots(lesson):
-                room_use[(lesson.room_id, day, period)] += 1
+                for w in ("A", "B"):
+                    if _runs_in(course, w):
+                        room_use[(lesson.room_id, w, day, period)] += 1
         if not part.needs_room or (
             lesson.room_id is not None and lesson.room_id not in rooms
         ):
@@ -197,17 +220,24 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
             part.allowed_room_ids is not None and room.id not in part.allowed_room_ids
         ):
             add("room_match", "room_mismatch", ents + [("room", room.id)])
-    for (room_id, day, period), n in room_use.items():
-        if n > rooms[room_id].concurrent_capacity:
-            ents = [("room", room_id), ("day", day), ("period", period)]
-            add("room_capacity", "room_over_capacity", ents)
+    over = {
+        (room_id, day, period)
+        for (room_id, _w, day, period), n in room_use.items()
+        if n > rooms[room_id].concurrent_capacity
+    }
+    for room_id, day, period in sorted(over):
+        ents = [("room", room_id), ("day", day), ("period", period)]
+        add("room_capacity", "room_over_capacity", ents)
 
     # --- user constraints --------------------------------------------------
-    group_busy = defaultdict(set)  # (group_id, day) -> periods with a lesson
-    for lesson, _, part in rows:
-        for g in part.group_ids:
-            for day, period in _slots(lesson):
-                group_busy[(g, day)].add(period)
+    # (group_id, week, day) -> periods with a lesson
+    group_busy = defaultdict(set)
+    for lesson, course, part in rows:
+        for w in ("A", "B"):
+            if _runs_in(course, w):
+                for g in part.group_ids:
+                    for day, period in _slots(lesson):
+                        group_busy[(g, w, day)].add(period)
 
     def class_days(class_id: int):
         """Yield (day, busy periods) for every student combination of the class."""
@@ -218,8 +248,11 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
                 splits[g.split].append(g.id)
         whole = [g.id for g in mine if g.is_whole]
         for pick in product(*splits.values()):
-            for day in inp.days:
-                yield day, set().union(*(group_busy[(g, day)] for g in whole + [*pick]))
+            for w, day in product(("A", "B"), inp.days):
+                yield (
+                    day,
+                    set().union(*(group_busy[(g, w, day)] for g in whole + [*pick])),
+                )
 
     def scoped_classes(scope) -> list[int]:
         if scope == "all":
@@ -296,12 +329,14 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
                     viol("too_many_lessons", [("class", class_id), ("day", day)])
         elif con.type == "max_same_subject_per_day":
             # Periods of this subject per student combination and day (A5).
-            subj_busy = defaultdict(set)  # (group_id, day) -> periods of the subject
-            for lesson, _, part in rows:
+            subj_busy = defaultdict(set)  # (group_id, week, day) -> periods
+            for lesson, course, part in rows:
                 if part.subject_id == params.subject_id:
-                    for g in part.group_ids:
-                        for day, period in _slots(lesson):
-                            subj_busy[(g, day)].add(period)
+                    for w in ("A", "B"):
+                        if _runs_in(course, w):
+                            for g in part.group_ids:
+                                for day, period in _slots(lesson):
+                                    subj_busy[(g, w, day)].add(period)
             for class_id in scoped_classes(params.scope):
                 mine = [g for g in inp.groups if g.class_id == class_id]
                 splits = defaultdict(list)
@@ -312,8 +347,10 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
                 bad = {
                     day
                     for pick in product(*splits.values())
-                    for day in inp.days
-                    if len(set().union(*(subj_busy[(g, day)] for g in whole + [*pick])))
+                    for w, day in product(("A", "B"), inp.days)
+                    if len(
+                        set().union(*(subj_busy[(g, w, day)] for g in whole + [*pick]))
+                    )
                     > params.max
                 }
                 for day in sorted(bad):
@@ -323,13 +360,15 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
                         + [("day", day)],
                     )
         elif con.type == "teacher_max_lessons_per_day":
-            taught = defaultdict(set)  # day -> periods the teacher teaches
-            for lesson, _, part in rows:
+            taught = defaultdict(set)  # (week, day) -> periods the teacher teaches
+            for lesson, course, part in rows:
                 if params.teacher_id in part.teacher_ids:
-                    for day, period in _slots(lesson):
-                        taught[day].add(period)
-            for day in sorted(taught):
-                if len(taught[day]) > params.max:
+                    for w in ("A", "B"):
+                        if _runs_in(course, w):
+                            for day, period in _slots(lesson):
+                                taught[(w, day)].add(period)
+            for day in sorted({d for _, d in taught}):
+                if any(len(taught[(w, day)]) > params.max for w in ("A", "B")):
                     viol(
                         "teacher_too_many_lessons",
                         [("teacher", params.teacher_id), ("day", day)],

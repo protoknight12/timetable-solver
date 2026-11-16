@@ -21,6 +21,19 @@ The model (TECH_STACK.md section 5):
   conflict, like the whole class does with every group.
   Groups that are not in any part of a Course simply have no lesson then.
 
+- A ``Course`` may run only in alternating weeks: ``week`` is ``None`` (every
+  week), ``"A"`` (only week A) or ``"B"`` (only week B). Week rule (BE-18, the
+  spec the solver and the checker each implement on their own): every built-in
+  "at most one per slot" rule (teacher, conflicting groups, room capacity) holds
+  once for week A and once for week B. An every-week course counts in both, an
+  A course only in A, a B course only in B. So an A and a B course may share a
+  teacher, room or group in one slot; two A courses, or an every-week and an A
+  course, may not. ASSUMPTION: the per-day limits (``no_gaps``,
+  ``max_lessons_per_day``, ``max_same_subject_per_day``,
+  ``teacher_max_lessons_per_day``, ``day_starts_first_period``) are evaluated
+  per week and must hold in both weeks. ``fixed_slot`` and
+  ``periods_reserved_for_subjects`` are per slot and need no week split.
+
 This file only describes and validates data. It does not implement timetable
 rules: the solver and the checker each implement those on their own.
 
@@ -35,7 +48,10 @@ from dataclasses import asdict, dataclass
 from itertools import combinations
 from typing import Any
 
-CONTRACT_VERSION = 2  # 2: StudentGroup.split
+CONTRACT_VERSION = 3  # 2: StudentGroup.split; 3: Course.week
+# Version 2 input has no ``week`` and still parses (every course runs every week).
+MIN_CONTRACT_VERSION = 2
+WEEKS = ("A", "B")
 
 SOLVE_STATUSES = ("OPTIMAL", "FEASIBLE", "INFEASIBLE", "UNKNOWN", "MODEL_INVALID")
 
@@ -280,10 +296,17 @@ class Course:
     block_sizes: tuple[int, ...]
     parts: tuple[CoursePart, ...]
     label: str = ""
+    # None = every week; "A" / "B" = only in that week (BE-18).
+    week: str | None = None
 
     @classmethod
     def from_dict(cls, d: Any, path: str) -> Course:
-        _obj(d, path, {"id", "periods_per_week", "block_sizes", "parts"}, {"label"})
+        _obj(
+            d,
+            path,
+            {"id", "periods_per_week", "block_sizes", "parts"},
+            {"label", "week"},
+        )
         parts = _list(d["parts"], f"{path}.parts")
         return cls(
             id=_int(d["id"], f"{path}.id"),
@@ -294,6 +317,7 @@ class Course:
                 for i, p in enumerate(parts)
             ),
             label=_str(d.get("label", ""), f"{path}.label"),
+            week=_opt_str(d.get("week"), f"{path}.week"),
         )
 
 
@@ -353,10 +377,10 @@ class SolverInput:
         }
         _obj(d, "input", keys, {"constraints", "contract_version"})
         version = d.get("contract_version", CONTRACT_VERSION)
-        if version != CONTRACT_VERSION:
+        if version not in range(MIN_CONTRACT_VERSION, CONTRACT_VERSION + 1):
             raise _fail(
                 "input.contract_version",
-                f"expected {CONTRACT_VERSION}, got {version!r}",
+                f"expected {MIN_CONTRACT_VERSION}..{CONTRACT_VERSION}, got {version!r}",
             )
 
         def many(key: str, item_cls):
@@ -572,6 +596,10 @@ def _check_input(inp: SolverInput) -> list[Problem]:
 def _check_course(
     course, path, inp, add, teacher_ids, subject_ids, groups, rooms
 ) -> None:
+    if course.week is not None and course.week not in WEEKS:
+        add(
+            "bad_week", f"{path}.week", f"must be null, 'A' or 'B', got {course.week!r}"
+        )
     if course.periods_per_week < 1:
         add("bad_blocks", f"{path}.periods_per_week", "must be at least 1")
     if not course.block_sizes or any(b < 1 for b in course.block_sizes):

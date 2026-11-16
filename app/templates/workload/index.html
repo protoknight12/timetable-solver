@@ -35,7 +35,7 @@
         {% for tid, r in rows %}
           <tr>
             <th scope="row"><a href="{{ url_for('workload.detail', teacher_id=tid, job=job.id if current_user.role == 'admin' else None) }}">{{ r.name }}</a></th>
-            <td>{{ r.periods }}</td>
+            <td>{{ r.periods_text }}</td>
             <td>{{ r.courses }}</td>
             <td>{{ r.classes }}</td>
             <td>{{ r.days }}</td>

@@ -155,6 +155,8 @@ class Course(Base):
     periods_per_week: Mapped[int]
     block_sizes: Mapped[list[int]] = mapped_column(JsonType)
     label: Mapped[str] = mapped_column(String(120), default="", server_default="")
+    # None = every week, "A" / "B" = only in that week (BE-18).
+    week: Mapped[str | None] = mapped_column(String(1))
 
     parts: Mapped[list[CoursePart]] = relationship(
         back_populates="course", cascade="all, delete-orphan", passive_deletes=True

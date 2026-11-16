@@ -75,13 +75,21 @@
             </select>
           </div>
           <div class="col-auto">
+            <label for="week-picker" class="form-label mb-1">Седмица</label>
+            <select id="week-picker" name="week" class="form-select">
+              <option value="">Двете седмици</option>
+              <option value="A" {% if week == 'A' %}selected{% endif %}>Седмица A</option>
+              <option value="B" {% if week == 'B' %}selected{% endif %}>Седмица B</option>
+            </select>
+          </div>
+          <div class="col-auto">
             <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-eye"></i> Покажи</button>
           </div>
           <div class="col-auto">
             <a href="{{ url_for('solve.export_xlsx', job=job.id) }}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-excel"></i> Изтегли в Excel</a>
           </div>
           <div class="col-auto">
-            <a href="{{ url_for('solve.timetable_pdf', job=job.id, **back) }}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-pdf"></i> Изтегли в PDF</a>
+            <a href="{{ url_for('solve.timetable_pdf', job=job.id, week=week, **back) }}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-pdf"></i> Изтегли в PDF</a>
           </div>
           <div class="col-auto">
             <a href="{{ url_for('solve.overview', job=job.id) }}" class="btn btn-outline-secondary"><i class="bi bi-grid-3x3"></i> Общ разпис</a>
@@ -107,7 +115,7 @@
                     <td data-day="{{ d }}" data-period="{{ p.number }}">
                       {% for l in cells.get((d, p.number), []) %}
                         <div class="border rounded p-1 subject-{{ l.subject_id }} {% if not loop.last %}mb-1{% endif %}"{% if current_user.role == 'admin' %} draggable="true" data-move-url="{{ url_for('solve.move', lesson_id=l.lesson_id) }}"{% endif %}>
-                          <div class="fw-semibold" title="{{ l.subject_full }}">{{ l.subject }}{% if l.changed %} <span class="badge text-bg-warning">променен</span>{% endif %}{% if l.pinned %} <span class="badge text-bg-secondary"><i class="bi bi-pin-angle-fill"></i> закачен</span>{% endif %}</div>
+                          <div class="fw-semibold" title="{{ l.subject_full }}">{{ l.subject }}{% if l.week %} <span class="badge text-bg-info">Седмица {{ l.week }}</span>{% endif %}{% if l.changed %} <span class="badge text-bg-warning">променен</span>{% endif %}{% if l.pinned %} <span class="badge text-bg-secondary"><i class="bi bi-pin-angle-fill"></i> закачен</span>{% endif %}</div>
                           <small>
                             {{ l.teachers }}{% if l.room %} · {{ l.room }}{% endif %}{% if l.group %} · {{ l.group }}{% endif %}
                           </small>

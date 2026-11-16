@@ -282,13 +282,17 @@ def _grid(
     teacher_id: int | None = None,
     room_id: int | None = None,
     changed: set[tuple[int, int, int, int]] = frozenset(),
+    week: str | None = None,
 ) -> dict[tuple[int, int], list[dict]]:
     """(day, period) -> lessons of this class, teacher or room; a split slot has several.
 
     ``changed`` holds (part_id, day, start_period, length) of blocks to flag.
+    ``week`` "A" or "B" hides the lessons of the other week (BE-18); every entry
+    carries the course's ``week`` (None = every week) for the A/B mark.
     """
     parts = db.session.scalars(
         select(CoursePart).options(
+            selectinload(CoursePart.course),
             selectinload(CoursePart.groups),
             selectinload(CoursePart.teachers),
             selectinload(CoursePart.subject),
@@ -301,6 +305,8 @@ def _grid(
     cells: dict[tuple[int, int], list[dict]] = {}
     for les in db.session.scalars(select(Lesson).where(Lesson.job_id == job_id)):
         part = parts[les.part_id]
+        if week and part.course.week not in (None, week):
+            continue
         if teacher_id is not None or room_id is not None:
             if teacher_id is not None and teacher_id not in {
                 t.id for t in part.teachers
@@ -328,6 +334,7 @@ def _grid(
                 "room": rooms.get(les.room_id, ""),
                 "group": "",
                 "lesson_id": les.id,
+                "week": part.course.week,
                 "pinned": les.course_id in pinned,
                 "changed": (part.id, les.day, les.start_period, les.length) in changed,
             }
@@ -345,6 +352,7 @@ def _grid(
             ),
             "room": rooms.get(les.room_id, ""),
             "lesson_id": les.id,
+            "week": part.course.week,
             "pinned": les.course_id in pinned,
             # The whole class needs no group label.
             "group": ""
@@ -397,7 +405,9 @@ def timetable():
     rooms = db.session.scalars(select(Room).order_by(Room.name)).all()
     room_id = request.args.get("room", type=int)
     room = None if teacher else next((r for r in rooms if r.id == room_id), None)
+    week = request.args.get("week") if request.args.get("week") in ("A", "B") else None
     ctx = {
+        "week": week,
         "job": job,
         "rooms": rooms,
         "room": room,
@@ -423,6 +433,7 @@ def timetable():
                 teacher and teacher.id,
                 room and room.id,
                 moved_blocks,
+                week,
             )
             if current or teacher
             else {},
@@ -456,15 +467,23 @@ def _overview(job_id: int) -> list[tuple[SchoolClass, dict]]:
     return [(c, _short_cells(_grid(job_id, c.id))) for c in classes]
 
 
+def _week_mark(text: str, lesson: dict) -> str:
+    """ "ИТ" -> "ИТ (A)" for a lesson that runs only in week A or B (BE-18)."""
+    return f"{text} ({lesson['week']})" if lesson["week"] else text
+
+
 def _short_cells(cells: dict) -> dict:
     """Overview cells are narrow: short subject (full name stays in subject_full) and group."""
     return {
         k: [
             {
                 **l,
-                "subject": short_subject(l["subject_full"])
-                if l["subject"] == l["subject_full"]
-                else l["subject"],
+                "subject": _week_mark(
+                    short_subject(l["subject_full"])
+                    if l["subject"] == l["subject_full"]
+                    else l["subject"],
+                    l,
+                ),
                 "group": short_group(l["group"]),
             }
             for l in v
@@ -525,7 +544,7 @@ def export_xlsx():
             for d in days:
                 row.append(
                     "\n\n".join(
-                        l["subject"]
+                        _week_mark(l["subject"], l)
                         + "\n"
                         + " · ".join(
                             x for x in (l["teachers"], l["room"], l["group"]) if x
@@ -638,7 +657,9 @@ def timetable_pdf():
         if not school_class:
             abort(404)
     subject = teacher or room or school_class
+    week = request.args.get("week") if request.args.get("week") in ("A", "B") else None
     title = ("Учител " if teacher else "Стая " if room else "Клас ") + subject.name
+    title += f", седмица {week}" if week else ""
     return _pdf(
         "solve/pdf.html",
         "razpisanie",
@@ -650,6 +671,7 @@ def timetable_pdf():
             school_class and school_class.id,
             teacher and teacher.id,
             room and room.id,
+            week=week,
         ),
     )
 
@@ -750,6 +772,7 @@ def version(job_id: int):
         p.id: p
         for p in db.session.scalars(
             select(CoursePart).options(
+                selectinload(CoursePart.course),
                 selectinload(CoursePart.groups),
                 selectinload(CoursePart.teachers),
                 selectinload(CoursePart.subject),
@@ -782,6 +805,7 @@ def version(job_id: int):
         row = {
             "kind": d["kind"],
             "subject": part.subject.name,
+            "week": part.course.week,
             "before": d["before"] and where(d["before"]),
             "after": d["after"] and where(d["after"]),
         }
