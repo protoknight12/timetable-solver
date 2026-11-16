@@ -75,10 +75,11 @@ HEADERS = {
         "Изисква стая",
         "Тип стая",
         "Позволени стаи",
+        "Седмица",  # last and optional, so older files keep importing
     ],
 }
 # Columns older files may lack (they import without them); a Subject without a color is automatic.
-OPTIONAL = {SUBJECTS: ("Кратко име", "Цвят")}
+OPTIONAL = {SUBJECTS: ("Кратко име", "Цвят"), COURSES: ("Седмица",)}
 INSTRUCTIONS = "Инструкции"
 INSTRUCTION_LINES = [
     "Попълнете листовете. Не променяйте имената на листовете и заглавията в първия ред.",
@@ -92,6 +93,7 @@ INSTRUCTION_LINES = [
         "Целият клас се записва с името на класа (например 8А), група — „8А — Първа група“."
     ),
     "Блокове: например 2, 1. Изисква стая: да или не.",
+    "Седмица (не е задължителна): празно или „всяка“ за всяка седмица, „A“ или „B“ за час през седмица.",
     "Предмети: „Кратко име“ и „Цвят“ (например #4e79a7) не са задължителни; без цвят се избира автоматичен.",
     "Внимание: качването на Excel файл ЗАМЕСТВА всички текущи данни.",
 ]
@@ -177,6 +179,15 @@ def _check_size(rows):
 
 
 # --- importing ---
+
+
+def _week_code(text: str) -> str:
+    """ "", "всяка" -> ""; "A"/"B", also typed with Cyrillic А/В or as "Седмица A" -> "A"/"B".
+
+    Anything else is kept, so the course form reports it as an invalid choice.
+    """
+    t = text.strip().upper().removeprefix("СЕДМИЦА").strip()
+    return "" if t in ("", "ВСЯКА") else t.translate({ord("А"): "A", ord("В"): "B"})
 
 
 def _by_name(model) -> dict:
@@ -400,6 +411,7 @@ class _Import:
             "label": "Име",
             "periods_per_week": "Часове седмично",
             "block_sizes": "Блокове",
+            "week": "Седмица",
         }
         part_cols = {
             "subject": "Предмет",
@@ -414,6 +426,7 @@ class _Import:
             if not r["Код"]:
                 self.error(COURSES, n, "Код: Полето е задължително.")
                 continue
+            r["Седмица"] = _week_code(r.get("Седмица", ""))
             cells = tuple(r[h] for h in course_cols.values())
             if r["Код"] not in seen:
                 form = self.form(
@@ -572,9 +585,10 @@ def build_workbook(with_data: bool) -> Workbook:
                     "да" if p.needs_room else "не",
                     p.room_type or "",
                     f"{SEP} ".join(room_names[i] for i in p.allowed_room_ids or []),
+                    c.week or "",
                 ]
                 for p in parts
-            ] or [head + [""] * 6]
+            ] or [head + [""] * 6 + [c.week or ""]]
     for sheet, headers in HEADERS.items():
         ws = wb.create_sheet(sheet)
         ws.append(headers)

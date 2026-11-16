@@ -133,7 +133,7 @@ other group just has no part).
 | `StudentGroup` | id, class, name, `is_whole`, `split`. Every class has exactly one whole-class group ("цял клас"); splits add more ("Група 1"). `split` names the way the class is divided ("групи", "езици"): groups of the same split never share students, groups of different splits may (a Chinese student is also in Група 1 or 2) |
 | `Room` | id, name, type, `concurrent_capacity` (default 1; sports hall 3) |
 | `Period` | number, start time, end time. Days are 1–5 |
-| `Course` | id, periods per week, `block_sizes` (e.g. `[1,1,1]`, `[2,1]`, `[2]`), optional label |
+| `Course` | id, periods per week, `block_sizes` (e.g. `[1,1,1]`, `[2,1]`, `[2]`), optional label, optional `week` (null = every week, `A` or `B` = only that week; contract version 3, BE-18) |
 | `CoursePart` | id, course, subject, `needs_room`, room type, allowed rooms |
 | `CoursePartGroup` / `CoursePartTeacher` | many-to-many; all listed teachers are present at once |
 | `Constraint` | id, `type`, `params` (JSONB), `hard`/`soft`, `weight`, `status` (proposed / confirmed / rejected), `source` (manual / llm), original text |
@@ -147,7 +147,15 @@ other group just has no part).
 `SolverInput.problems()` reports constraints that point at a missing teacher, subject, course, class or room
 type, and the worker must refuse to solve and show those problems instead of silently ignoring them.
 
-**Limits.** Every lesson repeats weekly (no alternating weeks). Parts of one Course share the same block
+**Alternating weeks (BE-18).** A Course with `week = A` or `B` runs only in that week (94 of the real school's
+599 lessons). Every built-in "at most one per slot" rule (teacher, conflicting groups, room capacity) is
+checked once for week A and once for week B; an every-week Course counts in both, an A Course only in A. So an
+A and a B Course may share a teacher, room or group in one slot, two A Courses may not. Assumption: the per-day
+constraints (`no_gaps`, `max_lessons_per_day`, `max_same_subject_per_day`, `teacher_max_lessons_per_day`,
+`day_starts_first_period`) are evaluated per week and must hold in both weeks. Contract version 2 input (no
+`week`) still parses. The solver and the checker implement the rule separately (`schema/contract.py` has the spec).
+
+**Limits.** Every lesson without a `week` repeats weekly. Parts of one Course share the same block
 pattern. Two blocks of one Course may share a day, even back to back; they only must not overlap. There is
 no gap rule, because it is not a school regulation (decided 14.11.2026, §15 q10, PR #55).
 

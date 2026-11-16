@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from schema import (
+    CONTRACT_VERSION,
     ContractError,
     LessonPlacement,
     SolveResult,
@@ -59,6 +60,33 @@ def test_defaults_are_filled(data):
 def test_parallel_parts_with_disjoint_split_groups_are_fine(data):
     # Група 1 and Група 2 of the same class may run at once (OS vs DB practice).
     assert codes(data) == set()
+
+
+# --- alternating weeks (BE-18) ----------------------------------------------
+
+
+def test_v2_input_without_week_still_parses(data):
+    assert data["contract_version"] == 2
+    assert {c.week for c in load_solver_input(data).courses} == {None}
+
+
+def test_week_example_round_trips():
+    path = EXAMPLE.with_name("ab_weeks.json")
+    inp = load_solver_input(json.loads(path.read_text(encoding="utf-8")))
+    assert [c.week for c in inp.courses] == [None, "A", "B"]
+    assert inp.to_dict()["contract_version"] == CONTRACT_VERSION == 3
+    assert load_solver_input(json.loads(json.dumps(inp.to_dict()))) == inp
+
+
+def test_bad_week_value_is_a_problem(data):
+    course(data, 1)["week"] = "C"
+    assert codes(data) == {"bad_week"}
+
+
+def test_future_version_is_rejected(data):
+    data["contract_version"] = CONTRACT_VERSION + 1
+    with pytest.raises(ContractError):
+        SolverInput.from_dict(data)
 
 
 # --- shape errors (from_dict) -----------------------------------------------

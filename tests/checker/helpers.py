@@ -50,8 +50,8 @@ def part(pid, groups=(1,), teachers=(1,), subject=1, **room):
     return CoursePart(pid, subject, tuple(groups), tuple(teachers), **room)
 
 
-def course(cid, blocks, *parts):
-    return Course(cid, sum(blocks), tuple(blocks), parts)
+def course(cid, blocks, *parts, week=None):
+    return Course(cid, sum(blocks), tuple(blocks), parts, week=week)
 
 
 def lesson(course_id, part_id, day, start, length=1, room=None):

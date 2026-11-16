@@ -31,7 +31,7 @@
             {% else %}
             {% set kw = {'list': 'room-types'} if types is not none and field.name in ('type', 'default_room_type') else {} %}
             <div class="form-floating mb-3">
-              {{ field(class_='form-control' ~ (' is-invalid' if field.errors else ''),
+              {{ field(class_=('form-select' if field.type == 'SelectField' else 'form-control') ~ (' is-invalid' if field.errors else ''),
                        placeholder=field.label.text, autocomplete='off', **kw) }}
               {{ field.label }}
               {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}

@@ -22,7 +22,7 @@
           <td>
             {% for l in cells.get((d, p.number), []) %}
               <div class="subject-{{ l.subject_id }}">
-                <strong>{{ l.subject }}</strong><br>
+                <strong>{{ l.subject }}{% if l.week %} (седмица {{ l.week }}){% endif %}</strong><br>
                 <small>{{ l.teachers }}{% if l.room %} · {{ l.room }}{% endif %}{% if l.group %} · {{ l.group }}{% endif %}</small>
               </div>
             {% endfor %}

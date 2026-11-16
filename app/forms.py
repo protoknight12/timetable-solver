@@ -284,6 +284,20 @@ class CourseForm(DataForm):
         "Блокове (например „2, 1“: един двучасов и един едночасов)",
         validators=[InputRequired(REQUIRED)],
     )
+    week = SelectField(
+        "Седмица",
+        choices=[("", "всяка"), ("A", "само A"), ("B", "само B")],
+        coerce=lambda v: v or "",
+        validate_choice=False,  # a missing field (old clients, imports) means every week
+    )
+
+    def validate_week(self, field):
+        if field.data not in (None, "", "A", "B"):
+            raise ValidationError("Невалиден избор.")
+
+    def populate_obj(self, obj):
+        super().populate_obj(obj)
+        obj.week = obj.week or None  # "" and None both mean every week
 
     def validate_block_sizes(self, field):
         sizes, per_week = field.data, self.periods_per_week.data

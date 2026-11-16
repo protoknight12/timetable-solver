@@ -38,6 +38,43 @@ COLUMNS = {
 }
 
 
+WEEKS = ("A", "B")
+
+
+def _ab(a: int, b: int) -> int | str:
+    """One number when both weeks agree, else "A: 20 / B: 18" (BE-18)."""
+    return a if a == b else f"A: {a} / B: {b}"
+
+
+def _merge(a: dict, b: dict) -> dict:
+    """Stats of the two weeks as one row.
+
+    shortcut: when A and B differ, hours, days, gaps and the per-day numbers show the
+    worse (larger) week and ``periods_text`` shows both; upgrade: a column per week.
+    """
+    per_day = {}
+    for d in sorted(a["per_day"] | b["per_day"]):
+        x, y = a["per_day"].get(d), b["per_day"].get(d)
+        both = [z for z in (x, y) if z]
+        per_day[d] = {
+            "periods": max(z["periods"] for z in both),
+            "first": min(z["first"] for z in both),
+            "last": max(z["last"] for z in both),
+            "gaps": max(z["gaps"] for z in both),
+        }
+    firsts = [z["first"] for z in (a, b) if z["first"] is not None]
+    return {
+        **a,
+        **{k: max(a[k], b[k]) for k in ("periods", "days", "gaps", "worst_gaps")},
+        "courses": a["courses"],
+        "classes": a["classes"],
+        "first": min(firsts, default=None),
+        "last": max((z["last"] for z in (a, b) if z["last"] is not None), default=None),
+        "per_day": per_day,
+        "periods_text": _ab(a["periods"], b["periods"]),
+    }
+
+
 def _stats(slots: dict[int, set[int]], courses: set, classes: set) -> dict:
     """slots: day -> periods taught. Gaps = free periods between the first and last lesson of a day."""
     per_day = {
@@ -71,26 +108,37 @@ def compute(job_id: int) -> dict[int, dict]:
         p.id: p
         for p in db.session.scalars(
             select(CoursePart).options(
+                selectinload(CoursePart.course),
                 selectinload(CoursePart.groups),
                 selectinload(CoursePart.teachers),
                 selectinload(CoursePart.subject),
             )
         )
     }
-    slots: dict[int, dict[int, set[int]]] = {}
+    # teacher -> week -> day -> periods taught; an every-week lesson counts in both weeks
+    slots: dict[int, dict[str, dict[int, set[int]]]] = {}
     courses: dict[int, set] = {}
     classes: dict[int, set] = {}
-    subjects: dict[int, dict[str, int]] = {}
+    subjects: dict[
+        int, dict[str, dict[str, int]]
+    ] = {}  # teacher -> week -> subject -> periods
     for les in db.session.scalars(select(Lesson).where(Lesson.job_id == job_id)):
         part = parts[les.part_id]
         for t in part.teachers:
-            day = slots.setdefault(t.id, {}).setdefault(les.day, set())
-            day.update(range(les.start_period, les.start_period + les.length))
             courses.setdefault(t.id, set()).add(les.course_id)
             classes.setdefault(t.id, set()).update(g.class_id for g in part.groups)
-            name = part.subject.name
-            subj = subjects.setdefault(t.id, {})
-            subj[name] = subj.get(name, 0) + les.length
+            for w in WEEKS:
+                if part.course.week not in (None, w):
+                    continue
+                day = (
+                    slots.setdefault(t.id, {})
+                    .setdefault(w, {})
+                    .setdefault(les.day, set())
+                )
+                day.update(range(les.start_period, les.start_period + les.length))
+                subj = subjects.setdefault(t.id, {}).setdefault(w, {})
+                name = part.subject.name
+                subj[name] = subj.get(name, 0) + les.length
     # shortcut: only teacher_max_lessons_per_day is flagged; flag gaps above a
     # teacher_max_gaps limit here once that constraint type exists (BE-19).
     limits = {}
@@ -102,14 +150,23 @@ def compute(job_id: int) -> dict[int, dict]:
     ):
         t, mx = c.params["teacher_id"], c.params["max"]
         limits[t] = min(mx, limits.get(t, mx))
-    # shortcut: A/B-week differences are missing until BE-18 (A/B weeks) is merged.
     out = {}
     for t in db.session.scalars(select(Teacher).order_by(Teacher.name)):
-        s = _stats(
-            slots.get(t.id, {}), courses.get(t.id, set()), classes.get(t.id, set())
+        a, b = (
+            _stats(
+                slots.get(t.id, {}).get(w, {}),
+                courses.get(t.id, set()),
+                classes.get(t.id, set()),
+            )
+            for w in WEEKS
         )
+        s = _merge(a, b)
         s["name"] = t.name
-        s["subjects"] = dict(sorted(subjects.get(t.id, {}).items()))
+        by_week = [subjects.get(t.id, {}).get(w, {}) for w in WEEKS]
+        s["subjects"] = {
+            n: _ab(by_week[0].get(n, 0), by_week[1].get(n, 0))
+            for n in sorted(by_week[0] | by_week[1])
+        }
         s["limit"] = limits.get(t.id)
         s["over"] = [
             (d, x["periods"])
@@ -218,6 +275,8 @@ def export_xlsx():
         notes = "; ".join(
             f"над лимита ({n} от {r['limit']}) в {_days()[d]}" for d, n in r["over"]
         )
+        if r["periods_text"] != r["periods"]:
+            notes = "; ".join(filter(None, [f"часове: {r['periods_text']}", notes]))
         ws.append([r[k] for k in COLUMNS] + [notes])
     if len(rows) > 1:
         ws.append(

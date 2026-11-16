@@ -23,6 +23,12 @@ start period. It is only another term of the objective, so hard rules always
 win; courses missing from the reference are free. Without a reference nothing
 changes. The reference is a separate argument, not part of ``SolverInput``.
 
+Alternating weeks (BE-18, rule in ``schema.contract``): every per-slot "at most"
+rule and every per-day constraint is added once for week A and once for week B;
+a course with ``week=None`` counts in both, an A course only in A. Soft
+penalties of the two weeks add up. If no course has a week, nothing is
+duplicated (``tm.weekly`` is false and the weeks collapse to one pass).
+
 Assumptions about school rules (TECH_STACK §15 q11 and others) are marked
 ASSUMPTION in the comments below.
 """
@@ -36,7 +42,13 @@ from itertools import product
 
 from ortools.sat.python import cp_model
 
-from schema.contract import ContractError, LessonPlacement, SolveResult, SolverInput
+from schema.contract import (
+    WEEKS,
+    ContractError,
+    LessonPlacement,
+    SolveResult,
+    SolverInput,
+)
 
 _STATUS = {
     cp_model.OPTIMAL: "OPTIMAL",
@@ -70,11 +82,26 @@ class TimetableModel:
     explain: bool = False
     # Previous lessons for the minimal-change re-solve (BE-13); empty = fresh solve.
     reference: tuple = ()
+    # course id -> "A" / "B" / None, and whether any course has a week (BE-18).
+    week_of: dict = field(default_factory=dict)
+    weekly: bool = False
+
+
+def _passes(tm: TimetableModel) -> tuple:
+    """The weeks a rule is evaluated for; ``(None,)`` = all courses, one pass."""
+    return WEEKS if tm.weekly else (None,)
+
+
+def _in_week(tm: TimetableModel, course_ids, week) -> list:
+    """The courses that run in ``week`` (every-week courses run in both)."""
+    return [c for c in course_ids if week is None or tm.week_of[c] in (None, week)]
 
 
 def new_model(inp: SolverInput, explain: bool = False) -> TimetableModel:
     """Block variables, block rules and room assignment (rules 1, 4, 5)."""
     tm = TimetableModel(inp, explain=explain)
+    tm.week_of = {c.id: c.week for c in inp.courses}
+    tm.weekly = any(c.week for c in inp.courses)
     m = tm.model
     needed = _required_room_types(inp)
     # In explain mode the room types are enforced by the constraint's literal
@@ -190,10 +217,13 @@ def add_room_rule(tm: TimetableModel) -> None:
     part_course = {p.id: c.id for c in tm.inp.courses for p in c.parts}
     for (pid, b), by_room in tm.room_start.items():
         size = sizes[part_course[pid], b]
-        for r, starts in by_room.items():
-            for (d, s), lit in starts.items():
-                for p in range(s, s + size):
-                    uses[r][d, p].append(lit)
+        for w in _passes(tm):
+            if not _in_week(tm, [part_course[pid]], w):
+                continue
+            for r, starts in by_room.items():
+                for (d, s), lit in starts.items():
+                    for p in range(s, s + size):
+                        uses[r][w, d, p].append(lit)
     for room in tm.inp.rooms:
         for lits in uses[room.id].values():
             if len(lits) > room.concurrent_capacity:
@@ -232,11 +262,13 @@ def _limit(tm: TimetableModel, c, expr, cap: int, ub: int) -> None:
         tm.penalties.append((c.weight, over))
 
 
-def _teacher_lits(tm: TimetableModel, teacher_id: int, banned) -> list:
+def _teacher_lits(tm: TimetableModel, teacher_id: int, banned, week=None) -> list:
     """Busy literals (one per taught period) in the slots where ``banned(day, period)``."""
     lits = []
     for course in tm.inp.courses:
-        if any(teacher_id in p.teacher_ids for p in course.parts):
+        if _in_week(tm, [course.id], week) and any(
+            teacher_id in p.teacher_ids for p in course.parts
+        ):
             for (d, p), ls in tm.busy[course.id].items():
                 if banned(d, p):
                     lits += ls
@@ -308,6 +340,7 @@ def _add_room_type_required(tm: TimetableModel, c) -> None:
 
 
 def _scope_combos(tm: TimetableModel, scope):
+    """Yield ``(week, course ids)`` per student combination in scope and per week."""
     grade_of = {k.id: k.grade for k in tm.inp.classes}
     for class_id, cids in _student_combos(tm):
         if (
@@ -315,7 +348,8 @@ def _scope_combos(tm: TimetableModel, scope):
             or scope.get("class_id") == class_id
             or ("grade" in scope and grade_of[class_id] == scope["grade"])
         ):
-            yield cids
+            for w in _passes(tm):
+                yield w, _in_week(tm, cids, w)
 
 
 def _add_max_lessons_per_day(tm: TimetableModel, c) -> None:
@@ -323,7 +357,7 @@ def _add_max_lessons_per_day(tm: TimetableModel, c) -> None:
     # student combination, so a pupil of a split class is not charged for the
     # lessons of the other group. Soft pays per period over the maximum.
     cap = c.params["max"]
-    for cids in _scope_combos(tm, c.params["scope"]):
+    for _week, cids in _scope_combos(tm, c.params["scope"]):
         for d in tm.inp.days:
             lits = [
                 x
@@ -344,7 +378,7 @@ def _add_max_same_subject_per_day(tm: TimetableModel, c) -> None:
     of_subject = {
         k.id for k in tm.inp.courses if any(p.subject_id == subject for p in k.parts)
     }
-    for cids in _scope_combos(tm, c.params["scope"]):
+    for _week, cids in _scope_combos(tm, c.params["scope"]):
         for d in tm.inp.days:
             lits = [
                 x
@@ -362,10 +396,13 @@ def _add_teacher_max_lessons_per_day(tm: TimetableModel, c) -> None:
     # ASSUMPTION: "lessons" are periods taught (a 2-period block counts 2).
     # Soft pays per period over the maximum.
     cap = c.params["max"]
-    for d in tm.inp.days:
-        lits = _teacher_lits(tm, c.params["teacher_id"], lambda day, p, d=d: day == d)
-        if len(lits) > cap:
-            _limit(tm, c, cp_model.LinearExpr.sum(lits), cap, len(tm.inp.periods))
+    for w in _passes(tm):
+        for d in tm.inp.days:
+            lits = _teacher_lits(
+                tm, c.params["teacher_id"], lambda day, p, d=d: day == d, w
+            )
+            if len(lits) > cap:
+                _limit(tm, c, cp_model.LinearExpr.sum(lits), cap, len(tm.inp.periods))
 
 
 def _reach(m, occ, seq, name):
@@ -394,14 +431,14 @@ def _add_no_gaps(tm: TimetableModel, c) -> None:
     # Free periods at the start or end of the day are not gaps. Soft pays
     # ``weight`` per gap, so each combination of a split class counts on its own.
     m, periods = tm.model, tm.inp.periods
-    for cids in _scope_combos(tm, c.params["scope"]):
+    for week, cids in _scope_combos(tm, c.params["scope"]):
         for d in tm.inp.days:
             occ = {
                 p: [x for cid in cids for x in tm.busy[cid].get((d, p), ())]
                 for p in periods
             }
-            before = _reach(m, occ, periods, f"before{c.id}d{d}")
-            after = _reach(m, occ, periods[::-1], f"after{c.id}d{d}")
+            before = _reach(m, occ, periods, f"before{c.id}{week}d{d}")
+            after = _reach(m, occ, periods[::-1], f"after{c.id}{week}d{d}")
             for p in periods[1:-1]:
                 if before[p] is not None and after[p] is not None:
                     expr = before[p] + after[p] - cp_model.LinearExpr.sum(occ[p])
@@ -413,7 +450,7 @@ def _add_day_starts_first_period(tm: TimetableModel, c) -> None:
     # combination has any lesson, it has one in the first period. A day without
     # lessons is fine. Soft pays ``weight`` per combination and day that starts late.
     m, first = tm.model, tm.inp.periods[0]
-    for cids in _scope_combos(tm, c.params["scope"]):
+    for week, cids in _scope_combos(tm, c.params["scope"]):
         for d in tm.inp.days:
             occ = {
                 p: [x for cid in cids for x in tm.busy[cid].get((d, p), ())]
@@ -430,7 +467,7 @@ def _add_day_starts_first_period(tm: TimetableModel, c) -> None:
                         tm.enforce[c.id]
                     )
             else:
-                late = m.new_bool_var(f"late{c.id}d{d}")
+                late = m.new_bool_var(f"late{c.id}{week}d{d}")
                 for p in later:
                     m.add(late >= cp_model.LinearExpr.sum(occ[p]) - at_first)
                 tm.penalties.append((c.weight, late))
@@ -525,13 +562,15 @@ def add_constraints(tm: TimetableModel) -> None:
 
 
 def _at_most(tm: TimetableModel, course_ids: list[int], cap: int) -> None:
-    if len(course_ids) <= cap:
-        return
-    slots = {k for cid in course_ids for k in tm.busy[cid]}
-    for k in slots:
-        lits = [x for cid in course_ids for x in tm.busy[cid].get(k, ())]
-        if len(lits) > cap:
-            tm.model.add(sum(lits) <= cap)
+    for w in _passes(tm):
+        ids = _in_week(tm, course_ids, w)
+        if len(ids) <= cap:
+            continue
+        slots = {k for cid in ids for k in tm.busy[cid]}
+        for k in slots:
+            lits = [x for cid in ids for x in tm.busy[cid].get(k, ())]
+            if len(lits) > cap:
+                tm.model.add(sum(lits) <= cap)
 
 
 def run(

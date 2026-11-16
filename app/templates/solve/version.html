@@ -43,7 +43,7 @@
     {% for r in rows %}
       <li class="list-group-item">
         <span class="badge text-bg-secondary">{{ labels[r.kind] }}</span>
-        <strong>{{ r.subject }}</strong>:
+        <strong>{{ r.subject }}</strong>{% if r.week %} (седмица {{ r.week }}){% endif %}:
         {% if r.before and r.after %}{{ r.before }} → {{ r.after }}{% else %}{{ r.before or r.after }}{% endif %}
       </li>
     {% endfor %}

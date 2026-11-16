@@ -280,6 +280,7 @@ ENTITIES = (
             ("Име", _course_name),
             ("Часове седмично", lambda c: c.periods_per_week),
             ("Блокове", _blocks),
+            ("Седмица", lambda c: {"A": "само A", "B": "само B"}.get(c.week, "всяка")),
             ("Предмети", _course_subjects),
             ("Групи", _course_groups),
         ),
