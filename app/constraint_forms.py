@@ -32,7 +32,7 @@ from app.forms import (
     _strip,
     _too_long,
 )
-from app.models import Course, SchoolClass, Subject, Teacher, db
+from app.models import Course, Period, SchoolClass, Subject, Teacher, db
 from app.solver_input import build_solver_input
 from schema.constraints import parse_constraint
 
@@ -325,6 +325,52 @@ class NoGapsForm(ConstraintForm):
         return {"scope": _scope(self.scope.data)}
 
 
+class DayStartsFirstPeriodForm(ConstraintForm):
+    kind, label = "day_starts_first_period", "Денят започва от първия час"
+    scope = _scope_field()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.scope.choices = _scope_choices(with_all=True)
+
+    def params(self):
+        return {"scope": _scope(self.scope.data)}
+
+
+class PeriodsReservedForSubjectsForm(ConstraintForm):
+    kind, label = "periods_reserved_for_subjects", "Часове само за определени предмети"
+    periods = BgSelectMultipleField(
+        "Часове (всеки учебен ден)",
+        coerce=int,
+        choices=[],
+        validators=[DataRequired("Изберете поне един час.")],
+        message="Изберете часове от списъка.",
+    )
+    subject_ids = BgSelectMultipleField(
+        "Единствените предмети в тези часове",
+        coerce=int,
+        choices=[],
+        validators=[DataRequired("Изберете поне един предмет.")],
+        message="Изберете предмети от списъка.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.periods.choices = [
+            (p.number, f"{p.number}. час")
+            for p in db.session.scalars(select(Period).order_by(Period.number))
+        ]
+        self.subject_ids.choices = _choices(
+            Subject, lambda s: s.name, Subject.name, Subject.id
+        )
+
+    def params(self):
+        return {
+            "periods": sorted(self.periods.data),
+            "subject_ids": sorted(self.subject_ids.data),
+        }
+
+
 class FixedSlotForm(ConstraintForm):
     kind, label = "fixed_slot", "Фиксиран час"
     course_id = BgSelectField(
@@ -357,5 +403,7 @@ FORMS = {
         FixedSlotForm,
         MaxSameSubjectPerDayForm,
         TeacherMaxLessonsPerDayForm,
+        DayStartsFirstPeriodForm,
+        PeriodsReservedForSubjectsForm,
     )
 }

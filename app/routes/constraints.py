@@ -105,6 +105,12 @@ def describe(c: Constraint, names: dict[str, dict[int, str]]) -> str:
                 )
             case "no_gaps":
                 return f"{scope(p['scope'])}: без прозорци"
+            case "day_starts_first_period":
+                return f"{scope(p['scope'])}: денят започва от първия час"
+            case "periods_reserved_for_subjects":
+                periods = ", ".join(f"{n}." for n in p["periods"])
+                subjects = ", ".join(name("subject", i) for i in p["subject_ids"])
+                return f"{periods} час: само {subjects}"
             case "fixed_slot":
                 blocks = ", ".join(
                     f"{day(b['day'])}, от {b['start_period']}. час" for b in p["blocks"]

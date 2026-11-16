@@ -179,6 +179,22 @@ def measure(inp, result, con) -> int:
             )
             for d in inp.days
         )
+    if con.type == "periods_reserved_for_subjects":
+        allowed, reserved = set(p["subject_ids"]), set(p["periods"])
+        banned = {
+            c.id
+            for c in inp.courses
+            if any(x.subject_id not in allowed for x in c.parts)
+        }
+        return len(
+            {
+                (les.course_id, les.day, q)
+                for les, _ in rows
+                if les.course_id in banned
+                for q in periods(les)
+                if q in reserved
+            }
+        )
     # The rest are per student combination and day.
     total = 0
     for _, gids in _combos(inp, p["scope"]):
@@ -191,7 +207,9 @@ def measure(inp, result, con) -> int:
                 and p.get("subject_id", part.subject_id) == part.subject_id
                 for q in periods(les)
             }
-            if con.type != "no_gaps":
+            if con.type == "day_starts_first_period":
+                total += bool(seen) and inp.periods[0] not in seen
+            elif con.type != "no_gaps":
                 total += max(0, len(seen) - p["max"])
             elif seen:  # no_gaps: free periods between first and last lesson
                 total += max(seen) - min(seen) + 1 - len(seen)

@@ -291,6 +291,28 @@ def constraint(d, constraint_id):
             ),
             "out_of_range",
         ),
+        (
+            lambda d: d["constraints"].append(
+                {
+                    "id": 9,
+                    "type": "periods_reserved_for_subjects",
+                    "hard": True,
+                    "params": {"periods": [1], "subject_ids": [99]},
+                }
+            ),
+            "unknown_reference",
+        ),
+        (
+            lambda d: d["constraints"].append(
+                {
+                    "id": 9,
+                    "type": "periods_reserved_for_subjects",
+                    "hard": True,
+                    "params": {"periods": [9], "subject_ids": [3]},
+                }
+            ),
+            "out_of_range",
+        ),
     ],
 )
 def test_bad_constraints_are_reported(data, mutate, expected):

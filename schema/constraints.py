@@ -148,6 +148,31 @@ class NoGapsParams(_Model):
     )
 
 
+class DayStartsFirstPeriodParams(_Model):
+    scope: ClassScope | GradeScope | Literal["all"] = Field(
+        description="One class, one grade, or 'all' classes."
+    )
+
+
+class PeriodsReservedForSubjectsParams(_Model):
+    periods: list[PosInt] = Field(
+        min_length=1,
+        json_schema_extra={"uniqueItems": True},
+        description="Period numbers (every school day) that are reserved.",
+    )
+    subject_ids: list[PosInt] = Field(
+        min_length=1,
+        json_schema_extra={"uniqueItems": True},
+        description="The only subjects that may be taught in those periods.",
+    )
+
+    @model_validator(mode="after")
+    def _check(self) -> PeriodsReservedForSubjectsParams:
+        _unique(self.periods, "periods")
+        _unique(self.subject_ids, "subject_ids")
+        return self
+
+
 class FixedSlotParams(_Model):
     course_id: CourseId
     blocks: list[BlockPosition] = Field(
@@ -237,6 +262,20 @@ class NoGaps(_Constraint):
     params: NoGapsParams
 
 
+class DayStartsFirstPeriod(_Constraint):
+    """On every day a student has lessons, the first lesson is in the first period."""
+
+    type: Literal["day_starts_first_period"]
+    params: DayStartsFirstPeriodParams
+
+
+class PeriodsReservedForSubjects(_Constraint):
+    """Only the listed subjects may be taught in the listed periods (every day)."""
+
+    type: Literal["periods_reserved_for_subjects"]
+    params: PeriodsReservedForSubjectsParams
+
+
 class FixedSlot(_Constraint):
     """Pins every block of a course to a given day and start period."""
 
@@ -252,7 +291,9 @@ ConstraintModel = Annotated[
     | NoGaps
     | FixedSlot
     | MaxSameSubjectPerDay
-    | TeacherMaxLessonsPerDay,
+    | TeacherMaxLessonsPerDay
+    | DayStartsFirstPeriod
+    | PeriodsReservedForSubjects,
     Field(discriminator="type"),
 ]
 

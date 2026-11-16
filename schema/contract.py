@@ -50,6 +50,8 @@ CONSTRAINT_TYPES = (
     "fixed_slot",
     "max_same_subject_per_day",
     "teacher_max_lessons_per_day",
+    "day_starts_first_period",
+    "periods_reserved_for_subjects",
 )
 
 
@@ -728,6 +730,19 @@ def _check_constraint(
                     f"{path}.params.slots[{si}]",
                     "slot is outside the school week",
                 )
+
+    if isinstance(p.get("subject_ids"), list):
+        bad = [x for x in p["subject_ids"] if x not in subject_ids]
+        if bad:
+            add("unknown_reference", f"{path}.params.subject_ids", f"no subjects {bad}")
+    if isinstance(p.get("periods"), list):
+        bad = [x for x in p["periods"] if x not in periods]
+        if bad:
+            add(
+                "out_of_range",
+                f"{path}.params.periods",
+                f"periods {bad} are not in the school day",
+            )
 
     if con.type == "fixed_slot":
         _check_fixed_slot(p, path, inp, add)

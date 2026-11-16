@@ -39,6 +39,72 @@
       "title": "ClassScope",
       "type": "object"
     },
+    "DayStartsFirstPeriod": {
+      "additionalProperties": false,
+      "description": "On every day a student has lessons, the first lesson is in the first period.",
+      "properties": {
+        "hard": {
+          "description": "true = must always hold; false = a preference.",
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only for preferences (hard = false): how much it matters, 1 or more.",
+          "title": "Weight"
+        },
+        "type": {
+          "const": "day_starts_first_period",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/DayStartsFirstPeriodParams"
+        }
+      },
+      "required": [
+        "hard",
+        "type",
+        "params"
+      ],
+      "title": "DayStartsFirstPeriod",
+      "type": "object"
+    },
+    "DayStartsFirstPeriodParams": {
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClassScope"
+            },
+            {
+              "$ref": "#/$defs/GradeScope"
+            },
+            {
+              "const": "all",
+              "type": "string"
+            }
+          ],
+          "description": "One class, one grade, or 'all' classes.",
+          "title": "Scope"
+        }
+      },
+      "required": [
+        "scope"
+      ],
+      "title": "DayStartsFirstPeriodParams",
+      "type": "object"
+    },
     "FixedSlot": {
       "additionalProperties": false,
       "description": "Pins every block of a course to a given day and start period.",
@@ -328,6 +394,79 @@
         "scope"
       ],
       "title": "NoGapsParams",
+      "type": "object"
+    },
+    "PeriodsReservedForSubjects": {
+      "additionalProperties": false,
+      "description": "Only the listed subjects may be taught in the listed periods (every day).",
+      "properties": {
+        "hard": {
+          "description": "true = must always hold; false = a preference.",
+          "title": "Hard",
+          "type": "boolean"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only for preferences (hard = false): how much it matters, 1 or more.",
+          "title": "Weight"
+        },
+        "type": {
+          "const": "periods_reserved_for_subjects",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/PeriodsReservedForSubjectsParams"
+        }
+      },
+      "required": [
+        "hard",
+        "type",
+        "params"
+      ],
+      "title": "PeriodsReservedForSubjects",
+      "type": "object"
+    },
+    "PeriodsReservedForSubjectsParams": {
+      "additionalProperties": false,
+      "properties": {
+        "periods": {
+          "description": "Period numbers (every school day) that are reserved.",
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Periods",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "subject_ids": {
+          "description": "The only subjects that may be taught in those periods.",
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Subject Ids",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "periods",
+        "subject_ids"
+      ],
+      "title": "PeriodsReservedForSubjectsParams",
       "type": "object"
     },
     "RoomTypeRequired": {
@@ -638,10 +777,12 @@
   },
   "discriminator": {
     "mapping": {
+      "day_starts_first_period": "#/$defs/DayStartsFirstPeriod",
       "fixed_slot": "#/$defs/FixedSlot",
       "max_lessons_per_day": "#/$defs/MaxLessonsPerDay",
       "max_same_subject_per_day": "#/$defs/MaxSameSubjectPerDay",
       "no_gaps": "#/$defs/NoGaps",
+      "periods_reserved_for_subjects": "#/$defs/PeriodsReservedForSubjects",
       "room_type_required": "#/$defs/RoomTypeRequired",
       "teacher_available_days": "#/$defs/TeacherAvailableDays",
       "teacher_max_lessons_per_day": "#/$defs/TeacherMaxLessonsPerDay",
@@ -673,6 +814,12 @@
     },
     {
       "$ref": "#/$defs/TeacherMaxLessonsPerDay"
+    },
+    {
+      "$ref": "#/$defs/DayStartsFirstPeriod"
+    },
+    {
+      "$ref": "#/$defs/PeriodsReservedForSubjects"
     }
   ]
 }
