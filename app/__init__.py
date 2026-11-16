@@ -6,6 +6,7 @@ from flask import Flask
 from flask_migrate import Migrate
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.auth import create_user_command, csrf, limiter, login_manager
 from app.errors import register_error_pages
@@ -54,6 +55,8 @@ def create_app(config: dict | None = None) -> Flask:
         # App-side spend cap. shortcut: counts requests, not tokens, in the limiter
         # storage (Redis); upgrade to token accounting if the key limit is not enough.
         LLM_DAILY_CAP="100 per day",
+        # Number of reverse-proxy hops to trust for X-Forwarded-*; 0 = none (dev, tests).
+        TRUSTED_PROXIES=int(os.environ.get("TRUSTED_PROXIES") or 0),
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
     )
@@ -62,6 +65,10 @@ def create_app(config: dict | None = None) -> Flask:
     # Secure cookies need HTTPS: off only in debug and tests (or when set explicitly).
     if "SESSION_COOKIE_SECURE" not in (config or {}):
         app.config["SESSION_COOKIE_SECURE"] = not (app.debug or app.testing)
+
+    if n := app.config["TRUSTED_PROXIES"]:
+        # Only behind a real proxy: otherwise clients could spoof X-Forwarded-For and dodge rate limits.
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=n, x_proto=n, x_host=n)
 
     db.init_app(app)
     migrate.init_app(app, db)

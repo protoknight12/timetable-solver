@@ -3,7 +3,7 @@ x-app: &app
   env_file:
     - path: .env
       required: false
-  environment:
+  environment: &app-env
     # Service hostnames inside the Compose network override the localhost values in .env.
     DATABASE_URL: postgresql+psycopg://saturn:${POSTGRES_PASSWORD:-change-me}@db:5432/saturn
     REDIS_URL: redis://redis:6379/0
@@ -17,6 +17,9 @@ x-app: &app
 services:
   web:
     <<: *app
+    environment:
+      <<: *app-env
+      TRUSTED_PROXIES: "1"  # Caddy is the one hop in front of gunicorn
     ports:
       - "8000:8000"
 
