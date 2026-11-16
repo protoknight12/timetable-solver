@@ -17,8 +17,14 @@ import random
 import re
 import sys
 from collections import Counter, defaultdict
+from pathlib import Path
 
 from anonymize import anonymize  # same folder; run this file as a script
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root, for app/
+from app.class_names import class_name_from_code
+
+SCHOOL_YEAR_START = 2025  # the export is the 2025/26 timetable
 
 DAY_NAMES = ["Понеделник", "Вторник", "Сряда", "Четвъртък", "Петък"]
 
@@ -257,15 +263,13 @@ def build(pages, rng_seed=20261204):
         teachers.append({"id": tid, "name": f"{title} {fake}" if title else fake})
 
     # ---- classes -----------------------------------------------------------
-    # ASSUMPTION: codes 22x..26x are five cohorts mapped to grades 8..12 and the
-    # last digit is the parallel class (1=А, 2=Б, ...). The PDF does not say so.
-    letters = "АБВГДЕЖЗ"
+    # ASSUMPTION (see app/class_names.py): code 2YP = enrolled in 202Y, parallel P;
+    # in 2025/26 the codes 25x..21x are grades 8..12. The PDF does not say so.
     class_ids, classes = {}, []
     for p in pages:
         code = p["class"]
         m = re.fullmatch(r"2(\d)(\d)(?:-(.+))?", code)
-        grade = int(m.group(1)) + 6
-        name = f"{grade}{letters[int(m.group(2)) - 1]}"
+        grade, name = class_name_from_code(code[:3], SCHOOL_YEAR_START)
         cid = f"C{len(classes) + 1:02d}"
         class_ids[code] = cid
         ct = match_class_teacher(p["class_teacher"], p)
@@ -364,7 +368,7 @@ def build(pages, rng_seed=20261204):
                 for n, t in sorted(period_times.items())
             ],
             "assumptions": [
-                "Class codes 22x..26x mapped to grades 8..12; last digit = parallel letter.",
+                "Class code 2YP = enrolled in 202Y, parallel P; 25x..21x = grades 8..12 in 2025/26.",
                 "Room 'СБ' is the sports hall and holds several PE lessons at once.",
                 "Rooms 'STEMn' are labs; numbered rooms are regular classrooms.",
                 "'Първа група'/'Втора група' and language names are group labels as printed.",

@@ -7,10 +7,12 @@ from io import BytesIO
 from flask import Blueprint, flash, redirect, render_template, send_file, url_for
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
-from wtforms import BooleanField, SelectChoice
+from wtforms import BooleanField, SelectChoice, SubmitField
+from wtforms.validators import NumberRange, Optional
 
 from app.auth import admin_required
-from app.forms import BgSelectField
+from app.class_names import current_school_year_start
+from app.forms import BgIntegerField, BgSelectField
 from app.importing import (
     HEADERS,
     ImportFileError,
@@ -40,6 +42,15 @@ class ImportForm(FlaskForm):
         + [SelectChoice(s, s) for s in HEADERS],
         default="",
     )
+    school_year = BgIntegerField(
+        "Начало на учебната година (за кодове на класове като 234)",
+        default=current_school_year_start,
+        validators=[
+            Optional(),
+            NumberRange(2000, 2099, "Въведете година между 2000 и 2099."),
+        ],
+    )
+    preview = SubmitField("Преглед")
     confirm = BooleanField(
         "Разбирам, че качването на Excel файл замества всички текущи данни."
     )
@@ -53,7 +64,7 @@ class ImportForm(FlaskForm):
         if ok and self.is_csv and not self.sheet.data:
             self.sheet.errors.append("Изберете към кой лист се отнася CSV файлът.")
             ok = False
-        if ok and not self.is_csv and not self.confirm.data:
+        if ok and not self.is_csv and not self.confirm.data and not self.preview.data:
             self.confirm.errors.append("Потвърдете замяната на текущите данни.")
             ok = False
         return ok
@@ -62,15 +73,22 @@ class ImportForm(FlaskForm):
 @bp.route("/", methods=["GET", "POST"])
 @admin_required
 def upload():
-    form, errors = ImportForm(), []
+    form, errors, conversions, previewed = ImportForm(), [], {}, False
     if form.validate_on_submit():
         data = form.file.data.read()
         try:
             sheets = read_csv(data, form.sheet.data) if form.is_csv else read_xlsx(data)
-            errors, counts = import_sheets(sheets, replace=not form.is_csv)
+            errors, counts, conversions = import_sheets(
+                sheets,
+                replace=not form.is_csv,
+                school_year_start=form.school_year.data,
+                dry_run=form.preview.data,
+            )
         except ImportFileError as e:
             errors = [str(e)]
-        if not errors:
+        if form.preview.data:
+            previewed = not errors
+        elif not errors:
             done = ", ".join(f"{sheet}: {n}" for sheet, n in counts.items())
             flash(f"Данните са импортирани. {done}.", "success")
             return redirect(url_for("data.teachers_list"))
@@ -79,6 +97,8 @@ def upload():
         form=form,
         errors=errors[:MAX_SHOWN],
         hidden=max(0, len(errors) - MAX_SHOWN),
+        conversions=conversions,
+        previewed=previewed,
         headers=HEADERS,
         active="import",
     )
