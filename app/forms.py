@@ -114,6 +114,28 @@ class DataForm(FlaskForm):
 
 class TeacherForm(DataForm):
     name = _name("Име", 120)
+    # "" = no login. Only viewers not yet linked to another teacher are offered.
+    account = SelectField("Профил за вход", default="")
+
+    def __init__(self, *args, obj=None, **kwargs):
+        super().__init__(*args, obj=obj, **kwargs)
+        free = User.teacher_id.is_(None)
+        if obj is not None:
+            free |= User.teacher_id == obj.id
+        users = db.session.scalars(
+            select(User).where(User.role == "viewer", free).order_by(User.username)
+        )
+        self.account.choices = [("", "Без профил")] + [
+            (str(u.id), u.username) for u in users
+        ]
+        if obj is not None and not self.is_submitted():
+            linked = db.session.scalar(select(User.id).where(User.teacher_id == obj.id))
+            self.account.data = str(linked or "")
+
+    def populate_obj(self, obj):
+        obj.name = (
+            self.name.data
+        )  # `account` is not a Teacher column; see _link_account
 
 
 class SubjectForm(DataForm):

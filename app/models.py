@@ -247,3 +247,8 @@ class User(UserMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(256))
     role: Mapped[str] = mapped_column(String(20))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    # The teacher this login belongs to (BE-20); unique: one login per teacher.
+    teacher_id: Mapped[int | None] = mapped_column(
+        ForeignKey("teachers.id", ondelete="SET NULL"), unique=True
+    )
+    teacher: Mapped[Teacher | None] = relationship()

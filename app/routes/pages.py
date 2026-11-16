@@ -30,6 +30,8 @@ def login():
         )
         if user:
             login_user(user, remember=bool(request.form.get("remember")))
+            if user.teacher_id and user.role == "viewer":
+                return redirect(url_for("solve.timetable", teacher=user.teacher_id))
             return redirect(url_for("pages.index"))
         # Never say which part was wrong.
         flash("Грешно потребителско име или парола.", "danger")
