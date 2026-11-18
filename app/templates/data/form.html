@@ -23,24 +23,20 @@
                 {{ field(class_='form-control form-control-color' ~ (' is-invalid' if field.errors else '')) }}
                 {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
               </div>
-            {% elif field.name == 'auto_color' %}
+            {% elif field.type == 'BooleanField' %}
               <div class="form-check mb-3">
                 {{ field(class_='form-check-input') }}
                 {{ field.label(class_='form-check-label') }}
               </div>
             {% else %}
-            {% set kw = {'list': 'room-types'} if types is not none and field.name in ('type', 'default_room_type') else {} %}
             <div class="form-floating mb-3">
-              {{ field(class_=('form-select' if field.type == 'SelectField' else 'form-control') ~ (' is-invalid' if field.errors else ''),
-                       placeholder=field.label.text, autocomplete='off', **kw) }}
+              {{ field(class_=('form-select' if field.type in ('SelectField', 'BgSelectField') else 'form-control') ~ (' is-invalid' if field.errors else ''),
+                       placeholder=field.label.text, autocomplete='off') }}
               {{ field.label }}
               {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
             </div>
             {% endif %}
           {% endfor %}
-          {% if types is not none %}
-            <datalist id="room-types">{% for t in types %}<option value="{{ t }}">{% endfor %}</datalist>
-          {% endif %}
           <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Запази</button>
             <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Отказ</a>

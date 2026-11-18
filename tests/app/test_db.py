@@ -84,7 +84,16 @@ def test_round_trip_seed_to_db_to_solver_input(migrated):
     load_school(seed)
     db.session.commit()
     from_db = build_solver_input(db.session)
-    assert _normalised(from_db) == _normalised(seed_to_solver_input(seed))
+    expected = seed_to_solver_input(seed)
+    # The seeds call a plain room "regular"; the database uses the fixed code (BE-20).
+    expected = dataclasses.replace(
+        expected,
+        rooms=tuple(
+            dataclasses.replace(r, type="classroom" if r.type == "regular" else r.type)
+            for r in expected.rooms
+        ),
+    )
+    assert _normalised(from_db) == _normalised(expected)
     assert from_db.problems() == []
 
 

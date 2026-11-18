@@ -190,7 +190,7 @@ def test_import_maps_the_school(make_client):
     assert count(m.Course) == 4  # 3 rows were skipped
     assert count(m.Period) == 5  # kept
     rooms = {r.name: r for r in s.scalars(select(m.Room))}
-    assert (rooms["101"].type, rooms["101"].concurrent_capacity) == ("стая", 1)
+    assert (rooms["101"].type, rooms["101"].concurrent_capacity) == ("classroom", 1)
 
     courses = {c.id: c for c in s.scalars(select(m.Course))}
     double, singles, joint, gym = sorted(courses.values(), key=lambda c: c.id)

@@ -44,13 +44,11 @@
             <div class="form-text">Полетата за стая по-долу се използват само при този избор.</div>
           </div>
           <div class="form-floating mb-3">
-            {{ form.room_type(class_='form-control' ~ (' is-invalid' if form.room_type.errors else ''),
-                              placeholder=form.room_type.label.text, autocomplete='off', list='room-types') }}
+            {{ form.room_type(class_='form-select' ~ (' is-invalid' if form.room_type.errors else '')) }}
             {{ form.room_type.label }}
             {% for error in form.room_type.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
-            <datalist id="room-types">{% for t in types %}<option value="{{ t }}">{% endfor %}</datalist>
           </div>
-          <p class="form-text">Ако типът е празен, се ползва типът по подразбиране на предмета.</p>
+          <p class="form-text">Ако не е избран тип, се ползва типът по подразбиране на предмета. Предмет, който изисква компютри, винаги изисква стая с компютри.</p>
           {{ checks(form.allowed_room_ids, 'Няма добавени стаи.') }}
           <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Запази</button>

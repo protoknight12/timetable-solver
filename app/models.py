@@ -22,6 +22,7 @@ from sqlalchemy import (
     String,
     Table,
     Time,
+    false,
     func,
     text,
     true,
@@ -93,6 +94,10 @@ class Subject(Base):
     default_room_type: Mapped[str | None] = mapped_column(String(40))
     color: Mapped[str | None] = mapped_column(String(7))  # '#rrggbb'; None = automatic
     short_name: Mapped[str | None] = mapped_column(String(20))
+    # BE-20: lessons of this subject need a room with computers.
+    requires_computers: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
 
 
 class SchoolClass(Base):
@@ -101,6 +106,8 @@ class SchoolClass(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(40))
     grade: Mapped[int | None]
+    # BE-20: number of students; None = unknown (the seats rule is then skipped).
+    student_count: Mapped[int | None]
     # Secret of the public read-only page /p/<token> (FE-16); NULL = page off.
     public_token: Mapped[str | None] = mapped_column(String(32), unique=True)
     class_teacher_id: Mapped[int | None] = mapped_column(
@@ -136,6 +143,8 @@ class StudentGroup(Base):
     name: Mapped[str] = mapped_column(String(80), default="")
     is_whole: Mapped[bool] = mapped_column(Boolean, default=False)
     split: Mapped[str] = mapped_column(String(40), default="", server_default="")
+    # BE-20: students in a sub-group (the whole-class group uses the class's count).
+    student_count: Mapped[int | None]
 
     school_class: Mapped[SchoolClass] = relationship(back_populates="groups")
 
@@ -147,6 +156,11 @@ class Room(Base):
     name: Mapped[str] = mapped_column(String(80))
     type: Mapped[str] = mapped_column(String(40))
     concurrent_capacity: Mapped[int] = mapped_column(default=1, server_default="1")
+    # BE-20: has computers; seats = places for students (None = unknown, no limit).
+    has_computers: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
+    seats: Mapped[int | None]
 
 
 class Period(Base):

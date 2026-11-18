@@ -11,6 +11,7 @@ from sqlalchemy import func, select, text
 
 from app import models as m
 from app.auth import create_demo_users
+from app.room_types import OTHER, normalize_room_type
 from tools.seed_to_contract import SEED, load_seed, seed_to_solver_input
 
 # Tables that hold school data. `flask seed --reset` empties exactly these.
@@ -58,7 +59,8 @@ def load_school(seed: dict) -> None:
         m.Room(
             id=x.id,
             name=r["name"],
-            type=x.type,
+            # The seeds say "regular" for a plain room; the app uses fixed codes (BE-20).
+            type=normalize_room_type(x.type) or OTHER,
             concurrent_capacity=x.concurrent_capacity,
         )
         for x, r in zip(inp.rooms, seed["rooms"], strict=True)
@@ -101,7 +103,7 @@ def load_school(seed: dict) -> None:
                     course_id=course.id,
                     subject_id=p.subject_id,
                     needs_room=p.needs_room,
-                    room_type=p.room_type,
+                    room_type=normalize_room_type(p.room_type) or p.room_type,
                     allowed_room_ids=None
                     if p.allowed_room_ids is None
                     else list(p.allowed_room_ids),
