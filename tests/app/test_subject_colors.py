@@ -123,7 +123,7 @@ def test_split_cell_lines_each_get_their_own_class(make_client, migrated):
     for c in db.session.scalars(select(m.SchoolClass)):
         html = client.get(f"/timetable?class={c.id}").text
         if html.count("subject-") > 0:
-            assert 'class="border rounded p-1 subject-' in html
+            assert 'class="timetable-lesson border rounded subject-' in html
             return
     raise AssertionError("no lesson cells")
 
@@ -208,3 +208,24 @@ def test_seed_may_carry_color_and_short_name(migrated):
     db.session.commit()
     first = db.session.scalars(select(m.Subject).order_by(m.Subject.id)).first()
     assert (first.color, first.short_name) == ("#123456", "Б")
+
+
+def test_timetable_and_public_cells_carry_the_text_colour_hook(make_client, migrated):
+    _solved()
+    sample = db.session.scalars(select(m.Subject)).first()
+    sample.color = "#112233"
+    db.session.commit()
+    html = make_client("admin").get("/timetable").text
+    assert "timetable-lesson" in html and "lesson-btn" in html
+    # One rule per subject sets the background and the contrasting text colour together.
+    for s in db.session.scalars(select(m.Subject)):
+        bg = subject_color(s)
+        assert (
+            f".subject-{s.id}{{background-color:{bg};color:{text_color(bg)}}}" in html
+        )
+
+
+def test_text_color_picks_the_higher_contrast_on_mid_tones():
+    for color in ("#b07aa1", "#9c755f", "#4e79a7", "#e15759", "#edc948"):
+        other = "#ffffff" if text_color(color) == "#000000" else "#000000"
+        assert _contrast(text_color(color), color) >= _contrast(other, color), color

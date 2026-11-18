@@ -114,18 +114,18 @@
                   {% for d in days %}
                     <td data-day="{{ d }}" data-period="{{ p.number }}">
                       {% for l in cells.get((d, p.number), []) %}
-                        <div class="border rounded p-1 subject-{{ l.subject_id }} {% if not loop.last %}mb-1{% endif %}"{% if current_user.role == 'admin' %} draggable="true" data-move-url="{{ url_for('solve.move', lesson_id=l.lesson_id) }}"{% endif %}>
+                        <div class="timetable-lesson border rounded subject-{{ l.subject_id }} {% if not loop.last %}mb-1{% endif %}"{% if current_user.role == 'admin' %} draggable="true" data-move-url="{{ url_for('solve.move', lesson_id=l.lesson_id) }}"{% endif %}>
                           <div class="fw-semibold" title="{{ l.subject_full }}">{{ l.subject }}{% if l.week %} <span class="badge text-bg-info">Седмица {{ l.week }}</span>{% endif %}{% if l.changed %} <span class="badge text-bg-warning">променен</span>{% endif %}{% if l.pinned %} <span class="badge text-bg-secondary"><i class="bi bi-pin-angle-fill"></i> закачен</span>{% endif %}</div>
-                          <small>
+                          <small class="timetable-lesson-meta d-block">
                             {{ l.teachers }}{% if l.room %} · {{ l.room }}{% endif %}{% if l.group %} · {{ l.group }}{% endif %}
                           </small>
                           {% if current_user.role == 'admin' %}
                             <div class="d-flex flex-wrap gap-1 mt-1 d-print-none">
-                              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('solve.move_form', lesson_id=l.lesson_id, **back) }}"><i class="bi bi-arrows-move"></i> Премести</a>
+                              <a class="btn btn-sm btn-outline-secondary lesson-btn" href="{{ url_for('solve.move_form', lesson_id=l.lesson_id, **back) }}"><i class="bi bi-arrows-move"></i> Премести</a>
                               <form method="post" action="{{ url_for('solve.unpin' if l.pinned else 'solve.pin', lesson_id=l.lesson_id) }}">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 {% for k, v in back.items() if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
-                                <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pin-angle"></i> {{ 'Откачи' if l.pinned else 'Закачи' }}</button>
+                                <button type="submit" class="btn btn-sm btn-outline-secondary lesson-btn"><i class="bi bi-pin-angle"></i> {{ 'Откачи' if l.pinned else 'Закачи' }}</button>
                               </form>
                             </div>
                           {% endif %}
