@@ -109,6 +109,7 @@ def new_model(inp: SolverInput, explain: bool = False) -> TimetableModel:
     required = {} if explain else needed
     last = inp.periods[-1]
     rooms = inp.rooms
+    computer_subjects = {x.id for x in inp.subjects if x.requires_computers}
     for course in inp.courses:
         for b, size in enumerate(course.block_sizes):
             starts = {
@@ -127,14 +128,21 @@ def new_model(inp: SolverInput, explain: bool = False) -> TimetableModel:
             for part in course.parts:
                 # A hard room_type_required makes the part need a room, of that
                 # type as well as of any type it already has (intersection).
-                if not (part.needs_room or part.id in needed):
+                # A subject that requires computers makes its parts need a room too
+                # (BE-20), a room with computers.
+                computers = part.subject_id in computer_subjects
+                if not (part.needs_room or part.id in needed or computers):
                     continue
+                students = part_students(inp, part)
                 cands = [
                     r.id
                     for r in rooms
                     if (part.room_type is None or r.type == part.room_type)
                     and (part.allowed_room_ids is None or r.id in part.allowed_room_ids)
                     and all(r.type == t for t in required.get(part.id, ()))
+                    and (not computers or r.has_computers)
+                    # Seats rule: only with a known seat count and a known head count.
+                    and (students is None or r.seats is None or r.seats >= students)
                 ]
                 if len(cands) == 1:
                     tm.room_start[part.id, b] = {cands[0]: starts}
@@ -299,6 +307,25 @@ def _matching_parts(inp: SolverInput, params: dict) -> set[int]:
         for p in c.parts
         if c.id == params.get("course_id") or p.subject_id == params.get("subject_id")
     }
+
+
+def part_students(inp: SolverInput, part) -> int | None:
+    """Students in a part: the sum over its groups (BE-20).
+
+    A whole-class group counts the class's ``student_count``, any other group
+    its own. If any of these is unknown the result is None and the seats rule
+    is skipped for the part (ASSUMPTION: unknown means no limit, not zero).
+    """
+    classes = {k.id: k for k in inp.classes}
+    groups = {g.id: g for g in inp.groups}
+    total = 0
+    for gid in part.group_ids:
+        g = groups[gid]
+        n = classes[g.class_id].student_count if g.is_whole else g.student_count
+        if n is None:
+            return None
+        total += n
+    return total
 
 
 def _required_room_types(inp: SolverInput) -> dict[int, set[str]]:
