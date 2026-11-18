@@ -17,7 +17,6 @@ from wtforms import BooleanField, StringField
 from wtforms.validators import (
     DataRequired,
     InputRequired,
-    Length,
     NumberRange,
     Optional,
 )
@@ -28,11 +27,9 @@ from app.forms import (
     BgSelectField,
     BgSelectMultipleField,
     DataForm,
-    _canonical_type,
-    _strip,
-    _too_long,
 )
 from app.models import Course, Period, SchoolClass, Subject, Teacher, db
+from app.room_types import room_type_choices
 from app.solver_input import build_solver_input
 from schema.constraints import parse_constraint
 
@@ -274,10 +271,11 @@ class RoomTypeRequiredForm(ConstraintForm):
     course_id = BgSelectField(
         "Или само един учебен план", coerce=int, choices=[], default=0
     )
-    room_type = StringField(
+    room_type = BgSelectField(
         "Тип стая",
-        filters=[_strip, _canonical_type],
-        validators=[DataRequired(REQUIRED), Length(max=40, message=_too_long(40))],
+        choices=room_type_choices(blank="—"),
+        default="",
+        validators=[DataRequired(REQUIRED)],
     )
 
     def __init__(self, *args, **kwargs):

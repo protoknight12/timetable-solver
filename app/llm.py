@@ -29,6 +29,7 @@ from app.models import (
     Teacher,
     db,
 )
+from app.room_types import room_type_label
 from app.solver_input import build_solver_input
 from schema.constraints import constraint_json_schema
 
@@ -259,7 +260,10 @@ def _school_context(school: dict) -> str:
         f"{s['id']} | {s['name']} | {s['short_name'] or ''}" for s in school["subjects"]
     ]
     types = sorted({r["type"] for r in school["rooms"]})
-    lines.append("Room types for room_type_required: " + ", ".join(types))
+    lines.append(
+        "Room types for room_type_required (use the code): "
+        + ", ".join(f"{t} = {room_type_label(t)}" for t in types)
+    )
     lines.append("Courses for fixed_slot (id | classes | subjects | teachers | label):")
     for c in school["courses"]:
         lines.append(

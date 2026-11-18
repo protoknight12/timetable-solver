@@ -31,8 +31,8 @@ from sqlalchemy import select
 from app import llm
 from app.auth import admin_required, limiter
 from app.constraint_forms import DAY_NAMES, FORMS, TARGETS, _course_name
-from app.forms import room_types
 from app.models import Constraint, Course, SchoolClass, Subject, Teacher, db
+from app.room_types import room_type_label
 from app.solver_input import build_solver_input
 
 bp = Blueprint("constraints", __name__, url_prefix="/constraints")
@@ -112,7 +112,7 @@ def describe(c: Constraint, names: dict[str, dict[int, str]]) -> str:
                     if p.get("subject_id")
                     else name("course", p["course_id"])
                 )
-                return f"{who}: стая от тип „{p['room_type']}“"
+                return f"{who}: стая от тип „{room_type_label(p['room_type'])}“"
             case "max_lessons_per_day":
                 return f"{scope(p['scope'])}: най-много {p['max']} часа на ден"
             case "max_same_subject_per_day":
@@ -203,7 +203,6 @@ def new(kind):
         heading=f"Ново ограничение: {form.label}",
         cancel_url=url_for("constraints.list_view"),
         active="constraints",
-        types=room_types(),
     )
 
 
@@ -219,7 +218,6 @@ def _modal(kind, form, *, selected=(), problems=(), picker_error=None):
             selected={str(v) for v in selected},
             problems=problems,
             picker_error=picker_error,
-            types=room_types(),
         )
     )
     resp.headers["Vary"] = "HX-Request"

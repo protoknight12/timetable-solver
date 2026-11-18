@@ -188,3 +188,32 @@ def test_page_post_lands_ai_rows_as_proposed(admin, migrated, monkeypatch):
         "/constraints/propose", data={"text": "без прозорци"}, follow_redirects=True
     ).get_data(as_text=True)
     assert "Предложено" in html and "ИИ" in html and "без прозорци" in html
+
+
+def test_room_type_required_uses_the_fixed_room_type_list(admin):
+    """BE-20 integration: the room type is a dropdown of the fixed list, not free text."""
+    page = admin.get("/constraints/new/room_type_required").get_data(as_text=True)
+    assert '<select class="form-select' in page and 'name="room_type"' in page
+    assert "Лаборатория / STEM кабинет" in page and 'list="room-types"' not in page
+
+    subject = _first(m.Subject)
+    before = db.session.query(m.Constraint).count()
+    resp = admin.post(
+        "/constraints/new/room_type_required",
+        data={
+            "hard": "y",
+            "subject_id": subject.id,
+            "room_type": "кабинет по рисуване",
+        },
+    )
+    assert resp.status_code == 200  # re-rendered with an error, nothing saved
+    assert db.session.query(m.Constraint).count() == before
+
+    admin.post(
+        "/constraints/new/room_type_required",
+        data={"hard": "y", "subject_id": subject.id, "room_type": "lab"},
+    )
+    saved = db.session.scalars(select(m.Constraint).order_by(m.Constraint.id)).all()[-1]
+    assert saved.params["room_type"] == "lab"
+    listing = admin.get("/constraints/").get_data(as_text=True)
+    assert "стая от тип „Лаборатория / STEM кабинет“" in listing
