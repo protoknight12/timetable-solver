@@ -9,9 +9,11 @@ Assumptions (no school rule is invented here):
 - an aSc import REPLACES all school data, like the template. The bell times are not in
   the file, so the CURRENT periods are kept (and are required);
 - „Почивка“ (teacher, class, subject) means "no lessons in these slots" and „Прозорци“ and
-  <a,b> are limits; „Прозорци“ = 20 means no limit (nothing is created). ASC-AUTO: in aSc they behave
-  as preferences (the school's own timetable breaks some of them), so they are imported as SOFT
-  constraints with the weights in `SOFT_WEIGHTS`; the admin may ask for hard ones instead;
+  <a,b> are limits; „Прозорци“ = 20 means no limit (nothing is created). They are imported as
+  HARD constraints by default: a solve then names any impossible combination and the admin
+  makes exactly those preferences with one click (/jobs/<id>/relax). On a real school this
+  broke 21 preferences in 60 s, against 105 when every rule was soft. The admin may still
+  import them all as SOFT constraints with the weights in `SOFT_WEIGHTS`;
 - an aSc lesson row is one course with one part; its classes and groups are paired by
   position ("211,212" with "Цял клас,Първа група"), a single class takes every listed group;
   classes written without commas ("211212") are split into 3-character codes when all exist;
@@ -262,7 +264,7 @@ def _room_names(cell: str, known: dict[str, str]):
     return out
 
 
-def translate(raw, periods: list[list], hard_rules: bool = False) -> Translation:
+def translate(raw, periods: list[list], hard_rules: bool = True) -> Translation:
     t = Translation()
     skip = t.skipped
     teachers = raw[TEACHER_S]
@@ -438,7 +440,7 @@ def _lesson(r, classes, teachers, subjects, rooms, teacher_rooms, subject_rooms)
     ]  # fmt: skip
 
 
-def _rules(t: Translation, sheet, kind, name, r, hard_rules=False) -> None:
+def _rules(t: Translation, sheet, kind, name, r, hard_rules=True) -> None:
     """„Почивка“ (all three sheets), „Прозорци“ and <a,b> (teachers) -> rules.
 
     A rule is (sheet, row, type, kind, name, params, weight); weight None = hard.
@@ -492,7 +494,7 @@ def import_asc(
     filename: str,
     school_year_start: int | None,
     dry_run: bool,
-    hard_rules: bool = False,
+    hard_rules: bool = True,
 ) -> AscResult:
     """Read, translate and import; the school year is the admin's, else detected."""
     raw = read_asc(data)

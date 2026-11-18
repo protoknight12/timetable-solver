@@ -151,6 +151,12 @@
         {% include "solve/_report.html" %}
       </div>
     </div>
+  {% elif job.status == 'finished' and job.solver_status == 'UNKNOWN' %}
+    <div id="timeout-explanation">
+      <h2 class="h5">Времето за търсене не стигна</h2>
+      <p>За {% if job.time_limit_s %}{{ job.time_limit_s }} секунди{% else %}зададеното време{% endif %} не беше намерено разписание. Това не означава, че разписанието е невъзможно.</p>
+      <p class="mb-0">Изградете разписанието отново. Ако това се повтаря, увеличете времето за търсене (настройката <code>SOLVER_TIME_LIMIT_S</code> на сървъра).</p>
+    </div>
   {% elif job.status == 'finished' %}
     <p>Не е намерено разписание, което да спазва всички твърди изисквания. Прегледайте данните и ограниченията.</p>
     <div id="infeasible-explanation">

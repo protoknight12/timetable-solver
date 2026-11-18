@@ -124,10 +124,10 @@
             <div class="form-text">Ако е празно, годината се взема от името на файла (например 25-26) или от кодовете на класовете.</div>
           </div>
           <div class="form-check mb-1">
-            {{ asc_form.hard_rules(class_='form-check-input') }}
-            {{ asc_form.hard_rules.label(class_='form-check-label') }}
+            {{ asc_form.soft_rules(class_='form-check-input') }}
+            {{ asc_form.soft_rules.label(class_='form-check-label') }}
           </div>
-          <div class="form-text mb-3">По подразбиране „Почивка“, „Прозорци“ и ограниченията за часове на ден се внасят като предпочитания: спазват се, когато е възможно, а проверката показва всяко нарушено. Ако ги отметнете като задължителни, невъзможно правило (например учител с повече часове, отколкото има свободни слотове) прави разписанието невъзможно.</div>
+          <div class="form-text mb-3">По подразбиране „Почивка“, „Прозорци“ и ограниченията за часове на ден се внасят като задължителни. Ако някои от тях са невъзможни заедно, изграждането ги посочва и с едно натискане ги прави предпочитания. Отметнете, ако искате всички да са предпочитания от самото начало: спазват се, когато е възможно, а проверката показва всяко нарушено.</div>
           <div class="form-check mb-3">
             {{ asc_form.confirm(class_='form-check-input' ~ (' is-invalid' if asc_form.confirm.errors else '')) }}
             {{ asc_form.confirm.label(class_='form-check-label') }}

@@ -228,11 +228,10 @@ def test_import_maps_the_school(make_client):
         class_unavailable_slots=1,
         subject_unavailable_slots=1,
     )
-    # ASC-AUTO: the school's rules are preferences by default, each with its weight
-    assert {(c.status, c.source, c.hard) for c in rules} == {
-        ("confirmed", "import", False)
+    # the school's rules are hard by default (impossible ones are relaxed after a solve)
+    assert {(c.status, c.source, c.hard, c.weight) for c in rules} == {
+        ("confirmed", "import", True, None)
     }
-    assert all(c.weight == SOFT_WEIGHTS[c.type] for c in rules)
     unavailable = next(c for c in rules if c.type == "teacher_unavailable_slots")
     assert len(unavailable.params["slots"]) == 1 + 4 * 2
 
@@ -388,23 +387,25 @@ def _rules():
     return db.session.scalars(select(m.Constraint).order_by(m.Constraint.id)).all()
 
 
-def test_the_checkbox_imports_the_rules_as_hard_and_the_preview_counts_both(
+def test_the_checkbox_imports_the_rules_as_soft_and_the_preview_counts_both(
     make_client,
 ):
     periods()
     admin = make_client("admin")
     preview = {"asc-preview": "y", "asc-confirm": ""}
     html = upload(admin, **preview).get_data(as_text=True)
-    assert "6 като предпочитания, 0 като задължителни" in html
-    assert "Импортирай правилата като задължителни" in html
-    html = upload(admin, **preview, **{"asc-hard_rules": "y"}).get_data(as_text=True)
     assert "0 като предпочитания, 6 като задължителни" in html
+    assert "Импортирай правилата като предпочитания" in html
+    html = upload(admin, **preview, **{"asc-soft_rules": "y"}).get_data(as_text=True)
+    assert "6 като предпочитания, 0 като задължителни" in html
     assert count(m.Constraint) == 0  # a preview saves nothing
 
-    assert upload(admin, **{"asc-hard_rules": "y"}).status_code == 302
+    assert upload(admin, **{"asc-soft_rules": "y"}).status_code == 302
+    rules = _rules()
+    assert {c.hard for c in rules} == {False}
+    assert all(c.weight == SOFT_WEIGHTS[c.type] for c in rules)
+    assert upload(admin).status_code == 302  # default: hard again
     assert {(c.hard, c.weight) for c in _rules()} == {(True, None)}
-    assert upload(admin).status_code == 302  # default: soft again
-    assert {c.hard for c in _rules()} == {False}
 
 
 def test_subject_rooms_live_on_the_subject_and_other_lists_stay_on_the_part(
@@ -523,11 +524,11 @@ def test_an_impossible_rest_rule_is_infeasible_as_hard_and_a_reported_preference
     admin = make_client("admin")
     data = xlsx(_no_free_time_for_second_teacher())
 
-    upload(admin, data, **{"asc-hard_rules": "y"})
+    upload(admin, data)  # hard by default
     hard_job = _solve()
     assert hard_job.solver_status == "INFEASIBLE"
 
-    upload(admin, data)  # soft by default
+    upload(admin, data, **{"asc-soft_rules": "y"})
     job = _solve()
     assert (job.status, job.solver_status) in {
         ("finished", "OPTIMAL"),
@@ -540,3 +541,34 @@ def test_an_impossible_rest_rule_is_infeasible_as_hard_and_a_reported_preference
     assert {v.type for v in violations if not v.hard} == {"teacher_unavailable_slots"}
     assert job.objective and job.objective > 0
     assert count(m.Lesson) > 0
+
+
+def test_hard_import_then_one_click_relax_gives_a_timetable(make_client, monkeypatch):
+    """The automated path: import (hard) -> solve names the conflict -> relax -> timetable."""
+    periods()
+    admin = make_client("admin")
+    upload(admin, xlsx(_no_free_time_for_second_teacher()))
+    first = _solve()
+    assert first.solver_status == "INFEASIBLE"
+
+    queued = []
+    monkeypatch.setitem(
+        admin.application.config,
+        "SOLVE_ENQUEUE",
+        lambda job_id, t: queued.append(job_id),
+    )
+    assert admin.post(f"/jobs/{first.id}/relax").status_code == 302
+    (job_id,) = queued
+    run_solve(job_id)
+    job = db.session.get(m.SolveJob, job_id)
+    assert (job.status, job.solver_status) in {
+        ("finished", "OPTIMAL"),
+        ("finished", "FEASIBLE"),
+    }
+    violations = db.session.scalars(
+        select(m.Violation).where(m.Violation.job_id == job.id)
+    ).all()
+    assert not [v for v in violations if v.hard]
+    assert {v.type for v in violations} == {"teacher_unavailable_slots"}
+    relaxed = [c for c in _rules() if not c.hard]
+    assert [c.type for c in relaxed] == ["teacher_unavailable_slots"]
