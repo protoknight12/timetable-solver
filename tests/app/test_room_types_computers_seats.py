@@ -1,5 +1,6 @@
 """BE-20: fixed room types, computers, seats and student counts."""
 
+import json
 from io import BytesIO
 
 import pytest
@@ -397,13 +398,13 @@ def test_migration_maps_old_room_types(app):
         c.execute(
             sa.text(
                 "INSERT INTO course_parts (id, course_id, subject_id, needs_room, room_type) "
-                "VALUES (1, 1, 1, 1, 'regular'), (2, 1, 2, 1, NULL)"
+                "VALUES (1, 1, 1, TRUE, 'regular'), (2, 1, 2, TRUE, NULL)"
             )
         )
         c.execute(
             sa.text(
                 "INSERT INTO constraints (id, type, params, hard, status, source) "
-                "VALUES (1, 'room_type_required', :p, 1, 'confirmed', 'manual')"
+                "VALUES (1, 'room_type_required', :p, TRUE, 'confirmed', 'manual')"
             ),
             {"p": '{"subject_id": 1, "room_type": "regular"}'},
         )
@@ -434,7 +435,9 @@ def test_migration_maps_old_room_types(app):
             (None,),
         ]
         params = c.execute(sa.text("SELECT params FROM constraints")).scalar_one()
-        assert '"classroom"' in str(params)
+        if isinstance(params, str):  # SQLite returns JSON text, PostgreSQL a dict
+            params = json.loads(params)
+        assert params["room_type"] == "classroom"
         # the new columns have their defaults
         assert c.execute(
             sa.text("SELECT has_computers, seats FROM rooms WHERE id = 1")

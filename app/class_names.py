@@ -18,8 +18,13 @@ def current_school_year_start(today: date | None = None) -> int:
     return today.year if today.month >= 9 else today.year - 1
 
 
-def normalize_class_name(text: str) -> str:
-    """ "10 г" -> "10Г", Latin "10a" -> "10А". Does not validate."""
+def normalize_class_name(text: str | None) -> str | None:
+    """ "10 г" -> "10Г", Latin "10a" -> "10А". Does not validate.
+
+    None (an empty "new class" form, before anything is typed) stays None.
+    """
+    if text is None:
+        return None
     return "".join(text.split()).upper().translate(_LATIN_TO_CYRILLIC)
 
 

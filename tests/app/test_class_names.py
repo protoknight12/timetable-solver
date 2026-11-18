@@ -87,3 +87,10 @@ def test_import_code_out_of_range_for_the_year(make_client):
     html = r.get_data(as_text=True)
     assert "Нищо не е запазено" in html and "не съответства" in html
     assert snapshot()["classes"] == []
+
+
+def test_new_class_form_opens(make_client):
+    """The empty form passed None to the name filter and crashed with a 500."""
+    assert normalize_class_name(None) is None
+    page = make_client("admin").get("/data/classes/new")
+    assert page.status_code == 200 and 'name="name"' in page.get_data(as_text=True)
