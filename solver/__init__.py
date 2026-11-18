@@ -49,6 +49,7 @@ from schema.contract import (
     SolveResult,
     SolverInput,
 )
+from solver.diagnose import find_overloads
 
 _STATUS = {
     cp_model.OPTIMAL: "OPTIMAL",
@@ -751,6 +752,12 @@ def solve(
     found = inp.problems()
     if found:
         raise ContractError(found)
+    # Plain counting first (FIX-UKTC): a teacher or class whose lessons do not fit the hard
+    # rules is proven impossible at once, with exactly the constraints to blame.
+    overloads = find_overloads(inp)
+    if overloads:
+        ids = sorted({i for o in overloads for i in o.constraint_ids})
+        return SolveResult(status="INFEASIBLE", conflicting_constraint_ids=tuple(ids))
     tm = _build(inp, reference=tuple(reference))
     result = run(tm, time_limit_s, num_workers, random_seed)
     if result.status == "INFEASIBLE" and any(c.hard for c in inp.constraints):
