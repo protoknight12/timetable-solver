@@ -74,7 +74,7 @@ def test_week_example_round_trips():
     path = EXAMPLE.with_name("ab_weeks.json")
     inp = load_solver_input(json.loads(path.read_text(encoding="utf-8")))
     assert [c.week for c in inp.courses] == [None, "A", "B"]
-    assert inp.to_dict()["contract_version"] == CONTRACT_VERSION == 3
+    assert inp.to_dict()["contract_version"] == CONTRACT_VERSION == 4
     assert load_solver_input(json.loads(json.dumps(inp.to_dict()))) == inp
 
 

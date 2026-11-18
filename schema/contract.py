@@ -36,6 +36,19 @@ The model (TECH_STACK.md section 5):
   ``periods_reserved_for_subjects``, ``class_unavailable_slots`` and
   ``subject_unavailable_slots`` are per slot and need no week split.
 
+Room fit (BE-20, again implemented separately by the solver and the checker).
+A part that needs a room may only use a room that:
+
+- has computers, if the part's subject has ``requires_computers`` (such a part
+  needs a room even when ``needs_room`` is false; the web layer also sets
+  ``needs_room`` for it);
+- has at least as many ``seats`` as the part has students, but only when the
+  room has ``seats`` set and the number of students is known. The part's
+  students are the sum over its groups: a whole-class group counts the class's
+  ``student_count``, any other group its own. One unknown count makes the whole
+  part unknown, and the rule is then skipped for it (ASSUMPTION: no count means
+  no limit, not zero). Parts of a joint lesson across classes therefore add up.
+
 This file only describes and validates data. It does not implement timetable
 rules: the solver and the checker each implement those on their own.
 
@@ -50,7 +63,7 @@ from dataclasses import asdict, dataclass
 from itertools import combinations
 from typing import Any
 
-CONTRACT_VERSION = 3  # 2: StudentGroup.split; 3: Course.week
+CONTRACT_VERSION = 4  # 2: StudentGroup.split; 3: Course.week; 4: computers, seats
 # Version 2 input has no ``week`` and still parses (every course runs every week).
 MIN_CONTRACT_VERSION = 2
 WEEKS = ("A", "B")
@@ -188,11 +201,18 @@ class Teacher:
 @dataclass(frozen=True)
 class Subject:
     id: int
+    # Lessons of this subject need a room with computers (BE-20).
+    requires_computers: bool = False
 
     @classmethod
     def from_dict(cls, d: Any, path: str) -> Subject:
-        _obj(d, path, {"id"})
-        return cls(id=_int(d["id"], f"{path}.id"))
+        _obj(d, path, {"id"}, {"requires_computers"})
+        return cls(
+            id=_int(d["id"], f"{path}.id"),
+            requires_computers=_bool(
+                d.get("requires_computers", False), f"{path}.requires_computers"
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -201,14 +221,17 @@ class SchoolClass:
     name: str
     # Needed for constraints scoped to a whole grade ({"grade": 9}).
     grade: int | None = None
+    # Students in the class; None = unknown (BE-20, used by the seats rule).
+    student_count: int | None = None
 
     @classmethod
     def from_dict(cls, d: Any, path: str) -> SchoolClass:
-        _obj(d, path, {"id", "name"}, {"grade"})
+        _obj(d, path, {"id", "name"}, {"grade", "student_count"})
         return cls(
             id=_int(d["id"], f"{path}.id"),
             name=_str(d["name"], f"{path}.name"),
             grade=_opt_int(d.get("grade"), f"{path}.grade"),
+            student_count=_opt_int(d.get("student_count"), f"{path}.student_count"),
         )
 
 
@@ -222,16 +245,25 @@ class StudentGroup:
     # Empty for the whole-class group. Groups of one class with the same split
     # are disjoint; groups with different splits overlap (TECH_STACK §5, group splits).
     split: str = ""
+    # Students in a non-whole group; None = unknown. Ignored for the whole-class
+    # group, which counts the class's ``student_count`` (BE-20).
+    student_count: int | None = None
 
     @classmethod
     def from_dict(cls, d: Any, path: str) -> StudentGroup:
-        _obj(d, path, {"id", "class_id", "is_whole"}, {"name", "split"})
+        _obj(
+            d,
+            path,
+            {"id", "class_id", "is_whole"},
+            {"name", "split", "student_count"},
+        )
         return cls(
             id=_int(d["id"], f"{path}.id"),
             class_id=_int(d["class_id"], f"{path}.class_id"),
             is_whole=_bool(d["is_whole"], f"{path}.is_whole"),
             name=_str(d.get("name", ""), f"{path}.name"),
             split=_str(d.get("split", ""), f"{path}.split"),
+            student_count=_opt_int(d.get("student_count"), f"{path}.student_count"),
         )
 
 
@@ -241,16 +273,27 @@ class Room:
     type: str
     # How many part-blocks the room can hold in one slot (sports hall: 3).
     concurrent_capacity: int = 1
+    # BE-20. Computers for subjects that require them; seats = places for
+    # students (None = unknown, no limit). Not the same as concurrent_capacity.
+    has_computers: bool = False
+    seats: int | None = None
 
     @classmethod
     def from_dict(cls, d: Any, path: str) -> Room:
-        _obj(d, path, {"id", "type"}, {"concurrent_capacity"})
+        _obj(
+            d,
+            path,
+            {"id", "type"},
+            {"concurrent_capacity", "has_computers", "seats"},
+        )
         return cls(
             id=_int(d["id"], f"{path}.id"),
             type=_str(d["type"], f"{path}.type"),
             concurrent_capacity=_int(
                 d.get("concurrent_capacity", 1), f"{path}.concurrent_capacity"
             ),
+            has_computers=_bool(d.get("has_computers", False), f"{path}.has_computers"),
+            seats=_opt_int(d.get("seats"), f"{path}.seats"),
         )
 
 
@@ -585,6 +628,12 @@ def _check_input(inp: SolverInput) -> list[Problem]:
     for i, r in enumerate(inp.rooms):
         if r.concurrent_capacity < 1:
             add("bad_capacity", f"rooms[{i}].concurrent_capacity", "must be at least 1")
+        if r.seats is not None and r.seats < 1:
+            add("bad_count", f"rooms[{i}].seats", "must be at least 1")
+    for name, items in (("classes", inp.classes), ("groups", inp.groups)):
+        for i, x in enumerate(items):
+            if x.student_count is not None and x.student_count < 1:
+                add("bad_count", f"{name}[{i}].student_count", "must be at least 1")
 
     for ci, course in enumerate(inp.courses):
         _check_course(
@@ -645,7 +694,7 @@ def _check_course(
                 add("unknown_reference", f"{pp}.teacher_ids", f"no teacher {tid}")
         if len(set(part.teacher_ids)) != len(part.teacher_ids):
             add("duplicate_id", f"{pp}.teacher_ids", "a teacher is listed twice")
-        _check_part_room(part, pp, add, rooms)
+        _check_part_room(part, pp, add, rooms, inp)
 
     # Parts of one Course run at the same time, so across the whole Course no
     # teacher may appear twice and no two groups may conflict.
@@ -672,8 +721,11 @@ def _check_course(
             )
 
 
-def _check_part_room(part, pp, add, rooms) -> None:
-    if not part.needs_room:
+def _check_part_room(part, pp, add, rooms, inp) -> None:
+    computers = any(
+        s.id == part.subject_id and s.requires_computers for s in inp.subjects
+    )
+    if not part.needs_room and not computers:
         if part.room_type is not None or part.allowed_room_ids is not None:
             add(
                 "room_without_needs_room",
@@ -684,14 +736,38 @@ def _check_part_room(part, pp, add, rooms) -> None:
     for rid in part.allowed_room_ids or ():
         if rid not in rooms:
             add("unknown_reference", f"{pp}.allowed_room_ids", f"no room {rid}")
+    students = _students(part, inp)
     candidates = [
         r
         for r in rooms.values()
         if (part.room_type is None or r.type == part.room_type)
         and (part.allowed_room_ids is None or r.id in part.allowed_room_ids)
+        and (not computers or r.has_computers)
+        and (students is None or r.seats is None or r.seats >= students)
     ]
     if not candidates:
-        add("no_matching_room", pp, "no room matches room_type and allowed_room_ids")
+        add(
+            "no_matching_room",
+            pp,
+            "no room matches room_type, allowed_room_ids, computers and seats",
+        )
+
+
+def _students(part, inp) -> int | None:
+    """Students of a part (see the module docstring); None if any count is unknown."""
+    classes = {c.id: c for c in inp.classes}
+    groups = {g.id: g for g in inp.groups}
+    total = 0
+    for gid in part.group_ids:
+        g = groups.get(gid)
+        if g is None:
+            return None  # unknown group: reported elsewhere
+        k = classes.get(g.class_id)
+        n = (k.student_count if k else None) if g.is_whole else g.student_count
+        if n is None:
+            return None
+        total += n
+    return total
 
 
 def _check_constraint(

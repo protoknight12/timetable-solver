@@ -26,22 +26,26 @@ def build_solver_input(
 
     courses = []
     for course in rows(m.Course):
+        # BE-20 ASSUMPTION: a subject that requires computers implies that its
+        # parts need a room (a computer lab cannot be a room-less lesson), so
+        # needs_room is true for them whatever the part says.
         parts = tuple(
             c.CoursePart(
                 id=p.id,
                 subject_id=p.subject_id,
                 group_ids=tuple(sorted(g.id for g in p.groups)),
                 teacher_ids=tuple(sorted(t.id for t in p.teachers)),
-                needs_room=p.needs_room,
+                needs_room=needs,
                 # The subject's default room type is resolved here (contract docstring).
                 room_type=(p.room_type or p.subject.default_room_type)
-                if p.needs_room
+                if needs
                 else None,
                 allowed_room_ids=None
-                if p.allowed_room_ids is None or not p.needs_room
+                if p.allowed_room_ids is None or not needs
                 else tuple(p.allowed_room_ids),
             )
             for p in sorted(course.parts, key=lambda p: p.id)
+            for needs in [p.needs_room or p.subject.requires_computers]
         )
         courses.append(
             c.Course(
@@ -63,15 +67,21 @@ def build_solver_input(
         days=days,
         periods=tuple(p.number for p in rows(m.Period, m.Period.number)),
         teachers=tuple(c.Teacher(t.id) for t in rows(m.Teacher)),
-        subjects=tuple(c.Subject(s.id) for s in rows(m.Subject)),
+        subjects=tuple(c.Subject(s.id, s.requires_computers) for s in rows(m.Subject)),
         classes=tuple(
-            c.SchoolClass(k.id, k.name, k.grade) for k in rows(m.SchoolClass)
+            c.SchoolClass(k.id, k.name, k.grade, k.student_count)
+            for k in rows(m.SchoolClass)
         ),
         groups=tuple(
-            c.StudentGroup(g.id, g.class_id, g.is_whole, g.name, g.split)
+            c.StudentGroup(
+                g.id, g.class_id, g.is_whole, g.name, g.split, g.student_count
+            )
             for g in rows(m.StudentGroup)
         ),
-        rooms=tuple(c.Room(r.id, r.type, r.concurrent_capacity) for r in rows(m.Room)),
+        rooms=tuple(
+            c.Room(r.id, r.type, r.concurrent_capacity, r.has_computers, r.seats)
+            for r in rows(m.Room)
+        ),
         courses=tuple(courses),
         constraints=tuple(
             c.Constraint(

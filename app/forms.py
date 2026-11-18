@@ -40,9 +40,11 @@ from app.models import (
     User,
     db,
 )
+from app.room_types import room_type_choices, room_type_label
 from app.subject_colors import PALETTE, is_color, subject_color
 
 REQUIRED = "Полето е задължително."
+MIN_ONE = "Стойността трябва да е поне 1."
 
 
 def _strip(value):
@@ -86,6 +88,26 @@ class BgIntegerField(_BlankIsNone, IntegerField):
 
 class BgTimeField(_BlankIsNone, TimeField):
     bg_error = "Въведете час във формат ЧЧ:ММ."
+
+
+class _BgSelectMixin:
+    """Bulgarian messages instead of WTForms' English defaults."""
+
+    def __init__(self, *args, message="Невалиден избор.", **kwargs):
+        super().__init__(
+            *args,
+            invalid_choice_message=message,
+            invalid_value_message=message,
+            **kwargs,
+        )
+
+
+class BgSelectField(_BgSelectMixin, SelectField):
+    pass
+
+
+class BgSelectMultipleField(_BgSelectMixin, SelectMultipleField):
+    pass
 
 
 def _name(label: str, max_len: int, **kw) -> StringField:
@@ -144,16 +166,19 @@ class TeacherForm(DataForm):
 
 class SubjectForm(DataForm):
     name = _name("Име", 120)
-    default_room_type = StringField(
-        "Тип стая по подразбиране (по избор)",
-        filters=[_strip_or_none, _canonical_type],
-        validators=[Optional(), Length(max=40, message=_too_long(40))],
+    default_room_type = BgSelectField(
+        "Тип стая по подразбиране",
+        coerce=lambda v: v or None,
+        choices=room_type_choices("Без изискване"),
+        default="",
+        message="Изберете тип стая от списъка.",
     )
     short_name = StringField(
         "Кратко име (по избор)",
         filters=[_strip_or_none],
         validators=[Optional(), Length(max=20, message=_too_long(20))],
     )
+    requires_computers = BooleanField("Изисква компютри")
     color = StringField("Цвят", widget=ColorInput(), filters=[_strip])
     auto_color = BooleanField("Автоматичен цвят")
 
@@ -176,15 +201,17 @@ class SubjectForm(DataForm):
         obj.name = self.name.data
         obj.default_room_type = self.default_room_type.data
         obj.short_name = self.short_name.data
+        obj.requires_computers = bool(self.requires_computers.data)
         obj.color = None if self._auto() else self.color.data.lower()
 
 
 class RoomForm(DataForm):
     name = _name("Име", 80)
-    type = StringField(
+    type = BgSelectField(
         "Тип",
-        filters=[_strip, _canonical_type],
-        validators=[DataRequired(REQUIRED), Length(max=40, message=_too_long(40))],
+        choices=room_type_choices(),
+        validators=[DataRequired(REQUIRED)],
+        message="Изберете тип стая от списъка.",
     )
     concurrent_capacity = BgIntegerField(
         "Едновременно провеждани часове",
@@ -194,6 +221,11 @@ class RoomForm(DataForm):
             NumberRange(min=1, message="Стойността трябва да е поне 1."),
         ],
     )
+    seats = BgIntegerField(
+        "Места (по избор)",
+        validators=[Optional(), NumberRange(min=1, message=MIN_ONE)],
+    )
+    has_computers = BooleanField("Има компютри")
 
 
 class ClassForm(DataForm):
@@ -211,6 +243,10 @@ class ClassForm(DataForm):
             Optional(),
             NumberRange(1, 12, "Годината на обучение трябва да е между 1 и 12."),
         ],
+    )
+    student_count = BgIntegerField(
+        "Брой ученици (по избор)",
+        validators=[Optional(), NumberRange(min=1, message=MIN_ONE)],
     )
     # "" = none. Plain SelectField, so form.html styles it as a select.
     class_teacher_id = SelectField(
@@ -245,6 +281,10 @@ class ClassForm(DataForm):
 class GroupForm(DataForm):
     name = _name("Име на групата", 80)
     split = _name("Разделяне (например „групи“)", 40)
+    student_count = BgIntegerField(
+        "Брой ученици (по избор)",
+        validators=[Optional(), NumberRange(min=1, message=MIN_ONE)],
+    )
 
 
 class PeriodForm(DataForm):
@@ -334,26 +374,6 @@ class CourseForm(DataForm):
             )
 
 
-class _BgSelectMixin:
-    """Bulgarian messages instead of WTForms' English defaults."""
-
-    def __init__(self, *args, message="Невалиден избор.", **kwargs):
-        super().__init__(
-            *args,
-            invalid_choice_message=message,
-            invalid_value_message=message,
-            **kwargs,
-        )
-
-
-class BgSelectField(_BgSelectMixin, SelectField):
-    pass
-
-
-class BgSelectMultipleField(_BgSelectMixin, SelectMultipleField):
-    pass
-
-
 def group_label(group: StudentGroup) -> str:
     return f"{group.school_class.name} — {group.name}"
 
@@ -392,10 +412,12 @@ class PartForm(DataForm):
         message="Изберете учители от списъка.",
     )
     needs_room = BooleanField("Изисква стая")
-    room_type = StringField(
-        "Тип стая (по избор)",
-        filters=[_strip_or_none, _canonical_type],
-        validators=[Optional(), Length(max=40, message=_too_long(40))],
+    room_type = BgSelectField(
+        "Тип стая",
+        coerce=lambda v: v or None,
+        choices=room_type_choices("Без изискване"),
+        default="",
+        message="Изберете тип стая от списъка.",
     )
     allowed_room_ids = BgSelectMultipleField(
         "Позволени стаи (по избор)",
@@ -429,7 +451,7 @@ class PartForm(DataForm):
         )
         self.groups.choices = [(g.id, group_label(g)) for g in groups]
         self.allowed_room_ids.choices = [
-            (r.id, f"{r.name} ({r.type})")
+            (r.id, f"{r.name} ({room_type_label(r.type)})")
             for r in scalars(select(Room).order_by(Room.name, Room.id))
         ]
 
@@ -466,20 +488,26 @@ class PartForm(DataForm):
         ok = super().validate(extra_validators)
         if ok and not self._room_matches():
             self.room_type.errors.append(
-                "Няма стая, която да отговаря на избраните тип и позволени стаи."
+                "Няма стая, която да отговаря на избраните тип, позволени стаи и изискване за компютри."
             )
             return False
         return ok
 
     def _room_matches(self) -> bool:
-        if not self.needs_room.data:
-            return True
         subject = db.session.get(Subject, self.subject.data)
+        computers = bool(subject and subject.requires_computers)
+        if not (self.needs_room.data or computers):
+            return True
         # Same fallback as build_solver_input: the subject's default room type.
-        wanted = self.room_type.data or (subject.default_room_type if subject else None)
-        allowed = set(self.allowed_room_ids.data or ())
+        # Without needs_room the room fields are cleared on save, so only the
+        # subject's default type counts (the subject needs computers, so a room anyway).
+        chosen = self.room_type.data if self.needs_room.data else None
+        wanted = chosen or (subject.default_room_type if subject else None)
+        allowed = set(self.allowed_room_ids.data or ()) if self.needs_room.data else ()
         return any(
-            (wanted is None or r.type == wanted) and (not allowed or r.id in allowed)
+            (wanted is None or r.type == wanted)
+            and (not allowed or r.id in allowed)
+            and (not computers or r.has_computers)
             for r in db.session.scalars(select(Room))
         )
 

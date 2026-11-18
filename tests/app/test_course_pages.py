@@ -36,7 +36,7 @@ def school(admin):
     )
     post(
         "/data/rooms/new",
-        data={"name": "Стая 1", "type": "regular", "concurrent_capacity": "1"},
+        data={"name": "Стая 1", "type": "classroom", "concurrent_capacity": "1"},
     )
     post("/data/classes/new", data={"name": "10А", "grade": "10"})
     post("/data/classes/new", data={"name": "10Б", "grade": "10"})

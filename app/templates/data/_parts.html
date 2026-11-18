@@ -22,7 +22,8 @@
                 <td>{{ part.teachers|map(attribute='name')|sort|join(', ') }}</td>
                 <td>
                   {%- if part.needs_room -%}
-                    {{ part.room_type or 'Подходяща стая' }}{% if part.allowed_room_ids %} (позволени стаи: {{ part.allowed_room_ids|length }}){% endif %}
+                    {{ (part.room_type|room_type_label) if part.room_type else 'Подходяща стая' }}{% if part.allowed_room_ids %} (позволени стаи: {{ part.allowed_room_ids|length }}){% endif %}{% if part.subject.requires_computers %}, с компютри{% endif %}
+                  {%- elif part.subject.requires_computers -%}Стая с компютри
                   {%- else -%}—{%- endif -%}
                 </td>
                 <td class="text-end"><div class="d-flex flex-wrap gap-1 justify-content-end">

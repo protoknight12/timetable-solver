@@ -47,6 +47,15 @@ A6. ``room_type_required`` needs a room of that type on every affected row, even
     if the part says ``needs_room = false``.
 A7. A room id on a part that does not need a room is allowed, and it still uses
     the room's capacity.
+A7b. Room fit (BE-20). A row whose part has a subject with ``requires_computers``
+    needs a room (even if ``needs_room`` is false) and that room must have
+    computers (``room_no_computers``). A row in a room with ``seats`` set, whose
+    part has a known number of students, needs ``seats`` >= students
+    (``room_too_small``). The students of a part are the sum over its groups: a
+    whole-class group counts its class's ``student_count``, any other group its
+    own. If one of these counts is unknown the part's count is unknown and the
+    seats rule is skipped (unknown means no limit). Only rows that need a room
+    are looked at.
 A8. Soft violations carry no weight; look it up through ``constraint_id``.
 """
 
@@ -115,6 +124,21 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
     groups = {g.id: g for g in inp.groups}
     rooms = {r.id: r for r in inp.rooms}
     days, periods = set(inp.days), set(inp.periods)
+    computer_subjects = {x.id for x in inp.subjects if x.requires_computers}
+    class_size = {k.id: k.student_count for k in inp.classes}
+
+    def head_count(part):
+        """Students of a part, or None when any group's count is unknown."""
+        total = 0
+        for gid in part.group_ids:
+            g = groups.get(gid)
+            if g is None:
+                return None
+            n = class_size.get(g.class_id) if g.is_whole else g.student_count
+            if n is None:
+                return None
+            total += n
+        return total
 
     # --- lessons only reference existing things ---------------------------
     rows = []  # (lesson, course, part) for every lesson that makes sense
@@ -215,7 +239,8 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
                 for w in ("A", "B"):
                     if _runs_in(course, w):
                         room_use[(lesson.room_id, w, day, period)] += 1
-        if not part.needs_room or (
+        computers = part.subject_id in computer_subjects
+        if not (part.needs_room or computers) or (
             lesson.room_id is not None and lesson.room_id not in rooms
         ):
             continue  # an unknown room is already reported
@@ -227,6 +252,12 @@ def check(inp: SolverInput, result: SolveResult) -> list[Violation]:
             part.allowed_room_ids is not None and room.id not in part.allowed_room_ids
         ):
             add("room_match", "room_mismatch", ents + [("room", room.id)])
+        if room is not None and computers and not room.has_computers:
+            add("room_match", "room_no_computers", ents + [("room", room.id)])
+        if room is not None and room.seats is not None:
+            students = head_count(part)
+            if students is not None and room.seats < students:
+                add("room_match", "room_too_small", ents + [("room", room.id)])
     over = {
         (room_id, day, period)
         for (room_id, _w, day, period), n in room_use.items()
