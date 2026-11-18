@@ -12,6 +12,7 @@ Assumptions (no school rule is invented here):
   <a,b> are hard limits; „Прозорци“ = 20 means no limit (nothing is created);
 - an aSc lesson row is one course with one part; its classes and groups are paired by
   position ("211,212" with "Цял клас,Първа група"), a single class takes every listed group;
+  classes written without commas ("211212") are split into 3-character codes when all exist;
 - „Свободни класни стаи“ are the allowed rooms. „Класни стаи на учителите“ means the rooms
   of the lesson's teachers (sheet „Списък на учители“), „…на предметите“ the rooms of its subject;
 - the groups of a class come from its „Деление“; the split names (групи, езици, пол) are ours;
@@ -305,6 +306,18 @@ def translate(raw, periods: list[list]) -> Translation:
     return t
 
 
+def _class_codes(cell: str, known) -> list[str]:
+    """Class codes of a comma list. aSc also glues the codes of a joint lesson together
+    ("211212"): accepted only when it splits into 3-character codes that all exist, like
+    the rooms in `_room_names`. Anything else is kept as written (and reported as unknown)."""
+    out = []
+    for token in (t.strip() for t in cell.split(",")):
+        parts = [token[i : i + 3] for i in range(0, len(token), 3)]
+        glued = token not in known and len(token) % 3 == 0 and token
+        out += parts if glued and all(p in known for p in parts) else [token]
+    return out
+
+
 def _lesson(r, classes, teachers, subjects, rooms, teacher_rooms, subject_rooms):
     """One „Часове“ row -> the template's course row, or the (Bulgarian) reason to skip it."""
     text = r["Дължина"].strip().casefold()
@@ -322,7 +335,7 @@ def _lesson(r, classes, teachers, subjects, rooms, teacher_rooms, subject_rooms)
     names = list(dict.fromkeys(t.strip() for t in r["Учител"].split(",")))
     if not all(x in teachers for x in names):
         return "непознат учител"
-    codes = [c.strip() for c in r["Клас"].split(",")]
+    codes = _class_codes(r["Клас"], classes)
     tokens = [g.strip() for g in r["Група"].split(",")]
     if len(tokens) != len(codes) and len(codes) != 1:
         return "броят на класовете и групите не съвпада"

@@ -10,7 +10,7 @@ from openpyxl import Workbook
 from sqlalchemy import func, select
 
 from app import models as m
-from app.asc_import import detect_school_year, parse_rest, read_asc
+from app.asc_import import _class_codes, detect_school_year, parse_rest, read_asc
 from app.cli import load_school
 from app.importing import build_workbook, import_sheets, read_xlsx
 from app.jobs import run_solve
@@ -224,6 +224,33 @@ def test_import_maps_the_school(make_client):
     }
     unavailable = next(c for c in rules if c.type == "teacher_unavailable_slots")
     assert len(unavailable.params["slots"]) == 1 + 4 * 2
+
+
+def test_class_codes_glued_without_commas_are_split_when_all_exist():
+    known = {"251", "252", "253"}
+    assert _class_codes("251,252", known) == ["251", "252"]
+    assert _class_codes("251252", known) == ["251", "252"]
+    assert _class_codes("251, 252253", known) == ["251", "252", "253"]
+    # not split: one code does not exist, or the length does not fit (kept, reported as unknown)
+    assert _class_codes("251299", known) == ["251299"]
+    assert _class_codes("2512", known) == ["2512"]
+    assert _class_codes("", known) == [""]
+
+
+def test_a_joint_lesson_with_glued_class_codes_is_imported(make_client):
+    periods()
+    glued = {
+        **SHEETS,
+        "Часове": [
+            *SHEETS["Часове"],
+            ["Тест Втори", "251252", f"{SAME},{SAME}", "Мат", "Час", 1, "", ""],
+        ],
+    }
+    r = upload(make_client("admin"), xlsx(glued))
+    assert r.status_code == 302
+    assert count(m.Course) == 5  # the glued row is the fifth course, not a skipped row
+    joint = db.session.scalars(select(m.Course).order_by(m.Course.id.desc())).first()
+    assert {g.school_class.name for g in joint.parts[0].groups} == {"8А", "8Б"}
 
 
 def test_preview_shows_year_summary_and_saves_nothing(make_client):
