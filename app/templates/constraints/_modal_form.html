@@ -1,0 +1,67 @@
+{# Modal content (FE-20): swapped into #constraint-modal-content by HTMX. #}
+{% set picker_field = target.field if target else none %}
+<div class="modal-header">
+  <h2 class="modal-title h5" id="constraint-modal-title">{{ heading }}</h2>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Затвори"></button>
+</div>
+<div class="modal-body">
+  <form id="constraint-form" method="post" action="{{ url_for('constraints.create_many', kind=kind) }}"
+        hx-post="{{ url_for('constraints.create_many', kind=kind) }}" hx-target="#constraint-modal-content"
+        hx-swap="innerHTML" hx-disabled-elt="#constraint-save">
+    {{ form.hidden_tag() }}
+    {% if problems %}
+      <div class="alert alert-danger" role="alert" tabindex="-1" data-modal-error>
+        {% if problems|length == 1 and problems[0][0] is none %}
+          {{ problems[0][1] }}
+        {% else %}
+          <div class="mb-1">Нищо не е запазено. Ограничението не може да се добави за:</div>
+          <ul class="mb-0">
+            {% for label, text in problems %}<li><strong>{{ label }}</strong>: {{ text }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    {% endif %}
+    {% if target %}
+      {% set picker_id = 'target-' ~ target.field %}
+      <fieldset class="mb-3" data-picker>
+        <legend class="form-label fs-6">{{ target.title }}</legend>
+        <input type="search" class="form-control mb-2" id="{{ picker_id }}-search" data-picker-search
+               placeholder="Търсене…" autocomplete="off" maxlength="60"
+               aria-label="Търсене в списъка „{{ target.title }}“. Списъкът се филтрира при въвеждане."
+               aria-controls="{{ picker_id }}-list">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-picker-all
+                  aria-label="Избери всички показани в списъка „{{ target.title }}“">
+            <i class="bi bi-check2-square"></i> Избери всички
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-picker-clear
+                  aria-label="Изчисти избора в списъка „{{ target.title }}“">
+            <i class="bi bi-x-lg"></i> Изчисти
+          </button>
+          <span class="ms-auto small text-body-secondary" role="status" aria-live="polite" data-picker-count>
+            Избрани: {{ selected|length }} от {{ form[target.field].choices|length }}
+          </span>
+        </div>
+        <div class="check-list border rounded p-2{{ ' border-danger' if picker_error }}" id="{{ picker_id }}-list"
+             role="group" aria-label="{{ target.title }}">
+          {% for value, label in form[target.field].choices %}
+            <div class="form-check" data-picker-item>
+              <input class="form-check-input" type="checkbox" name="{{ target.field }}" id="{{ picker_id }}-{{ loop.index }}"
+                     value="{{ value }}"{% if value|string in selected %} checked{% endif %}>
+              <label class="form-check-label" for="{{ picker_id }}-{{ loop.index }}">{{ label }}</label>
+            </div>
+          {% endfor %}
+          <div class="text-body-secondary small" data-picker-empty hidden>Няма съвпадения.</div>
+        </div>
+        {% if picker_error %}<div class="invalid-feedback d-block">{{ picker_error }}</div>{% endif %}
+      </fieldset>
+    {% endif %}
+    {% include 'constraints/_fields.html' %}
+  </form>
+</div>
+<div class="modal-footer">
+  <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отказ</button>
+  <button type="submit" form="constraint-form" class="btn btn-primary" id="constraint-save">
+    <i class="bi bi-check-lg"></i> Запази
+  </button>
+</div>

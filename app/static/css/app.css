@@ -101,3 +101,8 @@
     max-width: 12cm;
   }
 }
+
+/* FE-20 constraint modal */
+#constraint-modal .check-list {
+  max-height: 16rem;
+}
