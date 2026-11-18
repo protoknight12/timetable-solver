@@ -10,7 +10,14 @@ from openpyxl import Workbook
 from sqlalchemy import func, select
 
 from app import models as m
-from app.asc_import import _class_codes, detect_school_year, parse_rest, read_asc
+from app.asc_import import (
+    SOFT_WEIGHTS,
+    _class_codes,
+    detect_school_year,
+    guess_room_type,
+    parse_rest,
+    read_asc,
+)
 from app.cli import load_school
 from app.importing import build_workbook, import_sheets, read_xlsx
 from app.jobs import run_solve
@@ -208,7 +215,9 @@ def test_import_maps_the_school(make_client):
     (part,) = joint.parts  # joint lesson: one part, two classes, two co-teachers
     assert joint.week == "B"
     assert len(part.groups) == 2 and len(part.teachers) == 2
-    assert gym.parts[0].allowed_room_ids == [rooms["102"].id]  # the subject's room
+    # the subject's own room is stored on the subject, not copied onto the part (ASC-AUTO)
+    assert gym.parts[0].allowed_room_ids is None
+    assert [r.name for r in gym.parts[0].subject.rooms] == ["102"]
 
     rules = s.scalars(select(m.Constraint).order_by(m.Constraint.id)).all()
     assert Counter(c.type for c in rules) == Counter(
@@ -219,9 +228,11 @@ def test_import_maps_the_school(make_client):
         class_unavailable_slots=1,
         subject_unavailable_slots=1,
     )
+    # ASC-AUTO: the school's rules are preferences by default, each with its weight
     assert {(c.status, c.source, c.hard) for c in rules} == {
-        ("confirmed", "import", True)
+        ("confirmed", "import", False)
     }
+    assert all(c.weight == SOFT_WEIGHTS[c.type] for c in rules)
     unavailable = next(c for c in rules if c.type == "teacher_unavailable_slots")
     assert len(unavailable.params["slots"]) == 1 + 4 * 2
 
@@ -368,3 +379,164 @@ def test_asc_upload_is_admin_only_and_needs_csrf(make_client, migrated):
     assert make_client("viewer").post(PAGE).status_code == 403
     r = migrated.test_client().post(PAGE)
     assert r.status_code == 302 and "/login" in r.headers["Location"]
+
+
+# --- ASC-AUTO: soft rules, subject rooms, room types ---
+
+
+def _rules():
+    return db.session.scalars(select(m.Constraint).order_by(m.Constraint.id)).all()
+
+
+def test_the_checkbox_imports_the_rules_as_hard_and_the_preview_counts_both(
+    make_client,
+):
+    periods()
+    admin = make_client("admin")
+    preview = {"asc-preview": "y", "asc-confirm": ""}
+    html = upload(admin, **preview).get_data(as_text=True)
+    assert "6 като предпочитания, 0 като задължителни" in html
+    assert "Импортирай правилата като задължителни" in html
+    html = upload(admin, **preview, **{"asc-hard_rules": "y"}).get_data(as_text=True)
+    assert "0 като предпочитания, 6 като задължителни" in html
+    assert count(m.Constraint) == 0  # a preview saves nothing
+
+    assert upload(admin, **{"asc-hard_rules": "y"}).status_code == 302
+    assert {(c.hard, c.weight) for c in _rules()} == {(True, None)}
+    assert upload(admin).status_code == 302  # default: soft again
+    assert {c.hard for c in _rules()} == {False}
+
+
+def test_subject_rooms_live_on_the_subject_and_other_lists_stay_on_the_part(
+    make_client,
+):
+    periods()
+    lessons = [
+        *SHEETS["Часове"],
+        # a second lesson of the subject with its own room: that list is kept
+        ["Тест Втори", "251", SAME, "ФВС", "Час", 1, "101", " Всички седмици"],
+        # exactly the subject's room, written out: same as „на предметите“
+        ["Тест Втори", "251", SAME, "ФВС", "Час", 1, "102", " Всички седмици"],
+    ]
+    upload(make_client("admin"), xlsx({**SHEETS, "Часове": lessons}))
+    rooms = {r.name: r.id for r in db.session.scalars(select(m.Room))}
+    pe = db.session.scalar(select(m.Subject).where(m.Subject.short_name == "ФВС"))
+    assert [r.name for r in pe.rooms] == ["102"]
+    own = [
+        p.allowed_room_ids
+        for p in db.session.scalars(select(m.CoursePart)).all()
+        if p.subject == pe
+    ]
+    assert sorted(own, key=lambda x: x is not None) == [None, None, [rooms["101"]]]
+    # the subject without rooms got none
+    assert not db.session.scalar(
+        select(m.Subject).where(m.Subject.short_name == "Мат")
+    ).rooms
+
+
+def test_subject_rooms_are_not_used_when_a_lesson_has_no_rooms(make_client):
+    """A subject with rooms would force every lesson of it into a room: keep the old way."""
+    periods()
+    lessons = [
+        *SHEETS["Часове"],
+        ["Тест Втори", "251", SAME, "ФВС", "Час", 1, "", " Всички седмици"],
+    ]
+    upload(make_client("admin"), xlsx({**SHEETS, "Часове": lessons}))
+    rooms = {r.name: r.id for r in db.session.scalars(select(m.Room))}
+    pe = db.session.scalar(select(m.Subject).where(m.Subject.short_name == "ФВС"))
+    assert pe.rooms == []
+    parts = [
+        p
+        for p in db.session.scalars(select(m.CoursePart).order_by(m.CoursePart.id))
+        if p.subject == pe
+    ]
+    assert [(p.needs_room, p.allowed_room_ids) for p in parts] == [
+        (True, [rooms["102"]]),
+        (False, None),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("name", "code"),
+    [
+        ("STEM1", "lab"),
+        ("stem 2", "lab"),
+        ("Лаборатория по химия", "lab"),
+        ("Спортна база", "gym"),
+        ("Спортна зала", "gym"),  # the gym wins over „зала“
+        ("Физкултурен салон", "gym"),
+        ("Работилница 3", "workshop"),
+        ("Лекционна зала", "lecture"),
+        ("Голяма ЗАЛА", "lecture"),
+        ("101", "classroom"),
+        ("", "classroom"),
+    ],
+)
+def test_room_types_are_guessed_from_the_name(name, code):
+    assert guess_room_type(name) == code
+
+
+def test_room_types_are_guessed_on_import(make_client):
+    periods()
+    names = ["STEM1", "Спортна база", "Работилница", "Лекционна зала", "104"]
+    sheets = {
+        **SHEETS,
+        "Класни стаи": [
+            ["Име", "Съкращение", "Вид"],
+            *[[n, n, None] for n in names],
+            ["101", "101", None],
+            ["102", "102", None],
+        ],
+    }
+    assert upload(make_client("admin"), xlsx(sheets)).status_code == 302
+    types = {r.name: r.type for r in db.session.scalars(select(m.Room))}
+    assert types == {
+        "STEM1": "lab",
+        "Спортна база": "gym",
+        "Работилница": "workshop",
+        "Лекционна зала": "lecture",
+        "104": "classroom",
+        "101": "classroom",
+        "102": "classroom",
+    }
+
+
+def _no_free_time_for_second_teacher():
+    """The teacher of the PE lessons rests every period of every day: impossible as a hard rule."""
+    teachers = [row[:] for row in SHEETS["Учители"]]
+    teachers[2][6] = "Пон-Пе: 1-5"  # „Тест Втори“
+    return {**SHEETS, "Учители": teachers}
+
+
+def _solve():
+    job = m.SolveJob(status="queued", time_limit_s=20)
+    db.session.add(job)
+    db.session.commit()
+    run_solve(job.id)
+    return db.session.get(m.SolveJob, job.id)
+
+
+def test_an_impossible_rest_rule_is_infeasible_as_hard_and_a_reported_preference_as_soft(
+    make_client,
+):
+    periods()
+    admin = make_client("admin")
+    data = xlsx(_no_free_time_for_second_teacher())
+
+    upload(admin, data, **{"asc-hard_rules": "y"})
+    hard_job = _solve()
+    assert hard_job.solver_status == "INFEASIBLE"
+
+    upload(admin, data)  # soft by default
+    job = _solve()
+    assert (job.status, job.solver_status) in {
+        ("finished", "OPTIMAL"),
+        ("finished", "FEASIBLE"),
+    }
+    violations = db.session.scalars(
+        select(m.Violation).where(m.Violation.job_id == job.id)
+    ).all()
+    assert not [v for v in violations if v.hard]
+    assert {v.type for v in violations if not v.hard} == {"teacher_unavailable_slots"}
+    assert job.objective and job.objective > 0
+    assert count(m.Lesson) > 0
