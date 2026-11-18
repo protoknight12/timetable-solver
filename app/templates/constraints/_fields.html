@@ -4,7 +4,7 @@
       {{ field(class_='form-check-input', role='switch') }}
       {{ field.label(class_='form-check-label') }}
     </div>
-  {% elif field.type == 'SelectMultipleField' %}
+  {% elif field.type.endswith('SelectMultipleField') %}
     <fieldset class="mb-3">
       <legend class="form-label fs-6">{{ field.label.text }}</legend>
       <div class="check-list border rounded p-2{{ ' border-danger' if field.errors }}">
@@ -18,7 +18,7 @@
       </div>
       {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
     </fieldset>
-  {% elif field.type == 'SelectField' %}
+  {% elif field.type.endswith('SelectField') %}
     <div class="form-floating mb-3">
       {{ field(class_='form-select' ~ (' is-invalid' if field.errors else '')) }}
       {{ field.label }}
