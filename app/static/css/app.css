@@ -105,6 +105,7 @@
 /* FE-20 constraint modal */
 #constraint-modal .check-list {
   max-height: 16rem;
+}
 
 /* FE-21 timetable cells: readable text (colour comes from subject_colors.text_color via .subject-N), roomier cards. */
 .timetable-lesson {
