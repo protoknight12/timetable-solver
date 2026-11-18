@@ -103,6 +103,7 @@ class AscImportForm(FlaskForm):
             NumberRange(2000, 2099, "Въведете година между 2000 и 2099."),
         ],
     )
+    hard_rules = BooleanField("Импортирай правилата като задължителни")
     preview = SubmitField("Преглед")
     confirm = BooleanField("Разбирам, че импортът замества всички текущи данни.")
 
@@ -140,7 +141,11 @@ def upload_asc():
         file = form.file.data
         try:
             result = import_asc(
-                file.read(), file.filename, form.school_year.data, form.preview.data
+                file.read(),
+                file.filename,
+                form.school_year.data,
+                form.preview.data,
+                hard_rules=form.hard_rules.data,
             )
         except ImportFileError as e:
             result = AscResult([str(e)])

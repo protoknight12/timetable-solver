@@ -385,14 +385,22 @@ class _Import:
             "class": _by_name(m.SchoolClass),
         }
         inp = build_solver_input(db.session)
-        for sheet, n, type_, kind, name, extra in self.rules:
+        for sheet, n, type_, kind, name, extra, *rest in self.rules:
+            weight = (
+                rest[0] if rest else None
+            )  # ASC-AUTO: None = hard, else a soft weight
             if kind == "class":
                 name = self._class_ref(sheet, n, name)
             if name not in ids[kind]:
                 self.error(sheet, n, f"Ограничение: непознат запис „{name}“.")
                 continue
             params = {f"{kind}_id": ids[kind][name].id, **extra}
-            data = {"type": type_, "hard": True, "weight": None, "params": params}
+            data = {
+                "type": type_,
+                "hard": weight is None,
+                "weight": weight,
+                "params": params,
+            }
             _, problem = constraint_problem(data, inp)
             if problem:
                 self.error(sheet, n, problem)
@@ -401,7 +409,8 @@ class _Import:
                 m.Constraint(
                     type=type_,
                     params=params,
-                    hard=True,
+                    hard=weight is None,
+                    weight=weight,
                     status="confirmed",
                     source="import",
                 )
