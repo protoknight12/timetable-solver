@@ -163,12 +163,21 @@
         <p>Не може да се посочи кои ограничения са в конфликт. Възможно е причината да е в самите данни (например учител с повече часове, отколкото има в седмицата). Опитайте да изключите някое от потвърдените твърди ограничения.</p>
         {% set items = try_disabling %}
       {% endif %}
+      {% if conflicts and current_user.role == 'admin' %}
+        <p class="small text-body-secondary">Правилата ще станат предпочитания: разписанието ще ги спазва, доколкото е възможно, а нарушените ще бъдат показани. Можете да ги направите отново твърди от списъка с ограничения.</p>
+      {% endif %}
       {% if items %}
         <ul class="list-group mb-3">
           {% for c in items %}
             <li class="list-group-item">{{ c.text }} <small class="text-body-secondary">(ограничение №{{ c.id }})</small></li>
           {% endfor %}
         </ul>
+      {% endif %}
+      {% if conflicts and current_user.role == 'admin' %}
+        <form method="post" action="{{ url_for('solve.relax', job_id=job.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-repeat"></i> Направи правилата предпочитания и изгради отново</button>
+        </form>
       {% endif %}
       <a href="{{ url_for('constraints.list_view') }}" class="btn btn-outline-secondary"><i class="bi bi-list-check"></i> Към ограниченията</a>
     </div>
