@@ -161,18 +161,6 @@ def test_periods_get_consecutive_numbers_and_only_the_last_can_go(admin):
     assert _numbers() == [1]
 
 
-def test_room_type_reuses_existing_spelling(admin):
-    admin.post(
-        "/data/rooms/new", data={"name": "A", "type": "Lab", "concurrent_capacity": "1"}
-    )
-    admin.post(
-        "/data/rooms/new",
-        data={"name": "B", "type": " lab ", "concurrent_capacity": "1"},
-    )
-    assert {r.type for r in _rows(Room)} == {"Lab"}
-    assert '<option value="Lab">' in admin.get("/data/rooms/new").get_data(as_text=True)
-
-
 @pytest.mark.parametrize("key", CASES)
 def test_viewer_reads_but_cannot_write_and_anonymous_is_sent_to_login(
     make_client, migrated, key

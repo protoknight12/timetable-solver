@@ -39,7 +39,6 @@ from app.forms import (
     SubjectForm,
     TeacherForm,
     group_label,
-    room_types,
 )
 from app.models import (
     Constraint,
@@ -56,7 +55,9 @@ from app.models import (
     course_part_groups,
     course_part_teachers,
     db,
+    subject_rooms,
 )
+from app.room_types import room_type_label
 
 bp = Blueprint("data", __name__, url_prefix="/data")
 
@@ -120,14 +121,30 @@ def class_usages(school_class: SchoolClass) -> list[str]:
 
 
 def room_note(room: Room) -> str | None:
+    notes = []
     # Lesson.room_id is ON DELETE SET NULL, so past lessons do not block deletion.
     lessons = db.session.scalar(
         select(func.count()).select_from(Lesson).where(Lesson.room_id == room.id)
     )
     if lessons:
-        return (
-            "Стаята присъства в вече генерирани разписания; там тя ще остане без стая."
+        notes.append(
+            "Стаята присъства във вече генерирани разписания; там тя ще остане без стая."
         )
+    # subject_rooms is ON DELETE CASCADE: only the link goes, so this just informs.
+    subjects = db.session.scalars(
+        select(Subject.name)
+        .join(subject_rooms, subject_rooms.c.subject_id == Subject.id)
+        .where(subject_rooms.c.room_id == room.id)
+        .order_by(Subject.name)
+    ).all()
+    if subjects:
+        notes.append(
+            "Стаята ще бъде премахната от списъка със стаи на предметите: "
+            + ", ".join(subjects[:SHOWN_COURSES])
+            + ("…" if len(subjects) > SHOWN_COURSES else "")
+            + "."
+        )
+    return " ".join(notes) or None
 
 
 def room_usages(room: Room) -> list[str]:
@@ -166,7 +183,6 @@ class Entity:
     label: Callable = lambda item: item.name
     after_create: Callable | None = None
     extra_template: str | None = None  # shown under the form when editing
-    with_room_types: bool = False
     # Full refusal text for rows that may never be deleted (beats usages).
     block: Callable | None = None
     # Informational line on the delete confirmation page.
@@ -255,6 +271,10 @@ def part_label(part: CoursePart) -> str:
     return f"{part.subject.name} ({groups})" if groups else part.subject.name
 
 
+def _yes_no(value: bool) -> str:
+    return "да" if value else "не"
+
+
 def _add_whole_group(school_class: SchoolClass) -> None:
     school_class.groups.append(StudentGroup(name=WHOLE_GROUP_NAME, is_whole=True))
 
@@ -318,11 +338,15 @@ ENTITIES = (
         (
             ("Име", _subject_name),
             ("Кратко име", lambda s: s.short_name or "—"),
-            ("Тип стая по подразбиране", lambda s: s.default_room_type or "—"),
+            (
+                "Тип стая по подразбиране",
+                lambda s: room_type_label(s.default_room_type),
+            ),
+            ("Компютри", lambda s: _yes_no(s.requires_computers)),
+            ("Стаи", lambda s: ", ".join(r.name for r in s.rooms) or "Всички"),
         ),
         (Subject.name, Subject.id),
         subject_usages,
-        with_room_types=True,
     ),
     Entity(
         "rooms",
@@ -335,12 +359,13 @@ ENTITIES = (
         "а",
         (
             ("Име", lambda r: r.name),
-            ("Тип", lambda r: r.type),
+            ("Тип", lambda r: room_type_label(r.type)),
             ("Едновременни часове", lambda r: r.concurrent_capacity),
+            ("Места", lambda r: r.seats or "—"),
+            ("Компютри", lambda r: _yes_no(r.has_computers)),
         ),
         (Room.name, Room.id),
         room_usages,
-        with_room_types=True,
         note=room_note,
     ),
     Entity(
@@ -355,6 +380,7 @@ ENTITIES = (
         (
             ("Име", lambda c: c.name),
             ("Година на обучение", lambda c: c.grade or "—"),
+            ("Ученици", lambda c: c.student_count or "—"),
             (
                 "Класен ръководител",
                 lambda c: c.class_teacher.name if c.class_teacher else "—",
@@ -443,7 +469,6 @@ def register(e: Entity) -> None:
             heading=e.add_label if creating else f"Редактиране на {e.singular}",
             cancel_url=e.url("list"),
             active=e.key,
-            types=room_types() if e.with_room_types else None,
             extra=e.extra_template,
             item=None if creating else item,
             fixed=e.fixed(item) if e.fixed and not creating else None,
@@ -561,6 +586,11 @@ def groups_delete(group_id):
 # --- parts of a course (the course edit page lists them) ---
 
 
+@bp.app_template_filter("room_type_label")
+def _room_type_label_filter(code):
+    return room_type_label(code)
+
+
 @bp.app_template_filter("group_label")
 def _group_label_filter(group: StudentGroup) -> str:
     return group_label(group)
@@ -578,7 +608,7 @@ def _part_initial(part: CoursePart | None) -> dict:
         "groups": [g.id for g in part.groups],
         "teachers": [t.id for t in part.teachers],
         "needs_room": part.needs_room,
-        "room_type": part.room_type or "",
+        "room_type": part.room_type,
         "allowed_room_ids": part.allowed_room_ids or [],
     }
 
@@ -608,7 +638,6 @@ def _part_page(form, heading, course):
         course_name=_course_name(course),
         cancel_url=url_for("data.courses_edit", item_id=course.id),
         active="courses",
-        types=room_types(),
     )
 
 

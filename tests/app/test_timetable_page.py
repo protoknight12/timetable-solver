@@ -263,3 +263,19 @@ def test_overview_uses_short_names_and_keeps_full_name_as_title(make_client, mig
     html = make_client("viewer").get("/overview").get_data(as_text=True)
     body = html.split("<tbody>")[1]
     assert f'title="{subject.name}"' in body and f">{subject.name}<" not in body
+
+
+def test_a_timeout_is_not_reported_as_an_impossible_timetable(make_client, migrated):
+    """UNKNOWN = the time ran out: say so, don't blame the rules or offer to relax them."""
+    _load("tiny_school.json")
+    job = m.SolveJob(
+        status="finished", solver_status="UNKNOWN", time_limit_s=30, finished_at=None
+    )
+    db.session.add(job)
+    db.session.commit()
+    html = make_client("admin").get("/timetable").get_data(as_text=True)
+    assert "Времето за търсене не стигна" in html and "30 секунди" in html
+    assert "SOLVER_TIME_LIMIT_S" in html
+    assert "Причината не е ясна" not in html
+    assert "твърди изисквания" not in html
+    assert f"/jobs/{job.id}/relax" not in html

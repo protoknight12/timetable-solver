@@ -102,17 +102,25 @@ def shown_job(for_admin: bool, job_id: int | None = None) -> SolveJob | None:
     return published_job() or _previous_job()
 
 
-@bp.post("/solve")
-@admin_required
-@limiter.limit(
+# Weight given to a rule that was made a preference automatically. ASSUMPTION: a
+# middle-of-the-road penalty; one moved block costs 1, so 5 still beats most quirks.
+RELAXED_WEIGHT = 5
+
+solve_limit = limiter.shared_limit(
     lambda: current_app.config["SOLVE_RATE_LIMIT"],
+    scope="solve",
     key_func=lambda: str(current_user.get_id()),
 )
-def start():
-    # A job still queued/running well past its RQ timeout lost its worker: fail
-    # it so it cannot block new solves. Ages use the database clock, the same
-    # one that wrote created_at. shortcut: check-then-insert can still race;
-    # admin-only plus the rate limit make that unlikely.
+
+
+def _job_is_running() -> bool:
+    """True if a fresh job is queued or running (stale ones are failed on the way).
+
+    A job still queued/running well past its RQ timeout lost its worker: fail
+    it so it cannot block new solves. Ages use the database clock, the same
+    one that wrote created_at. shortcut: check-then-insert can still race;
+    admin-only plus the rate limit make that unlikely.
+    """
     db_now = db.session.scalar(select(type_coerce(func.now(), DateTime)))
     db_now = db_now.replace(tzinfo=None)  # PostgreSQL returns an aware value
     active = db.session.scalars(
@@ -127,12 +135,12 @@ def start():
         else:
             fresh = True
     db.session.commit()
-    if fresh:
-        flash("Вече се изгражда график. Изчакайте края на изчислението.", "warning")
-        return redirect(url_for("solve.timetable"))
+    return fresh
+
+
+def _launch_job(previous: SolveJob | None = None) -> SolveJob:
+    """Create a queued job and hand it to the queue; a failed hand-off fails the job."""
     limit = current_app.config["SOLVER_TIME_LIMIT_S"]
-    # The checkbox is on by default in the page; no field means a fresh solve.
-    previous = _previous_job() if request.form.get("keep_previous") else None
     job = SolveJob(
         status="queued",
         time_limit_s=limit,
@@ -148,9 +156,93 @@ def start():
         job.status, job.finished_at = "failed", func.now()
         job.error = "Изчислението не може да бъде стартирано. Опитайте отново."
         db.session.commit()
+    return job
+
+
+RUNNING_MESSAGE = "Вече се изгражда график. Изчакайте края на изчислението."
+
+
+@bp.post("/solve")
+@admin_required
+@solve_limit
+def start():
+    if _job_is_running():
+        flash(RUNNING_MESSAGE, "warning")
+        return redirect(url_for("solve.timetable"))
+    # The checkbox is on by default in the page; no field means a fresh solve.
+    previous = _previous_job() if request.form.get("keep_previous") else None
+    job = _launch_job(previous)
+    if job.status == "failed":
         flash(job.error, "danger")
     else:
         flash("Изграждането на графика започна.", "success")
+    return redirect(url_for("solve.timetable"))
+
+
+def _plural(n: int) -> str:
+    return (
+        "1 правило стана предпочитание"
+        if n == 1
+        else f"{n} правила станаха предпочитания"
+    )
+
+
+@bp.post("/jobs/<int:job_id>/relax")
+@admin_required
+@solve_limit
+def relax(job_id: int):
+    """Turn the conflicting hard rules of an infeasible job into preferences and solve again.
+
+    The ids come from the job's stored ``infeasible_core`` rows, never from the
+    request. Audit trail: there is no history table for rules (and no schema
+    change is allowed), so the trail is the log line, the flash and the rule list,
+    which shows these rules as "Предпочитание (тежест N)"; a rule becomes hard
+    again by editing it there.
+    """
+    job = db.session.get(SolveJob, job_id) or abort(404)
+    if job.status != "finished" or job.solver_status in HAS_TIMETABLE:
+        abort(404)
+    ids = db.session.scalars(
+        select(Violation.constraint_id).where(
+            Violation.job_id == job_id,
+            Violation.type == "infeasible_core",
+            Violation.constraint_id.is_not(None),
+        )
+    ).all()
+    if not ids:
+        abort(404)
+    back = redirect(url_for("solve.timetable", job=job_id))
+    # Refuse before touching any rule.
+    if _job_is_running():
+        flash(RUNNING_MESSAGE, "warning")
+        return back
+    rules = db.session.scalars(
+        select(Constraint)
+        .where(
+            Constraint.id.in_(ids),
+            Constraint.status == "confirmed",
+            Constraint.hard.is_(True),
+        )
+        .order_by(Constraint.id)
+    ).all()
+    if not rules:
+        flash("Няма твърди правила, които да бъдат променени.", "warning")
+        return back
+    for rule in rules:
+        rule.hard = False
+        rule.weight = rule.weight or RELAXED_WEIGHT
+    db.session.commit()
+    current_app.logger.info(
+        "user %s relaxed constraints %s after infeasible job %s",
+        current_user.id,
+        [r.id for r in rules],
+        job_id,
+    )
+    new_job = _launch_job()
+    if new_job.status == "failed":
+        flash(f"{_plural(len(rules))}. {new_job.error}", "danger")
+    else:
+        flash(f"{_plural(len(rules))}. Изграждането започна.", "success")
     return redirect(url_for("solve.timetable"))
 
 

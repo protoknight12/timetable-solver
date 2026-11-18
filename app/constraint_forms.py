@@ -17,7 +17,6 @@ from wtforms import BooleanField, StringField
 from wtforms.validators import (
     DataRequired,
     InputRequired,
-    Length,
     NumberRange,
     Optional,
 )
@@ -28,11 +27,9 @@ from app.forms import (
     BgSelectField,
     BgSelectMultipleField,
     DataForm,
-    _canonical_type,
-    _strip,
-    _too_long,
 )
 from app.models import Course, Period, SchoolClass, Subject, Teacher, db
+from app.room_types import room_type_choices
 from app.solver_input import build_solver_input
 from schema.constraints import parse_constraint
 
@@ -100,6 +97,9 @@ class ConstraintForm(DataForm):
     )
 
     problem = ""  # form-level error
+    # Optional prebuilt SolverInput: the multi-target modal (FE-20) validates one
+    # form per target and must not rebuild the whole input each time.
+    solver_input = None
 
     def params(self) -> dict:
         raise NotImplementedError
@@ -123,7 +123,7 @@ class ConstraintForm(DataForm):
         }
 
     def _check_whole(self) -> bool:
-        self.problem = constraint_problem(self.constraint_data())[1]
+        self.problem = constraint_problem(self.constraint_data(), self.solver_input)[1]
         return not self.problem
 
 
@@ -271,10 +271,11 @@ class RoomTypeRequiredForm(ConstraintForm):
     course_id = BgSelectField(
         "Или само един учебен план", coerce=int, choices=[], default=0
     )
-    room_type = StringField(
+    room_type = BgSelectField(
         "Тип стая",
-        filters=[_strip, _canonical_type],
-        validators=[DataRequired(REQUIRED), Length(max=40, message=_too_long(40))],
+        choices=room_type_choices(blank="—"),
+        default="",
+        validators=[DataRequired(REQUIRED)],
     )
 
     def __init__(self, *args, **kwargs):
@@ -472,6 +473,48 @@ class FixedSlotForm(ConstraintForm):
             "course_id": self.course_id.data,
             "blocks": [{"day": d, "start_period": p} for d, p in self.blocks.data],
         }
+
+
+@dataclasses.dataclass(frozen=True)
+class Target:
+    """The form field that names what a constraint applies to (FE-20 multi-picker)."""
+
+    field: str
+    title: str  # plural heading of the picker, Bulgarian
+    empty: str  # error when nothing is picked
+
+
+_TEACHERS = ("teacher", "Учители", "Изберете поне един учител.")
+_CLASSES = ("class_id", "Класове", "Изберете поне един клас.")
+_SCOPES = ("scope", "Класове и групи класове", "Изберете поне един обхват.")
+
+# Types not listed (periods_reserved_for_subjects is global; room_type_required has
+# two alternative targets) get no picker and create exactly one constraint.
+TARGETS = {
+    kind: Target(*t)
+    for kind, t in {
+        "teacher_available_days": _TEACHERS,
+        "teacher_unavailable_slots": _TEACHERS,
+        "teacher_max_lessons_per_day": _TEACHERS,
+        "teacher_max_gaps": _TEACHERS,
+        "teacher_min_lessons_per_day": _TEACHERS,
+        "class_unavailable_slots": _CLASSES,
+        "subject_unavailable_slots": (
+            "subject_id",
+            "Предмети",
+            "Изберете поне един предмет.",
+        ),
+        "max_lessons_per_day": _SCOPES,
+        "max_same_subject_per_day": _SCOPES,
+        "no_gaps": _SCOPES,
+        "day_starts_first_period": _SCOPES,
+        "fixed_slot": (
+            "course_id",
+            "Учебни планове",
+            "Изберете поне един учебен план.",
+        ),
+    }.items()
+}
 
 
 FORMS = {

@@ -243,3 +243,26 @@ def test_solve_inline_runs_the_job_without_rq(make_client, migrated, monkeypatch
     db.session.refresh(job)
     assert job.status == "finished" and job.solver_status in ("OPTIMAL", "FEASIBLE")
     assert _count(m.Lesson, job.id) > 0
+
+
+def test_no_room_with_computers_names_the_subject_and_class(migrated):
+    """BE-20: a part no room can take fails the job with its subject and class named."""
+    _load("tiny_school.json")
+    part = db.session.scalars(select(m.CoursePart).order_by(m.CoursePart.id)).first()
+    part.subject.requires_computers = True  # and no room has computers
+    db.session.commit()
+    job_id = _job()
+    run_solve(job_id)
+    job = db.session.get(m.SolveJob, job_id)
+    assert job.status == "failed"
+    classes = {g.school_class.name for g in part.groups}
+    assert job.error.startswith(f"Няма подходяща стая за: {part.subject.name}")
+    assert all(name in job.error for name in classes)
+    assert "компютрите" in job.error and _count(m.Lesson, job_id) == 0
+
+
+def test_other_input_problems_keep_the_generic_message():
+    from app.jobs import ERROR_INPUT, input_error
+
+    problem = SimpleNamespace(code="unknown_teacher", path="courses[0].parts[0]")
+    assert input_error(SimpleNamespace(courses=()), [problem]) == ERROR_INPUT

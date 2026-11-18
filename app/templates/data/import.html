@@ -33,6 +33,7 @@
       <ul>
         {% for label, n in asc.counts.items() %}<li>{{ label }}: {{ n }}</li>{% endfor %}
       </ul>
+      <p class="mb-1">Правила: {{ asc.rules_soft }} като предпочитания, {{ asc.rules_hard }} като задължителни.</p>
       <p class="mb-1">Пропуснати редове: {{ asc.skipped.values() | sum }}{% if asc.skipped %}, по причина:{% endif %}</p>
       {% if asc.skipped %}
         <ul>
@@ -122,6 +123,11 @@
             {% for error in asc_form.school_year.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
             <div class="form-text">Ако е празно, годината се взема от името на файла (например 25-26) или от кодовете на класовете.</div>
           </div>
+          <div class="form-check mb-1">
+            {{ asc_form.soft_rules(class_='form-check-input') }}
+            {{ asc_form.soft_rules.label(class_='form-check-label') }}
+          </div>
+          <div class="form-text mb-3">По подразбиране „Почивка“, „Прозорци“ и ограниченията за часове на ден се внасят като задължителни. Ако някои от тях са невъзможни заедно, изграждането ги посочва и с едно натискане ги прави предпочитания. Отметнете, ако искате всички да са предпочитания от самото начало: спазват се, когато е възможно, а проверката показва всяко нарушено.</div>
           <div class="form-check mb-3">
             {{ asc_form.confirm(class_='form-check-input' ~ (' is-invalid' if asc_form.confirm.errors else '')) }}
             {{ asc_form.confirm.label(class_='form-check-label') }}

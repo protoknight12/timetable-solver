@@ -103,6 +103,10 @@ class AscImportForm(FlaskForm):
             NumberRange(2000, 2099, "Въведете година между 2000 и 2099."),
         ],
     )
+    # Hard by default: impossible rules are then named by the solve and fixed with one
+    # click ("make them preferences"), which keeps every other rule exact (measured on a
+    # real school: 21 broken preferences instead of 105 with everything soft).
+    soft_rules = BooleanField("Импортирай правилата като предпочитания")
     preview = SubmitField("Преглед")
     confirm = BooleanField("Разбирам, че импортът замества всички текущи данни.")
 
@@ -140,7 +144,11 @@ def upload_asc():
         file = form.file.data
         try:
             result = import_asc(
-                file.read(), file.filename, form.school_year.data, form.preview.data
+                file.read(),
+                file.filename,
+                form.school_year.data,
+                form.preview.data,
+                hard_rules=not form.soft_rules.data,
             )
         except ImportFileError as e:
             result = AscResult([str(e)])

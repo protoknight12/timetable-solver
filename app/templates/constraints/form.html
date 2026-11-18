@@ -11,45 +11,7 @@
         <form method="post">
           {{ form.hidden_tag() }}
           {% if form.problem %}<div class="alert alert-danger" role="alert">{{ form.problem }}</div>{% endif %}
-          {% for field in form if field.type != 'CSRFTokenField' %}
-            {% if field.type == 'BooleanField' %}
-              <div class="form-check form-switch mb-3">
-                {{ field(class_='form-check-input', role='switch') }}
-                {{ field.label(class_='form-check-label') }}
-              </div>
-            {% elif field.type == 'SelectMultipleField' %}
-              <fieldset class="mb-3">
-                <legend class="form-label fs-6">{{ field.label.text }}</legend>
-                <div class="check-list border rounded p-2{{ ' border-danger' if field.errors }}">
-                  {% for value, label in field.choices %}
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" name="{{ field.name }}" id="{{ field.name }}-{{ value }}"
-                             value="{{ value }}"{% if value in (field.data or []) %} checked{% endif %}>
-                      <label class="form-check-label" for="{{ field.name }}-{{ value }}">{{ label }}</label>
-                    </div>
-                  {% endfor %}
-                </div>
-                {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-              </fieldset>
-            {% elif field.type == 'SelectField' %}
-              <div class="form-floating mb-3">
-                {{ field(class_='form-select' ~ (' is-invalid' if field.errors else '')) }}
-                {{ field.label }}
-                {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
-              </div>
-            {% else %}
-              {% set kw = {'list': 'room-types'} if field.name == 'room_type' else {} %}
-              <div class="form-floating mb-3">
-                {{ field(class_='form-control' ~ (' is-invalid' if field.errors else ''),
-                         placeholder=field.label.text, autocomplete='off', **kw) }}
-                {{ field.label }}
-                {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
-              </div>
-            {% endif %}
-          {% endfor %}
-          {% if form.room_type is defined %}
-            <datalist id="room-types">{% for t in types %}<option value="{{ t }}">{% endfor %}</datalist>
-          {% endif %}
+          {% include 'constraints/_fields.html' %}
           <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Запази</button>
             <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Отказ</a>

@@ -45,6 +45,7 @@ from app.forms import (
     group_label,
 )
 from app.models import db
+from app.room_types import normalize_room_type, room_type_label
 
 # shortcut: private helpers of the data pages, reused so both paths build rows alike.
 from app.routes.data import _add_whole_group, _fill_part
@@ -61,10 +62,17 @@ TEACHERS, SUBJECTS, ROOMS, CLASSES, GROUPS, PERIODS, COURSES = (
 )
 HEADERS = {
     TEACHERS: ["Име", "Кратко име"],
-    SUBJECTS: ["Име", "Тип стая по подразбиране", "Кратко име", "Цвят"],
-    ROOMS: ["Име", "Тип", "Едновременни часове"],
-    CLASSES: ["Име", "Година на обучение", "Класен ръководител"],
-    GROUPS: ["Клас", "Име", "Разделяне"],
+    SUBJECTS: [
+        "Име",
+        "Тип стая по подразбиране",
+        "Кратко име",
+        "Цвят",
+        "Изисква компютри",
+        "Стаи",  # optional: room names split by SEP (SUBJ-ROOMS)
+    ],
+    ROOMS: ["Име", "Тип", "Едновременни часове", "Има компютри", "Места"],
+    CLASSES: ["Име", "Година на обучение", "Класен ръководител", "Брой ученици"],
+    GROUPS: ["Клас", "Име", "Разделяне", "Брой ученици"],
     PERIODS: ["Номер", "Начало", "Край"],
     COURSES: [
         "Код",
@@ -83,10 +91,20 @@ HEADERS = {
 # Columns older files may lack (they import without them); a Subject without a color is automatic.
 OPTIONAL = {
     TEACHERS: ("Кратко име",),
-    SUBJECTS: ("Кратко име", "Цвят"),
-    CLASSES: ("Класен ръководител",),
+    SUBJECTS: ("Кратко име", "Цвят", "Изисква компютри", "Стаи"),
+    ROOMS: ("Има компютри", "Места"),
+    CLASSES: ("Класен ръководител", "Брой ученици"),
+    GROUPS: ("Брой ученици",),
     COURSES: ("Седмица",),
 }
+# Cells holding a room type (a code or the Bulgarian label is accepted) and yes/no cells (BE-20).
+ROOM_TYPE_COLUMNS = {
+    SUBJECTS: ("Тип стая по подразбиране",),
+    ROOMS: ("Тип",),
+    COURSES: ("Тип стая",),
+}
+YES_NO_COLUMNS = {SUBJECTS: ("Изисква компютри",), ROOMS: ("Има компютри",)}
+YES_WORDS, NO_WORDS = ("да", "yes", "true", "1"), ("не", "no", "false", "0", "")
 CONSTRAINTS = "Ограничения"  # counted like a sheet, but only aSc files carry them
 INSTRUCTIONS = "Инструкции"
 INSTRUCTION_LINES = [
@@ -103,7 +121,12 @@ INSTRUCTION_LINES = [
     "Блокове: например 2, 1. Изисква стая: да или не.",
     "Седмица (не е задължителна): празно или „всяка“ за всяка седмица, „A“ или „B“ за час през седмица.",
     "Учители: „Кратко име“ не е задължително. Класове: „Класен ръководител“ не е задължително (име на учител от лист „Учители“).",
-    "Предмети: „Кратко име“ и „Цвят“ (например #4e79a7) не са задължителни; без цвят се избира автоматичен.",
+    "Предмети: „Кратко име“ и „Цвят“ (например #4e79a7) не са задължителни; без цвят се избира автоматичен. „Изисква компютри“: да или не.",
+    (
+        "Тип стая (в листовете „Предмети“, „Стаи“ и „Учебен план“): Класна стая, Лаборатория / STEM кабинет, "
+        "Лекционна зала, Физкултурен салон, Работилница или Друго (може и кодът: classroom, lab, lecture, gym, workshop, other)."
+    ),
+    "Стаи: „Има компютри“ (да или не) и „Места“ не са задължителни. Класове и групи: „Брой ученици“ не е задължителен.",
     "Внимание: качването на Excel файл ЗАМЕСТВА всички текущи данни.",
 ]
 # The column of each sheet that names classes (the course sheet lists several, split by SEP).
@@ -234,6 +257,7 @@ class _Import:
         for n, row in enumerate(raw[1:], 2):
             cells = {h: row[i] if i < len(row) else "" for h, i in at.items()}
             if any(cells.values()):
+                cells = {h: self._cell(sheet, n, h, v) for h, v in cells.items()}
                 if sheet in CLASS_COLUMN:
                     h = CLASS_COLUMN[sheet]
                     cells[h] = SEP.join(
@@ -241,6 +265,21 @@ class _Import:
                     )
                 rows.append((n, cells))
         return rows
+
+    def _cell(self, sheet, n, header, value):
+        """Room types become codes, yes/no becomes what a checkbox posts ("y" or "")."""
+        if header in ROOM_TYPE_COLUMNS.get(sheet, ()):
+            return (
+                normalize_room_type(value) or value
+            )  # unknown text: the form reports it
+        if header in YES_NO_COLUMNS.get(sheet, ()):
+            word = value.strip().casefold()
+            if word in YES_WORDS:
+                return "y"
+            if word not in NO_WORDS:
+                self.error(sheet, n, f"{header}: Въведете „да“ или „не“.")
+            return ""
+        return value
 
     def _class_ref(self, sheet, n, token):
         """A class code ("234" or "234 — Група") becomes its standard name; other text is kept."""
@@ -280,6 +319,18 @@ class _Import:
             {"name": "Име", "short_name": "Кратко име"},
         )
         self.named(
+            ROOMS,
+            m.Room,
+            RoomForm,
+            {
+                "name": "Име",
+                "type": "Тип",
+                "concurrent_capacity": "Едновременни часове",
+                "has_computers": "Има компютри",
+                "seats": "Места",
+            },
+        )
+        self.named(
             SUBJECTS,
             m.Subject,
             SubjectForm,
@@ -288,17 +339,10 @@ class _Import:
                 "default_room_type": "Тип стая по подразбиране",
                 "short_name": "Кратко име",
                 "color": "Цвят",
+                "requires_computers": "Изисква компютри",
+                "room_ids": "Стаи",
             },
-        )
-        self.named(
-            ROOMS,
-            m.Room,
-            RoomForm,
-            {
-                "name": "Име",
-                "type": "Тип",
-                "concurrent_capacity": "Едновременни часове",
-            },
+            prep=self._subject_rooms,
         )
         self.class_teachers()
         self.named(
@@ -309,6 +353,7 @@ class _Import:
                 "name": "Име",
                 "grade": "Година на обучение",
                 "class_teacher_id": "Класен ръководител",
+                "student_count": "Брой ученици",
             },
             after=_add_whole_group,
         )
@@ -340,14 +385,22 @@ class _Import:
             "class": _by_name(m.SchoolClass),
         }
         inp = build_solver_input(db.session)
-        for sheet, n, type_, kind, name, extra in self.rules:
+        for sheet, n, type_, kind, name, extra, *rest in self.rules:
+            weight = (
+                rest[0] if rest else None
+            )  # ASC-AUTO: None = hard, else a soft weight
             if kind == "class":
                 name = self._class_ref(sheet, n, name)
             if name not in ids[kind]:
                 self.error(sheet, n, f"Ограничение: непознат запис „{name}“.")
                 continue
             params = {f"{kind}_id": ids[kind][name].id, **extra}
-            data = {"type": type_, "hard": True, "weight": None, "params": params}
+            data = {
+                "type": type_,
+                "hard": weight is None,
+                "weight": weight,
+                "params": params,
+            }
             _, problem = constraint_problem(data, inp)
             if problem:
                 self.error(sheet, n, problem)
@@ -356,7 +409,8 @@ class _Import:
                 m.Constraint(
                     type=type_,
                     params=params,
-                    hard=True,
+                    hard=weight is None,
+                    weight=weight,
                     status="confirmed",
                     source="import",
                 )
@@ -403,16 +457,30 @@ class _Import:
                 "последователни, без пропуски."
             )
 
-    def named(self, sheet, model, form_cls, columns, after=None):
+    def _subject_rooms(self, n, r):
+        """Room names of a subject row -> ids (rooms are imported first); None if unknown."""
+        known = _by_name(m.Room)
+        ids, bad = [], False
+        for token in (t.strip() for t in r.get("Стаи", "").split(SEP)):
+            if not token:
+                continue
+            if token in known:
+                ids.append(str(known[token].id))
+            else:
+                bad = True
+                self.error(SUBJECTS, n, f"Стаи: Непозната стая „{token}“.")
+        return None if bad else {"room_ids": ids}
+
+    def named(self, sheet, model, form_cls, columns, after=None, prep=None):
         known = _by_name(model)
         for n, r in self.tables[sheet]:
-            form = self.form(
-                sheet,
-                n,
-                form_cls,
-                {f: r.get(h, "") for f, h in columns.items()},
-                columns,
-            )
+            data = {f: r.get(h, "") for f, h in columns.items()}
+            if prep:
+                extra = prep(n, r)
+                if extra is None:
+                    continue
+                data.update(extra)
+            form = self.form(sheet, n, form_cls, data, columns)
             if form is None:
                 continue
             name = form.name.data
@@ -434,7 +502,7 @@ class _Import:
             for c in classes.values()
             for g in c.groups
         }
-        columns = {"name": "Име", "split": "Разделяне"}
+        columns = {"name": "Име", "split": "Разделяне", "student_count": "Брой ученици"}
         for n, r in self.tables[GROUPS]:
             school_class = classes.get(r["Клас"])
             if school_class is None:
@@ -444,7 +512,11 @@ class _Import:
                 GROUPS,
                 n,
                 GroupForm,
-                {"name": r["Име"], "split": r["Разделяне"]},
+                {
+                    "name": r["Име"],
+                    "split": r["Разделяне"],
+                    "student_count": r.get("Брой ученици", ""),
+                },
                 columns,
             )
             if form is None:
@@ -455,7 +527,11 @@ class _Import:
                 continue
             taken.add(label)
             school_class.groups.append(
-                m.StudentGroup(name=form.name.data, split=form.split.data)
+                m.StudentGroup(
+                    name=form.name.data,
+                    split=form.split.data,
+                    student_count=form.student_count.data,
+                )
             )
             self.done(GROUPS)
 
@@ -610,6 +686,14 @@ def import_sheets(
 # --- export / template ---
 
 
+def _type_cell(code: str | None) -> str:
+    return room_type_label(code) if code else ""
+
+
+def _yes_no(value: bool) -> str:
+    return "да" if value else "не"
+
+
 def build_workbook(with_data: bool) -> Workbook:
     wb = Workbook()
     wb.remove(wb.active)
@@ -621,18 +705,33 @@ def build_workbook(with_data: bool) -> Workbook:
             for t in s(select(m.Teacher).order_by(m.Teacher.id))
         ]
         rows[SUBJECTS] = [
-            [x.name, x.default_room_type or "", x.short_name or "", x.color or ""]
+            [
+                x.name,
+                _type_cell(x.default_room_type),
+                x.short_name or "",
+                x.color or "",
+                _yes_no(x.requires_computers),
+                f"{SEP} ".join(r.name for r in x.rooms),
+            ]
             for x in s(select(m.Subject).order_by(m.Subject.id))
         ]
         rows[ROOMS] = [
-            [x.name, x.type, x.concurrent_capacity]
+            [
+                x.name,
+                _type_cell(x.type),
+                x.concurrent_capacity,
+                _yes_no(x.has_computers),
+                x.seats or "",
+            ]
             for x in s(select(m.Room).order_by(m.Room.id))
         ]
         for c in s(select(m.SchoolClass).order_by(m.SchoolClass.id)):
             teacher = c.class_teacher.name if c.class_teacher else ""
-            rows[CLASSES].append([c.name, c.grade or "", teacher])
+            rows[CLASSES].append(
+                [c.name, c.grade or "", teacher, c.student_count or ""]
+            )
             rows[GROUPS] += [
-                [c.name, g.name, g.split]
+                [c.name, g.name, g.split, g.student_count or ""]
                 for g in sorted(c.groups, key=lambda g: g.id)
                 if not g.is_whole
             ]
@@ -656,7 +755,7 @@ def build_workbook(with_data: bool) -> Workbook:
                     f"{SEP} ".join(_ref(g) for g in p.groups),
                     f"{SEP} ".join(t.name for t in p.teachers),
                     "да" if p.needs_room else "не",
-                    p.room_type or "",
+                    _type_cell(p.room_type),
                     f"{SEP} ".join(room_names[i] for i in p.allowed_room_ids or []),
                     c.week or "",
                 ]

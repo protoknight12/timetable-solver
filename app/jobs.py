@@ -7,13 +7,23 @@ exception escape with the job still "running".
 from __future__ import annotations
 
 import logging
+import os
+import re
 import threading
 
 from flask import current_app, has_app_context
 from sqlalchemy import func, select
 
 from app import create_app
-from app.models import Lesson, SolveJob, Violation, db
+from app.models import (
+    Lesson,
+    SchoolClass,
+    SolveJob,
+    StudentGroup,
+    Subject,
+    Violation,
+    db,
+)
 from app.solver_input import build_solver_input
 from checker import check
 from schema.contract import LessonPlacement
@@ -22,6 +32,62 @@ from solver import solve
 log = logging.getLogger(__name__)
 
 ERROR_UNEXPECTED = "Неочаквана грешка при изграждането на графика."
+ERROR_INPUT = (
+    "Входните данни не са пълни или съдържат грешки (например изтрити "
+    "записи или пропуск в учебните часове). "
+    "Прегледайте данните и ограниченията."
+)
+_PART_PATH = re.compile(r"^courses\[(\d+)\]\.parts\[(\d+)\]")
+_MAX_LISTED = 5
+
+
+def solver_workers() -> int:
+    """CP-SAT search workers: the CPUs this process may use, at most the solver's default of 8.
+
+    ASC-AUTO: with more workers than cores the threads fight for the CPU. Measured on the real
+    school data at 60 s on 2 cores: 8 workers gave objective 2390, 2 workers 918.
+    """
+    try:
+        cpus = len(os.sched_getaffinity(0))
+    except AttributeError:  # not on Windows or macOS
+        cpus = os.cpu_count() or 1
+    return max(1, min(8, cpus))
+
+
+def input_error(inp, problems) -> str:
+    """Bulgarian error for a job that cannot start (BE-20).
+
+    "No matching room" became common with the computer and seat rules, so those
+    parts are named (subject and classes) instead of the generic message.
+    """
+    names = []
+    for p in problems:
+        m = _PART_PATH.match(p.path) if p.code == "no_matching_room" else None
+        if not m:
+            continue
+        part = inp.courses[int(m[1])].parts[int(m[2])]
+        subject = db.session.get(Subject, part.subject_id)
+        classes = sorted(
+            {
+                k.name
+                for g in db.session.scalars(
+                    select(StudentGroup).where(StudentGroup.id.in_(part.group_ids))
+                )
+                if (k := db.session.get(SchoolClass, g.class_id))
+            }
+        )
+        label = subject.name if subject else f"предмет №{part.subject_id}"
+        names.append(f"{label} ({', '.join(classes)})" if classes else label)
+    if not names:
+        return ERROR_INPUT
+    unique = list(dict.fromkeys(names))
+    shown = "; ".join(unique[:_MAX_LISTED])
+    if len(unique) > _MAX_LISTED:
+        shown += f" и още {len(unique) - _MAX_LISTED}"
+    return (
+        f"Няма подходяща стая за: {shown}. Проверете типа стая, компютрите и "
+        "местата в стаите и броя ученици в класовете и групите."
+    )
 
 
 def run_solve(job_id: int) -> None:
@@ -82,16 +148,16 @@ def _run(job_id: int) -> None:
                 job_id,
                 "; ".join(f"{p.code} {p.path}" for p in problems),
             )
-            _fail(
-                job,
-                "Входните данни не са пълни или съдържат грешки (например изтрити "
-                "записи или пропуск в учебните часове). "
-                "Прегледайте данните и ограниченията.",
-            )
+            _fail(job, input_error(inp, problems))
             return
         limit = job.time_limit_s or current_app.config["SOLVER_TIME_LIMIT_S"]
         # base_job_id set = keep as much of that job's timetable as possible (BE-13).
-        result = solve(inp, time_limit_s=limit, reference=placements(job.base_job_id))
+        result = solve(
+            inp,
+            time_limit_s=limit,
+            num_workers=solver_workers(),
+            reference=placements(job.base_job_id),
+        )
         violations = check(inp, result)
         db.session.add_all(
             Lesson(

@@ -9,13 +9,20 @@ Assumptions (no school rule is invented here):
 - an aSc import REPLACES all school data, like the template. The bell times are not in
   the file, so the CURRENT periods are kept (and are required);
 - „Почивка“ (teacher, class, subject) means "no lessons in these slots" and „Прозорци“ and
-  <a,b> are hard limits; „Прозорци“ = 20 means no limit (nothing is created);
+  <a,b> are limits; „Прозорци“ = 20 means no limit (nothing is created). They are imported as
+  HARD constraints by default: a solve then names any impossible combination and the admin
+  makes exactly those preferences with one click (/jobs/<id>/relax). On a real school this
+  broke 21 preferences in 60 s, against 105 when every rule was soft. The admin may still
+  import them all as SOFT constraints with the weights in `SOFT_WEIGHTS`;
 - an aSc lesson row is one course with one part; its classes and groups are paired by
   position ("211,212" with "Цял клас,Първа група"), a single class takes every listed group;
+  classes written without commas ("211212") are split into 3-character codes when all exist;
 - „Свободни класни стаи“ are the allowed rooms. „Класни стаи на учителите“ means the rooms
-  of the lesson's teachers (sheet „Списък на учители“), „…на предметите“ the rooms of its subject;
+  of the lesson's teachers (sheet „Списък на учители“), „…на предметите“ the rooms of its subject
+  (stored on the subject itself when that changes nothing, see `_subject_rooms_on_subjects`);
 - the groups of a class come from its „Деление“; the split names (групи, езици, пол) are ours;
-- room type, capacity and the current timetable (per-subject sheets) are not imported.
+- the file has no room type: it is guessed from the room name (`ROOM_TYPE_KEYWORDS`); capacity and
+  the current timetable (per-subject sheets) are not imported.
 """
 
 from __future__ import annotations
@@ -79,16 +86,48 @@ SPLITS = {  # canonical group -> (name, the template's "Разделяне")
     "испански": ("Испански", "езици"),
     "китайски": ("Китайски", "езици"),
 }
-DEFAULT_ROOM_TYPE = "стая"
+DEFAULT_ROOM_TYPE = "classroom"  # a plain room (BE-20: fixed room types)
+# ASC-AUTO: the file has no room type, so it is guessed from the name (case-insensitive substring,
+# first match wins; the gym comes before "зала" so „Спортна зала“ is a gym, not a lecture hall).
+ROOM_TYPE_KEYWORDS: tuple[tuple[str, str], ...] = (
+    ("спорт", "gym"),
+    ("физкулт", "gym"),
+    ("салон", "gym"),
+    ("работил", "workshop"),
+    ("stem", "lab"),
+    ("лаб", "lab"),
+    ("лекц", "lecture"),
+    ("зала", "lecture"),
+)
+# ASC-AUTO ASSUMPTION: weights of the aSc rules imported as soft (a violated rule costs this much
+# per unit, see the contract). Ordered by how much the school minds: class rest > teacher rest >
+# subject rest > max per day > min per day > max gaps. Tune here.
+SOFT_WEIGHTS = {
+    "class_unavailable_slots": 10,
+    "teacher_unavailable_slots": 8,
+    "subject_unavailable_slots": 6,
+    "teacher_max_lessons_per_day": 5,
+    "teacher_min_lessons_per_day": 3,
+    "teacher_max_gaps": 2,
+}
 NOTES = [
     "Учебните часове (звънецът) не са във файла: запазени са сегашните.",
     (
-        "Типът и капацитетът на стаите не са във файла: всички са тип „стая“ с капацитет 1. "
-        "Ако в стая се провеждат няколко часа едновременно (например спортна база), "
+        "Типът на стаите не е във файла: познава се по името (например „Спортна база“ е физкултурен салон, "
+        "„STEM1“ е лаборатория), останалите са „Класна стая“. Местата, компютрите и капацитетът също не са във "
+        "файла: капацитетът е 1. Ако в стая се провеждат няколко часа едновременно (например спортна база), "
         "задайте капацитета ѝ на страница „Стаи“."
     ),
     "Текущото разписание (листовете по предмети) не се внася.",
 ]
+
+
+def guess_room_type(name: str) -> str:
+    """Room type code from a room name (ROOM_TYPE_KEYWORDS), `classroom` when nothing matches."""
+    text = name.casefold()
+    return next(
+        (code for key, code in ROOM_TYPE_KEYWORDS if key in text), DEFAULT_ROOM_TYPE
+    )
 
 
 def parse_rest(text: str) -> list[tuple[int, int]]:
@@ -191,6 +230,7 @@ class Translation:
         default_factory=list
     )  # (sheet, row, type, kind, name, params)
     skipped: Counter = field(default_factory=Counter)  # reason -> rows
+    subjects_with_rooms: int = 0  # subjects whose rooms are stored on the subject
 
 
 def _group(token: str):
@@ -224,7 +264,7 @@ def _room_names(cell: str, known: dict[str, str]):
     return out
 
 
-def translate(raw, periods: list[list]) -> Translation:
+def translate(raw, periods: list[list], hard_rules: bool = True) -> Translation:
     t = Translation()
     skip = t.skipped
     teachers = raw[TEACHER_S]
@@ -236,7 +276,7 @@ def translate(raw, periods: list[list]) -> Translation:
     for r in raw[ROOM_S]:
         rooms[r["Име"]] = rooms[r.get("Съкращение") or r["Име"]] = r["Име"]
     t.sheets[ROOMS] = [HEADERS[ROOMS]] + [
-        [r["Име"], DEFAULT_ROOM_TYPE, 1] for r in raw[ROOM_S]
+        [r["Име"], guess_room_type(r["Име"]), 1] for r in raw[ROOM_S]
     ]
     subjects = {}  # abbreviation or name -> name
     for r in raw[SUBJECT_S]:
@@ -291,6 +331,7 @@ def translate(raw, periods: list[list]) -> Translation:
             skip[row] += 1
         else:
             t.sheets[COURSES].append(row)
+    t.subjects_with_rooms = _subject_rooms_on_subjects(t, subject_rooms)
 
     # Rules.
     for sheet, kind, key in (
@@ -299,10 +340,51 @@ def translate(raw, periods: list[list]) -> Translation:
         (SUBJECT_S, "subject", "Предмет"),
     ):
         for r in raw[sheet]:
-            _rules(t, sheet, kind, r[key].strip(), r)
+            _rules(t, sheet, kind, r[key].strip(), r, hard_rules)
     # The import reads text only, like a file would give it.
     t.sheets = {k: [[str(c) for c in row] for row in v] for k, v in t.sheets.items()}
     return t
+
+
+def _subject_rooms_on_subjects(
+    t: Translation, subject_rooms: dict[str, list[str]]
+) -> int:
+    """ASC-AUTO: store a subject's rooms on the subject, not on every part (rewrites t.sheets).
+
+    A subject with rooms makes ALL its parts need a room, limited to those rooms unless the part
+    has its own list. So it is only used when every lesson of the subject lists rooms (else a
+    lesson without rooms would suddenly need one). A part whose list is exactly the subject's rooms
+    then keeps no list of its own; any other list (teacher rooms, explicit rooms, mixtures) stays.
+    Returns how many subjects got their rooms.
+    """
+    rows = t.sheets[COURSES][1:]
+    by_subject: dict[str, list[list]] = {}
+    for row in rows:
+        by_subject.setdefault(row[4], []).append(row)
+    used = {}
+    for subject, rooms in subject_rooms.items():
+        lessons = by_subject.get(subject, [])
+        if rooms and all(row[9] for row in lessons):
+            used[subject] = rooms
+            for row in lessons:
+                if set(row[9].split("; ")) == set(rooms):
+                    row[9] = ""
+    for row in t.sheets[SUBJECTS][1:]:
+        if row[0] in used:
+            row[:] = [*row[:5], *[""] * (5 - len(row[:5])), "; ".join(used[row[0]])]
+    return len(used)
+
+
+def _class_codes(cell: str, known) -> list[str]:
+    """Class codes of a comma list. aSc also glues the codes of a joint lesson together
+    ("211212"): accepted only when it splits into 3-character codes that all exist, like
+    the rooms in `_room_names`. Anything else is kept as written (and reported as unknown)."""
+    out = []
+    for token in (t.strip() for t in cell.split(",")):
+        parts = [token[i : i + 3] for i in range(0, len(token), 3)]
+        glued = token not in known and len(token) % 3 == 0 and token
+        out += parts if glued and all(p in known for p in parts) else [token]
+    return out
 
 
 def _lesson(r, classes, teachers, subjects, rooms, teacher_rooms, subject_rooms):
@@ -322,7 +404,7 @@ def _lesson(r, classes, teachers, subjects, rooms, teacher_rooms, subject_rooms)
     names = list(dict.fromkeys(t.strip() for t in r["Учител"].split(",")))
     if not all(x in teachers for x in names):
         return "непознат учител"
-    codes = [c.strip() for c in r["Клас"].split(",")]
+    codes = _class_codes(r["Клас"], classes)
     tokens = [g.strip() for g in r["Група"].split(",")]
     if len(tokens) != len(codes) and len(codes) != 1:
         return "броят на класовете и групите не съвпада"
@@ -358,23 +440,29 @@ def _lesson(r, classes, teachers, subjects, rooms, teacher_rooms, subject_rooms)
     ]  # fmt: skip
 
 
-def _rules(t: Translation, sheet, kind, name, r) -> None:
-    """„Почивка“ (all three sheets), „Прозорци“ and <a,b> (teachers) -> rules."""
+def _rules(t: Translation, sheet, kind, name, r, hard_rules=True) -> None:
+    """„Почивка“ (all three sheets), „Прозорци“ and <a,b> (teachers) -> rules.
+
+    A rule is (sheet, row, type, kind, name, params, weight); weight None = hard.
+    """
     n = r["#"]
+
+    def add(type_, params):
+        weight = None if hard_rules else SOFT_WEIGHTS[type_]
+        t.rules.append((sheet, n, type_, kind, name, params, weight))
+
     slots = []
     try:
         slots = [{"day": d, "period": p} for d, p in parse_rest(r.get("Почивка", ""))]
     except ValueError:
         t.skipped["„Почивка“ във формат, който не се разпознава"] += 1
     if slots:
-        t.rules.append(
-            (sheet, n, f"{kind}_unavailable_slots", kind, name, {"slots": slots})
-        )
+        add(f"{kind}_unavailable_slots", {"slots": slots})
     if kind != "teacher":
         return
     gaps = r.get("Прозорци", "").strip()
     if gaps.isdigit() and int(gaps) != 20:  # 20 = unlimited
-        t.rules.append((sheet, n, "teacher_max_gaps", kind, name, {"max": int(gaps)}))
+        add("teacher_max_gaps", {"max": int(gaps)})
     both = re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*", r.get("<a,b> (4)", ""))
     if both:
         for type_, key, value in (
@@ -382,7 +470,7 @@ def _rules(t: Translation, sheet, kind, name, r) -> None:
             ("teacher_max_lessons_per_day", "max", int(both[2])),
         ):
             if value >= 1:
-                t.rules.append((sheet, n, type_, kind, name, {key: value}))
+                add(type_, {key: value})
 
 
 # --- the import ---
@@ -396,10 +484,17 @@ class AscResult:
     skipped: dict[str, int] = field(default_factory=dict)
     year: int | None = None
     year_from: str = ""  # "file" | "codes" | "" (the admin typed it)
+    rules_soft: int = 0  # ASC-AUTO: rules imported as preferences / as hard limits
+    rules_hard: int = 0
+    subjects_with_rooms: int = 0
 
 
 def import_asc(
-    data: bytes, filename: str, school_year_start: int | None, dry_run: bool
+    data: bytes,
+    filename: str,
+    school_year_start: int | None,
+    dry_run: bool,
+    hard_rules: bool = True,
 ) -> AscResult:
     """Read, translate and import; the school year is the admin's, else detected."""
     raw = read_asc(data)
@@ -421,8 +516,19 @@ def import_asc(
             year=year,
             year_from=year_from,
         )
-    t = translate(raw, periods)
+    t = translate(raw, periods, hard_rules)
     errors, counts, conversions = import_sheets(
         t.sheets, True, year, dry_run, tuple(t.rules)
     )
-    return AscResult(errors, counts, conversions, dict(t.skipped), year, year_from)
+    hard = sum(1 for rule in t.rules if rule[6] is None)
+    return AscResult(
+        errors,
+        counts,
+        conversions,
+        dict(t.skipped),
+        year,
+        year_from,
+        len(t.rules) - hard,
+        hard,
+        t.subjects_with_rooms,
+    )

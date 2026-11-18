@@ -22,6 +22,7 @@ from sqlalchemy import (
     String,
     Table,
     Time,
+    false,
     func,
     text,
     true,
@@ -76,6 +77,23 @@ course_part_teachers = Table(
     Column("teacher_id", ForeignKey("teachers.id"), primary_key=True),
 )
 
+# SUBJ-ROOMS: the rooms a subject may be taught in. Both sides are CASCADE: deleting
+# a room (or a subject) only removes the link, never the other row.
+subject_rooms = Table(
+    "subject_rooms",
+    Base.metadata,
+    Column(
+        "subject_id",
+        ForeignKey("subjects.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "room_id",
+        ForeignKey("rooms.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
+
 
 class Teacher(Base):
     __tablename__ = "teachers"
@@ -93,6 +111,17 @@ class Subject(Base):
     default_room_type: Mapped[str | None] = mapped_column(String(40))
     color: Mapped[str | None] = mapped_column(String(7))  # '#rrggbb'; None = automatic
     short_name: Mapped[str | None] = mapped_column(String(20))
+    # BE-20: lessons of this subject need a room with computers.
+    requires_computers: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
+    # SUBJ-ROOMS: rooms this subject is taught in; empty = any suitable room.
+    # Effective rooms of a part: its own allowed_room_ids if set, else these,
+    # else any room (see app/solver_input.py). A subject with rooms implies
+    # that its parts need a room.
+    rooms: Mapped[list[Room]] = relationship(
+        secondary=subject_rooms, order_by="Room.id", passive_deletes=True
+    )
 
 
 class SchoolClass(Base):
@@ -101,6 +130,8 @@ class SchoolClass(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(40))
     grade: Mapped[int | None]
+    # BE-20: number of students; None = unknown (the seats rule is then skipped).
+    student_count: Mapped[int | None]
     # Secret of the public read-only page /p/<token> (FE-16); NULL = page off.
     public_token: Mapped[str | None] = mapped_column(String(32), unique=True)
     class_teacher_id: Mapped[int | None] = mapped_column(
@@ -136,6 +167,8 @@ class StudentGroup(Base):
     name: Mapped[str] = mapped_column(String(80), default="")
     is_whole: Mapped[bool] = mapped_column(Boolean, default=False)
     split: Mapped[str] = mapped_column(String(40), default="", server_default="")
+    # BE-20: students in a sub-group (the whole-class group uses the class's count).
+    student_count: Mapped[int | None]
 
     school_class: Mapped[SchoolClass] = relationship(back_populates="groups")
 
@@ -147,6 +180,11 @@ class Room(Base):
     name: Mapped[str] = mapped_column(String(80))
     type: Mapped[str] = mapped_column(String(40))
     concurrent_capacity: Mapped[int] = mapped_column(default=1, server_default="1")
+    # BE-20: has computers; seats = places for students (None = unknown, no limit).
+    has_computers: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
+    seats: Mapped[int | None]
 
 
 class Period(Base):
