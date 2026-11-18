@@ -49,6 +49,12 @@
             {% for error in form.room_type.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
           </div>
           <p class="form-text">Ако не е избран тип, се ползва типът по подразбиране на предмета. Предмет, който изисква компютри, винаги изисква стая с компютри.</p>
+          {% set subject_rooms = form.subject_rooms_hint() %}
+          {% if subject_rooms %}
+            <div class="alert alert-info" role="note">
+              <i class="bi bi-info-circle"></i> Предметът се води в стаите: {{ subject_rooms }}. Те важат за тази част, ако не изберете свои стаи по-долу.
+            </div>
+          {% endif %}
           {{ checks(form.allowed_room_ids, 'Няма добавени стаи.') }}
           <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Запази</button>

@@ -179,11 +179,25 @@ class SubjectForm(DataForm):
         validators=[Optional(), Length(max=20, message=_too_long(20))],
     )
     requires_computers = BooleanField("Изисква компютри")
+    # SUBJ-ROOMS: named room_ids (not rooms) so that WTForms does not read the
+    # Subject.rooms relationship (Room objects) as the field's initial data.
+    room_ids = BgSelectMultipleField(
+        "Стаи за предмета",
+        coerce=int,
+        choices=[],
+        message="Изберете стаи от списъка.",
+    )
     color = StringField("Цвят", widget=ColorInput(), filters=[_strip])
     auto_color = BooleanField("Автоматичен цвят")
 
     def __init__(self, *args, obj=None, **kwargs):
         super().__init__(*args, obj=obj, **kwargs)
+        self.room_ids.choices = [
+            (r.id, f"{r.name} ({room_type_label(r.type)})")
+            for r in db.session.scalars(select(Room).order_by(Room.name, Room.id))
+        ]
+        if self.room_ids.raw_data is None:  # no submitted values: show the saved rooms
+            self.room_ids.data = [r.id for r in obj.rooms] if obj else []
         if not self.is_submitted():
             # The picker starts at the color the grid shows now.
             self.auto_color.data = obj is None or obj.color is None
@@ -197,11 +211,29 @@ class SubjectForm(DataForm):
         if not self._auto() and not is_color(field.data):
             raise ValidationError("Изберете цвят във формат #rrggbb.")
 
+    def validate_room_ids(self, field):
+        rooms = db.session.scalars(select(Room).where(Room.id.in_(field.data or ())))
+        if (
+            self.requires_computers.data
+            and field.data
+            and not any(r.has_computers for r in rooms)
+        ):
+            raise ValidationError(
+                "Предметът изисква компютри, а нито една от избраните стаи няма компютри."
+            )
+
     def populate_obj(self, obj):
         obj.name = self.name.data
         obj.default_room_type = self.default_room_type.data
         obj.short_name = self.short_name.data
         obj.requires_computers = bool(self.requires_computers.data)
+        obj.rooms = list(
+            db.session.scalars(
+                select(Room)
+                .where(Room.id.in_(self.room_ids.data or ()))
+                .order_by(Room.id)
+            )
+        )
         obj.color = None if self._auto() else self.color.data.lower()
 
 
@@ -455,6 +487,18 @@ class PartForm(DataForm):
             for r in scalars(select(Room).order_by(Room.name, Room.id))
         ]
 
+    def subject_rooms_hint(self) -> str | None:
+        """Names of the subject's rooms when they apply to this part, else None."""
+        if self.allowed_room_ids.data and self.needs_room.data:
+            return None
+        sid = self.subject.data
+        if sid is None and self.subject.choices:
+            sid = self.subject.choices[0][0]  # what the select shows first
+        subject = db.session.get(Subject, sid) if sid else None
+        if subject is None or not subject.rooms:
+            return None
+        return ", ".join(r.name for r in subject.rooms)
+
     def _other_parts(self):
         return [p for p in self.course.parts if not self.part or p.id != self.part.id]
 
@@ -496,14 +540,17 @@ class PartForm(DataForm):
     def _room_matches(self) -> bool:
         subject = db.session.get(Subject, self.subject.data)
         computers = bool(subject and subject.requires_computers)
-        if not (self.needs_room.data or computers):
+        # SUBJ-ROOMS: a subject tied to rooms implies a room too (as in solver_input).
+        subject_rooms = {r.id for r in subject.rooms} if subject else set()
+        if not (self.needs_room.data or computers or subject_rooms):
             return True
         # Same fallback as build_solver_input: the subject's default room type.
         # Without needs_room the room fields are cleared on save, so only the
         # subject's default type counts (the subject needs computers, so a room anyway).
         chosen = self.room_type.data if self.needs_room.data else None
         wanted = chosen or (subject.default_room_type if subject else None)
-        allowed = set(self.allowed_room_ids.data or ()) if self.needs_room.data else ()
+        own = set(self.allowed_room_ids.data or ()) if self.needs_room.data else set()
+        allowed = own or subject_rooms  # the part's own list wins over the subject's
         return any(
             (wanted is None or r.type == wanted)
             and (not allowed or r.id in allowed)

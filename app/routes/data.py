@@ -55,6 +55,7 @@ from app.models import (
     course_part_groups,
     course_part_teachers,
     db,
+    subject_rooms,
 )
 from app.room_types import room_type_label
 
@@ -120,14 +121,30 @@ def class_usages(school_class: SchoolClass) -> list[str]:
 
 
 def room_note(room: Room) -> str | None:
+    notes = []
     # Lesson.room_id is ON DELETE SET NULL, so past lessons do not block deletion.
     lessons = db.session.scalar(
         select(func.count()).select_from(Lesson).where(Lesson.room_id == room.id)
     )
     if lessons:
-        return (
-            "Стаята присъства в вече генерирани разписания; там тя ще остане без стая."
+        notes.append(
+            "Стаята присъства във вече генерирани разписания; там тя ще остане без стая."
         )
+    # subject_rooms is ON DELETE CASCADE: only the link goes, so this just informs.
+    subjects = db.session.scalars(
+        select(Subject.name)
+        .join(subject_rooms, subject_rooms.c.subject_id == Subject.id)
+        .where(subject_rooms.c.room_id == room.id)
+        .order_by(Subject.name)
+    ).all()
+    if subjects:
+        notes.append(
+            "Стаята ще бъде премахната от списъка със стаи на предметите: "
+            + ", ".join(subjects[:SHOWN_COURSES])
+            + ("…" if len(subjects) > SHOWN_COURSES else "")
+            + "."
+        )
+    return " ".join(notes) or None
 
 
 def room_usages(room: Room) -> list[str]:
@@ -326,6 +343,7 @@ ENTITIES = (
                 lambda s: room_type_label(s.default_room_type),
             ),
             ("Компютри", lambda s: _yes_no(s.requires_computers)),
+            ("Стаи", lambda s: ", ".join(r.name for r in s.rooms) or "Всички"),
         ),
         (Subject.name, Subject.id),
         subject_usages,

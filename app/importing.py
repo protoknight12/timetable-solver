@@ -68,6 +68,7 @@ HEADERS = {
         "Кратко име",
         "Цвят",
         "Изисква компютри",
+        "Стаи",  # optional: room names split by SEP (SUBJ-ROOMS)
     ],
     ROOMS: ["Име", "Тип", "Едновременни часове", "Има компютри", "Места"],
     CLASSES: ["Име", "Година на обучение", "Класен ръководител", "Брой ученици"],
@@ -90,7 +91,7 @@ HEADERS = {
 # Columns older files may lack (they import without them); a Subject without a color is automatic.
 OPTIONAL = {
     TEACHERS: ("Кратко име",),
-    SUBJECTS: ("Кратко име", "Цвят", "Изисква компютри"),
+    SUBJECTS: ("Кратко име", "Цвят", "Изисква компютри", "Стаи"),
     ROOMS: ("Има компютри", "Места"),
     CLASSES: ("Класен ръководител", "Брой ученици"),
     GROUPS: ("Брой ученици",),
@@ -318,18 +319,6 @@ class _Import:
             {"name": "Име", "short_name": "Кратко име"},
         )
         self.named(
-            SUBJECTS,
-            m.Subject,
-            SubjectForm,
-            {
-                "name": "Име",
-                "default_room_type": "Тип стая по подразбиране",
-                "short_name": "Кратко име",
-                "color": "Цвят",
-                "requires_computers": "Изисква компютри",
-            },
-        )
-        self.named(
             ROOMS,
             m.Room,
             RoomForm,
@@ -340,6 +329,20 @@ class _Import:
                 "has_computers": "Има компютри",
                 "seats": "Места",
             },
+        )
+        self.named(
+            SUBJECTS,
+            m.Subject,
+            SubjectForm,
+            {
+                "name": "Име",
+                "default_room_type": "Тип стая по подразбиране",
+                "short_name": "Кратко име",
+                "color": "Цвят",
+                "requires_computers": "Изисква компютри",
+                "room_ids": "Стаи",
+            },
+            prep=self._subject_rooms,
         )
         self.class_teachers()
         self.named(
@@ -445,16 +448,30 @@ class _Import:
                 "последователни, без пропуски."
             )
 
-    def named(self, sheet, model, form_cls, columns, after=None):
+    def _subject_rooms(self, n, r):
+        """Room names of a subject row -> ids (rooms are imported first); None if unknown."""
+        known = _by_name(m.Room)
+        ids, bad = [], False
+        for token in (t.strip() for t in r.get("Стаи", "").split(SEP)):
+            if not token:
+                continue
+            if token in known:
+                ids.append(str(known[token].id))
+            else:
+                bad = True
+                self.error(SUBJECTS, n, f"Стаи: Непозната стая „{token}“.")
+        return None if bad else {"room_ids": ids}
+
+    def named(self, sheet, model, form_cls, columns, after=None, prep=None):
         known = _by_name(model)
         for n, r in self.tables[sheet]:
-            form = self.form(
-                sheet,
-                n,
-                form_cls,
-                {f: r.get(h, "") for f, h in columns.items()},
-                columns,
-            )
+            data = {f: r.get(h, "") for f, h in columns.items()}
+            if prep:
+                extra = prep(n, r)
+                if extra is None:
+                    continue
+                data.update(extra)
+            form = self.form(sheet, n, form_cls, data, columns)
             if form is None:
                 continue
             name = form.name.data
@@ -685,6 +702,7 @@ def build_workbook(with_data: bool) -> Workbook:
                 x.short_name or "",
                 x.color or "",
                 _yes_no(x.requires_computers),
+                f"{SEP} ".join(r.name for r in x.rooms),
             ]
             for x in s(select(m.Subject).order_by(m.Subject.id))
         ]

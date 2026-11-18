@@ -23,6 +23,25 @@
                 {{ field(class_='form-control form-control-color' ~ (' is-invalid' if field.errors else '')) }}
                 {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
               </div>
+            {% elif field.type == 'BgSelectMultipleField' %}
+              <fieldset class="mb-3">
+                <legend class="form-label fs-6">{{ field.label.text }}</legend>
+                {% if field.choices %}
+                  <div class="check-list border rounded p-2{{ ' border-danger' if field.errors }}">
+                    {% for value, label in field.choices %}
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="{{ field.name }}" id="{{ field.name }}-{{ value }}"
+                               value="{{ value }}"{% if value in (field.data or []) %} checked{% endif %}>
+                        <label class="form-check-label" for="{{ field.name }}-{{ value }}">{{ label }}</label>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <p class="text-body-secondary mb-0">Няма добавени стаи.</p>
+                {% endif %}
+                <div class="form-text">Ако не изберете нито една, предметът може да се води във всяка подходяща стая.</div>
+                {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+              </fieldset>
             {% elif field.type == 'BooleanField' %}
               <div class="form-check mb-3">
                 {{ field(class_='form-check-input') }}

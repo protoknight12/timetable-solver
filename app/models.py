@@ -77,6 +77,23 @@ course_part_teachers = Table(
     Column("teacher_id", ForeignKey("teachers.id"), primary_key=True),
 )
 
+# SUBJ-ROOMS: the rooms a subject may be taught in. Both sides are CASCADE: deleting
+# a room (or a subject) only removes the link, never the other row.
+subject_rooms = Table(
+    "subject_rooms",
+    Base.metadata,
+    Column(
+        "subject_id",
+        ForeignKey("subjects.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "room_id",
+        ForeignKey("rooms.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
+
 
 class Teacher(Base):
     __tablename__ = "teachers"
@@ -97,6 +114,13 @@ class Subject(Base):
     # BE-20: lessons of this subject need a room with computers.
     requires_computers: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false()
+    )
+    # SUBJ-ROOMS: rooms this subject is taught in; empty = any suitable room.
+    # Effective rooms of a part: its own allowed_room_ids if set, else these,
+    # else any room (see app/solver_input.py). A subject with rooms implies
+    # that its parts need a room.
+    rooms: Mapped[list[Room]] = relationship(
+        secondary=subject_rooms, order_by="Room.id", passive_deletes=True
     )
 
 
