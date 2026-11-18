@@ -19,6 +19,7 @@ from flask import (
     abort,
     current_app,
     flash,
+    make_response,
     redirect,
     render_template,
     request,
@@ -29,9 +30,10 @@ from sqlalchemy import select
 
 from app import llm
 from app.auth import admin_required, limiter
-from app.constraint_forms import DAY_NAMES, FORMS, _course_name
+from app.constraint_forms import DAY_NAMES, FORMS, TARGETS, _course_name
 from app.forms import room_types
 from app.models import Constraint, Course, SchoolClass, Subject, Teacher, db
+from app.solver_input import build_solver_input
 
 bp = Blueprint("constraints", __name__, url_prefix="/constraints")
 
@@ -203,6 +205,114 @@ def new(kind):
         active="constraints",
         types=room_types(),
     )
+
+
+def _modal(kind, form, *, selected=(), problems=(), picker_error=None):
+    """The modal's inner HTML (FE-20); also re-rendered, with errors, after a failed save."""
+    resp = make_response(
+        render_template(
+            "constraints/_modal_form.html",
+            form=form,
+            kind=kind,
+            heading=f"Ново ограничение: {form.label}",
+            target=TARGETS.get(kind),
+            selected={str(v) for v in selected},
+            problems=problems,
+            picker_error=picker_error,
+            types=room_types(),
+        )
+    )
+    resp.headers["Vary"] = "HX-Request"
+    return resp
+
+
+@bp.get("/new")
+@admin_required
+def new_pick():
+    """Type chosen on the list page: the modal for HTMX, the full page without JavaScript."""
+    kind = request.args.get("kind", "")
+    if kind not in FORMS:
+        abort(404)
+    if not request.headers.get("HX-Request"):
+        return redirect(url_for("constraints.new", kind=kind))
+    return _modal(kind, FORMS[kind]())
+
+
+def _added(n: int) -> str:
+    return "Добавено е 1 ограничение." if n == 1 else f"Добавени са {n} ограничения."
+
+
+@bp.post("/new/<kind>/many")
+@admin_required
+def create_many(kind):
+    """One constraint per picked target, same parameters; all or nothing (FE-20).
+
+    Each target is validated with the ordinary form (so the same checks as the
+    full-page route). Errors re-render the modal with status 200 because HTMX
+    does not swap 4xx responses by default.
+    """
+    if kind not in FORMS:
+        abort(404)
+    if not request.headers.get("HX-Request"):
+        abort(
+            400
+        )  # the modal needs JavaScript; without it the page /new/<kind> is used
+    cls, target = FORMS[kind], TARGETS.get(kind)
+    values = (
+        list(dict.fromkeys(request.form.getlist(target.field))) if target else [None]
+    )
+    if not values:
+        form = cls(formdata=request.form)
+        form.validate()
+        return _modal(kind, form, picker_error=target.empty)
+
+    inp = build_solver_input(db.session)
+    forms = []
+    for v in values:
+        data = request.form.copy()
+        if target:
+            data.setlist(target.field, [v])
+        f = cls(formdata=data)
+        f.solver_input = inp
+        f.ok = f.validate()
+        forms.append(f)
+    bad = [f for f in forms if not f.ok]
+    if bad:
+        shown = bad[0]
+        labels = (
+            {str(v): label for v, label in getattr(shown, target.field).choices}
+            if target
+            else {}
+        )
+        problems = []
+        for v, f in zip(values, forms, strict=True):
+            if f.ok:
+                continue
+            text = f.problem or " ".join(
+                getattr(f, target.field).errors if target else []
+            )
+            if text:
+                problems.append(
+                    (labels.get(v, f"№{v}") if len(values) > 1 else None, text)
+                )
+        return _modal(kind, shown, selected=values, problems=problems)
+
+    for f in forms:
+        db.session.add(
+            Constraint(
+                type=kind,
+                hard=f.hard.data,
+                weight=None if f.hard.data else f.weight.data,
+                params=f.params(),
+                status="confirmed",
+                source="manual",
+            )
+        )
+    db.session.commit()
+    flash(_added(len(forms)), "success")
+    resp = make_response("")
+    resp.headers["HX-Redirect"] = url_for("constraints.list_view")
+    return resp
 
 
 def _done(c: Constraint | None, message: str):

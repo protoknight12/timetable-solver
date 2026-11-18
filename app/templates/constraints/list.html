@@ -5,16 +5,19 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
   <h1 class="h2 mb-0">Ограничения</h1>
   {% if current_user.role == 'admin' %}
-    <div class="dropdown">
-      <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-        <i class="bi bi-plus-lg"></i> Добави ограничение
-      </button>
-      <ul class="dropdown-menu">
-        {% for kind, form in forms.items() %}
-          <li><a class="dropdown-item" href="{{ url_for('constraints.new', kind=kind) }}">{{ form.label }}</a></li>
-        {% endfor %}
-      </ul>
-    </div>
+    {# Without JavaScript this is a plain GET that redirects to the full page /new/<kind>. #}
+    <form method="get" action="{{ url_for('constraints.new_pick') }}" class="d-flex flex-wrap gap-2 align-items-center"
+          hx-get="{{ url_for('constraints.new_pick') }}" hx-target="#constraint-modal-content" hx-swap="innerHTML"
+          hx-trigger="submit">
+      <div class="form-floating">
+        <select class="form-select" id="constraint-kind" name="kind" required>
+          <option value="" selected disabled>Изберете вид…</option>
+          {% for kind, form in forms.items() %}<option value="{{ kind }}">{{ form.label }}</option>{% endfor %}
+        </select>
+        <label for="constraint-kind">Вид ограничение</label>
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Добави ограничение</button>
+    </form>
   {% endif %}
 </div>
 <p class="lead">Решаващият алгоритъм използва само потвърдените ограничения.</p>
@@ -59,5 +62,16 @@
   </div>
 {% else %}
   <p class="text-body-secondary">Все още няма добавени ограничения.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if current_user.role == 'admin' %}
+  <div class="modal fade" id="constraint-modal" tabindex="-1" aria-labelledby="constraint-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content" id="constraint-modal-content"></div>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='js/constraint_modal.js') }}"></script>
 {% endif %}
 {% endblock %}
