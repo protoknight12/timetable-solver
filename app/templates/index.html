@@ -2,14 +2,138 @@
 {% block title %}Начало{% endblock %}
 
 {% block content %}
+{% if not current_user.is_authenticated %}
   <div class="py-4">
     <h1 class="h2">Добре дошли в SATurn!</h1>
-    <p class="lead"> Опишете изискванията към разписанието с думи, потвърдете предложените ограничения
-    и системата ще състави разписание, което ги спазва.
-    </p>
-    {% if not current_user.is_authenticated %}
-      <a class="btn btn-primary btn-lg" href="{{ url_for('pages.login') }}" role="button">Вход</a>
-    {% endif %}
-    
+    <p class="lead">Опишете изискванията към разписанието с думи, потвърдете предложените ограничения
+      и системата ще състави разписание, което ги спазва. <strong>За да видите разписанието и всички други функции, влезте в профила си.</strong></p>
+    <a class="btn btn-primary btn-lg" href="{{ url_for('pages.login') }}" role="button">
+      <i class="bi bi-box-arrow-in-right"></i> Вход
+    </a>
   </div>
+  <div class="row row-cols-1 row-cols-md-3 g-3">
+    {% for icon, title, text in [
+      ('bi-database', 'Данни', 'Учители, класове, стаи и учебен план на едно място.'),
+      ('bi-chat-left-text', 'Правила с думи', 'Изкуственият интелект предлага ограничения, а вие ги одобрявате.'),
+      ('bi-calendar3', 'Разписание', 'Солвърът подрежда часовете, а независима проверка ги потвърждава.'),
+    ] %}
+      <div class="col">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h2 class="h5"><i class="bi {{ icon }} text-primary"></i> {{ title }}</h2>
+            <p class="card-text text-body-secondary mb-0">{{ text }}</p>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+      <h1 class="h2 mb-1">Добре дошли, {{ current_user.username }}</h1>
+      <p class="text-body-secondary mb-0">{{ counts.classes }} класа · {{ counts.teachers }} учители</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      {% if is_admin %}
+        <form method="post" action="{{ url_for('solve.start') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="keep_previous" value="1">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-play-fill"></i> Изгради график</button>
+        </form>
+      {% endif %}
+      <a class="btn btn-outline-secondary" href="{{ url_for('solve.timetable') }}"><i class="bi bi-calendar3"></i> Разписание</a>
+    </div>
+  </div>
+
+  {# Latest run: the first thing an admin needs to know. #}
+  <section class="card shadow-sm mb-4" aria-labelledby="last-job">
+    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+      {% if job %}
+        <div>
+          <h2 class="h5 mb-1" id="last-job">Последен график · изчисление №{{ job.id }}</h2>
+          <p class="text-body-secondary small mb-0">
+            {{ job.created_at.strftime('%d.%m.%Y') }}{% if has_timetable %} · {{ lessons }} часа · {{ hard }} нарушени задължителни правила{% endif %}
+          </p>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          {% if job.status in ('queued', 'running') %}
+            <span class="badge text-bg-secondary"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Изчислява се</span>
+          {% elif job.solver_status == 'OPTIMAL' %}
+            <span class="badge text-bg-success"><i class="bi bi-check-lg"></i> Оптимален</span>
+          {% elif job.solver_status == 'FEASIBLE' %}
+            <span class="badge text-bg-info"><i class="bi bi-check-lg"></i> Допустим</span>
+          {% else %}
+            <span class="badge text-bg-danger"><i class="bi bi-x-lg"></i> Неуспешно</span>
+          {% endif %}
+          {% if has_timetable %}
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('solve.export_xlsx') }}"><i class="bi bi-download"></i> Excel</a>
+          {% else %}
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('solve.timetable') }}"><i class="bi bi-info-circle"></i> Подробности</a>
+          {% endif %}
+        </div>
+      {% else %}
+        <div>
+          <h2 class="h5 mb-1" id="last-job">Още няма график</h2>
+          <p class="text-body-secondary small mb-0">
+            {% if is_admin %}Въведете данните и натиснете „Изгради график“.{% else %}Графикът ще се появи тук, след като бъде публикуван.{% endif %}
+          </p>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="row row-cols-2 row-cols-lg-4 g-3 mb-4">
+    {% for icon, label, value, url in [
+      ('bi-person', 'Учители', counts.teachers, url_for('data.teachers_list')),
+      ('bi-people', 'Класове', counts.classes, url_for('data.classes_list')),
+      ('bi-book', 'Учебни часове', counts.courses, url_for('data.courses_list')),
+      ('bi-sliders', 'Потвърдени ограничения', counts.constraints, url_for('constraints.list_view')),
+    ] %}
+      <div class="col">
+        <a class="stat-card d-block bg-body-tertiary rounded-3 p-3 h-100 text-body text-decoration-none" href="{{ url }}">
+          <span class="d-block small text-body-secondary"><i class="bi {{ icon }}"></i> {{ label }}</span>
+          <span class="d-block fs-3 fw-semibold">{{ value }}</span>
+        </a>
+      </div>
+    {% endfor %}
+  </div>
+
+  <h2 class="h4 mb-3">Стъпки</h2>
+  <ol class="list-unstyled d-grid gap-2 mb-4">
+    {% for st in steps %}
+      {% set is_next = loop.index0 == next_step %}
+      <li>
+        <a class="step-card card flex-row align-items-center gap-3 p-3 text-body text-decoration-none{{ ' border-primary border-2' if is_next }}"
+           href="{{ st.url }}"{% if is_next %} aria-current="step"{% endif %}>
+          <span class="step-num rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-semibold {{ 'bg-success-subtle text-success-emphasis' if st.done else ('bg-primary-subtle text-primary-emphasis' if is_next else 'bg-body-tertiary text-body-secondary') }}">
+            {% if st.done %}<i class="bi bi-check-lg" aria-hidden="true"></i><span class="visually-hidden">Готово:</span>{% else %}{{ loop.index }}{% endif %}
+          </span>
+          <span class="flex-grow-1">
+            <span class="d-block small text-body-secondary">Стъпка {{ loop.index }}{% if is_next %} · следваща{% endif %}</span>
+            <span class="d-block fw-semibold"><i class="bi {{ st.icon }}"></i> {{ st.title }}</span>
+            <span class="d-block small text-body-secondary">{{ st.text }}</span>
+            <span class="badge mt-1 {{ 'text-bg-success' if st.done else 'text-bg-warning' }}">{{ st.note }}</span>
+          </span>
+          <i class="bi bi-chevron-right step-arrow fs-4 text-body-secondary" aria-hidden="true"></i>
+        </a>
+      </li>
+    {% endfor %}
+  </ol>
+
+  {% if is_admin and llm_enabled %}
+    <section class="card shadow-sm" aria-labelledby="quick-rule">
+      <div class="card-body p-4">
+        <h2 class="h4" id="quick-rule"><i class="bi bi-chat-left-text"></i> Опишете правило с думи</h2>
+        <form method="post" action="{{ url_for('constraints.propose') }}" class="d-flex flex-wrap gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label for="quick-text" class="visually-hidden">Правило с думи</label>
+          <input type="text" class="form-control flex-grow-1 w-auto" id="quick-text" name="text"
+                 placeholder="В петък часовете да са до 6. час" maxlength="{{ max_chars }}" required autocomplete="off">
+          <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-send"></i> Предложи</button>
+        </form>
+        <p class="small text-body-secondary mt-2 mb-0">Предложенията се записват като непотвърдени и ги одобрявате в „Ограничения“.</p>
+      </div>
+    </section>
+  {% endif %}
+{% endif %}
 {% endblock %}
