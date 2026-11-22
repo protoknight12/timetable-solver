@@ -317,3 +317,18 @@ def test_unused_rows_delete_even_when_others_are_used(admin, course):
     free = next(t for t in _rows(Teacher) if t.name == "Свободен")
     admin.post(f"/data/teachers/{free.id}/delete")
     assert [t.name for t in _rows(Teacher)] == ["Иван"]
+
+
+def test_teacher_weekly_norm_is_optional_and_checked(admin):
+    admin.post("/data/teachers/new", data={"name": "Иван"})
+    assert _rows(Teacher)[0].weekly_norm is None
+    teacher = _rows(Teacher)[0]
+    url = f"/data/teachers/{teacher.id}/edit"
+    admin.post(url, data={"name": "Иван", "weekly_norm": "18"})
+    assert _rows(Teacher)[0].weekly_norm == 18
+    for bad in ("0", "61", "abc"):
+        r = admin.post(url, data={"name": "Иван", "weekly_norm": bad})
+        assert "invalid-feedback" in r.get_data(as_text=True)
+        assert _rows(Teacher)[0].weekly_norm == 18
+    admin.post(url, data={"name": "Иван", "weekly_norm": ""})
+    assert _rows(Teacher)[0].weekly_norm is None

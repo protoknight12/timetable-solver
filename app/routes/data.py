@@ -321,7 +321,11 @@ ENTITIES = (
         "Добави учител",
         "Учителят",
         "",
-        (("Име", lambda t: t.name), ("Кратко име", lambda t: t.short_name or "—")),
+        (
+            ("Име", lambda t: t.name),
+            ("Кратко име", lambda t: t.short_name or "—"),
+            ("Норма", lambda t: t.weekly_norm or "—"),
+        ),
         (Teacher.name, Teacher.id),
         teacher_usages,
         after_save=_link_account,

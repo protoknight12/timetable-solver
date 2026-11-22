@@ -36,6 +36,7 @@
           <tr>
             <th scope="row"><a href="{{ url_for('workload.detail', teacher_id=tid, job=job.id if current_user.role == 'admin' else None) }}">{{ r.name }}</a></th>
             <td>{{ r.periods_text }}</td>
+            <td>{{ r.norm if r.norm is not none else '—' }}</td>
             <td>{{ r.courses }}</td>
             <td>{{ r.classes }}</td>
             <td>{{ r.days }}</td>
@@ -44,20 +45,25 @@
             <td>{{ r.first if r.first is not none else '—' }}</td>
             <td>{{ r.last if r.last is not none else '—' }}</td>
             <td>
+              {% if r.norm_state == 'over' %}
+                <span class="badge text-bg-warning"><i class="bi bi-exclamation-triangle"></i> Над нормата: {{ r.periods }} от {{ r.norm }} часа</span>
+              {% elif r.norm_state == 'under' %}
+                <span class="badge text-bg-secondary"><i class="bi bi-info-circle"></i> Под нормата: {{ r.periods }} от {{ r.norm }} часа</span>
+              {% endif %}
               {% for d, n in r.over %}
                 <span class="badge text-bg-warning"><i class="bi bi-exclamation-triangle"></i> Над лимита: {{ n }} от {{ r.limit }} часа</span>
               {% endfor %}
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="10" class="text-body-secondary">Няма учители.</td></tr>
+          <tr><td colspan="11" class="text-body-secondary">Няма учители.</td></tr>
         {% endfor %}
       </tbody>
       {% if rows|length > 1 %}
       <tfoot>
         <tr class="fw-semibold">
           <th scope="row">Общо</th>
-          <td>{{ total.periods }}</td><td></td><td></td><td></td>
+          <td>{{ total.periods }}</td><td></td><td></td><td></td><td></td>
           <td>{{ total.gaps }}</td><td></td><td></td><td></td><td></td>
         </tr>
       </tfoot>
