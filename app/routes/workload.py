@@ -28,6 +28,7 @@ bp = Blueprint("workload", __name__)
 COLUMNS = {
     "name": "Учител",
     "periods": "Часове",
+    "norm": "Норма",
     "courses": "Курсове",
     "classes": "Класове",
     "days": "Дни",
@@ -168,6 +169,17 @@ def compute(job_id: int) -> dict[int, dict]:
             for n in sorted(by_week[0] | by_week[1])
         }
         s["limit"] = limits.get(t.id)
+        # Compare with the norm in the busier week; "over"/"under" are only notes.
+        s["norm"] = t.weekly_norm
+        s["norm_state"] = (
+            None
+            if not t.weekly_norm
+            else "over"
+            if s["periods"] > t.weekly_norm
+            else "under"
+            if s["periods"] < t.weekly_norm
+            else "ok"
+        )
         s["over"] = [
             (d, x["periods"])
             for d, x in s["per_day"].items()
@@ -275,13 +287,17 @@ def export_xlsx():
         notes = "; ".join(
             f"над лимита ({n} от {r['limit']}) в {_days()[d]}" for d, n in r["over"]
         )
+        if r["norm_state"] in ("over", "under"):
+            word = "над" if r["norm_state"] == "over" else "под"
+            note = f"{word} нормата ({r['periods']} от {r['norm']} часа)"
+            notes = "; ".join(filter(None, [note, notes]))
         if r["periods_text"] != r["periods"]:
             notes = "; ".join(filter(None, [f"часове: {r['periods_text']}", notes]))
         ws.append([r[k] for k in COLUMNS] + [notes])
     if len(rows) > 1:
         ws.append(
             ["Общо", sum(r["periods"] for r in rows.values())]
-            + [None] * 3
+            + [None] * 4
             + [sum(r["gaps"] for r in rows.values())]
         )
         for cell in ws[ws.max_row]:

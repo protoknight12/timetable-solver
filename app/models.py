@@ -101,6 +101,10 @@ class Teacher(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
     short_name: Mapped[str | None] = mapped_column(String(40))
+    # Teaching norm (хорариум) in periods per week, typed in by the admin; None = not
+    # set. Only the workload report reads it. The solver and the checker never see it:
+    # a teacher's weekly total is fixed by the courses assigned to them.
+    weekly_norm: Mapped[int | None]
 
 
 class Subject(Base):

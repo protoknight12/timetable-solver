@@ -127,10 +127,43 @@ def test_admin_export_has_all_rows_and_totals(make_client, migrated):
     sheet = load_workbook(BytesIO(r.data)).active
     names = [c.value for c in sheet["A"]]
     assert names == ["Учител", "Иван Иванов", "Мария Георгиева", "Общо"]
-    assert sheet["B4"].value == 4 and sheet["F4"].value == 1
+    assert sheet["B4"].value == 4 and sheet["G4"].value == 1
 
 
 def test_detail_shows_per_day_and_subject(make_client, migrated):
     _, ivan, _ = _tiny()
     html = make_client("admin").get(f"/workload/{ivan.id}").text
     assert "Математика" in html and "Понеделник" in html
+
+
+def test_norm_is_compared_with_the_timetable(migrated):
+    """Ivan teaches 4 periods: over a norm of 3, under 5, fine at 4, no note without a norm."""
+    _, ivan, _ = _tiny()
+    states = {}
+    for norm in (3, 5, 4, None):
+        ivan.weekly_norm = norm
+        db.session.commit()
+        job_id = db.session.scalar(db.select(m.SolveJob.id))
+        r = compute(job_id)[ivan.id]
+        states[norm] = (r["norm"], r["norm_state"])
+    assert states == {
+        3: (3, "over"),
+        5: (5, "under"),
+        4: (4, "ok"),
+        None: (None, None),
+    }
+
+
+def test_norm_shows_on_page_and_in_export(make_client, migrated):
+    _, ivan, maria = _tiny()
+    ivan.weekly_norm, maria.weekly_norm = 3, 18
+    db.session.commit()
+    client = make_client("admin")
+    html = client.get("/workload").text
+    assert "Над нормата: 4 от 3 часа" in html
+    assert "Под нормата: 0 от 18 часа" in html
+    sheet = load_workbook(BytesIO(client.get("/workload.xlsx").data)).active
+    assert [c.value for c in sheet[1]][:3] == ["Учител", "Часове", "Норма"]
+    assert [c.value for c in sheet["C"]][1:3] == [3, 18]
+    assert "над нормата (4 от 3 часа)" in sheet["K2"].value
+    assert sheet["B4"].value == 4 and sheet["G4"].value == 1  # totals row

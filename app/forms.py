@@ -141,6 +141,15 @@ class TeacherForm(DataForm):
         filters=[_strip_or_none],
         validators=[Optional(), Length(max=40, message=_too_long(40))],
     )
+    # Assumption: no default and no upper bound from regulations (CLAUDE.md rule 8);
+    # the norm is whatever the admin enters. 60 only stops typos.
+    weekly_norm = BgIntegerField(
+        "Норма (хорариум), часове седмично (по избор)",
+        validators=[
+            Optional(),
+            NumberRange(min=1, max=60, message="Въведете число от 1 до 60."),
+        ],
+    )
     # "" = no login. Only viewers not yet linked to another teacher are offered.
     account = SelectField("Профил за вход", default="")
 
@@ -161,7 +170,8 @@ class TeacherForm(DataForm):
 
     def populate_obj(self, obj):
         obj.name = self.name.data
-        obj.short_name = self.short_name.data  # `account`: see _link_account
+        obj.short_name = self.short_name.data
+        obj.weekly_norm = self.weekly_norm.data  # `account`: see _link_account
 
 
 class SubjectForm(DataForm):
