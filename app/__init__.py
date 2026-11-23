@@ -44,6 +44,10 @@ def create_app(config: dict | None = None) -> Flask:
         in ("1", "true", "yes"),
         LOGIN_RATE_LIMIT="5 per minute",
         PUBLIC_RATE_LIMIT="60 per minute",  # per IP, /p/<token>
+        API_RATE_LIMIT="120 per minute",  # per user or IP, /api/v1
+        # Optional shared key for other systems: "Authorization: Bearer <API_TOKEN>".
+        # Empty = only logged-in users (and public class links) can read the API.
+        API_TOKEN=os.environ.get("API_TOKEN") or "",
         # Redis in production; if it is down, fall back to per-process memory.
         RATELIMIT_STORAGE_URI=os.environ.get("REDIS_URL") or "memory://",
         RATELIMIT_IN_MEMORY_FALLBACK_ENABLED=True,
@@ -83,6 +87,7 @@ def create_app(config: dict | None = None) -> Flask:
 
     app.cli.add_command(seed_command)
     app.cli.add_command(create_user_command)
+    from app.routes.api import bp as api_bp
     from app.routes.constraints import bp as constraints_bp
     from app.routes.data import bp as data_bp
     from app.routes.importing import bp as importing_bp
@@ -99,5 +104,6 @@ def create_app(config: dict | None = None) -> Flask:
     app.register_blueprint(users_bp)
     app.register_blueprint(public_bp)
     app.register_blueprint(workload_bp)
+    app.register_blueprint(api_bp)
 
     return app
