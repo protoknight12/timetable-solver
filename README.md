@@ -78,6 +78,27 @@ Safe to re-run: an existing `.env`, database and administrator are left alone. D
 `db-data` volume exists: the new database password would not match the old database. Put a reverse proxy
 with HTTPS in front for real use.
 
+## REST API (read-only)
+
+Other systems (a school website, an e-diary, a hallway display) can read the **published** timetable as JSON
+under `/api/v1`. GET only; drafts are never returned. The full description is at `/api/v1/openapi.json`
+(paste it into any OpenAPI/Swagger viewer).
+
+| Endpoint | What it returns |
+|---|---|
+| `GET /api/v1/timetable` | every lesson; filters `class_id`, `teacher_id`, `room_id`, `day` |
+| `GET /api/v1/classes/{id}/timetable`, `/teachers/{id}/timetable` | one class or teacher |
+| `GET /api/v1/classes`, `/teachers`, `/rooms`, `/subjects`, `/periods` | reference data |
+| `GET /api/v1/public/{token}` | one class by its public link token, no login |
+
+Access: a logged-in session (any role), or `Authorization: Bearer <API_TOKEN>` if `API_TOKEN` is set in `.env`.
+Rate limit: 120 requests/min per user or IP (public endpoint: 60/min per IP). Errors are JSON:
+`{"error": {"code": 404, "message": "..."}}`.
+
+```bash
+curl -H "Authorization: Bearer $API_TOKEN" https://<host>/api/v1/timetable?class_id=3
+```
+
 ## Viewing the frontend
 
 The frontend is server-rendered Flask + Jinja2 with Bootstrap 5.3 (no build step, no SPA).

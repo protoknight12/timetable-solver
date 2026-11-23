@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 
 # Short Bulgarian texts per status code.
 MESSAGES = {
@@ -10,6 +10,10 @@ MESSAGES = {
     404: (
         "Страницата не е намерена",
         "Адресът е грешен или страницата вече не съществува.",
+    ),
+    405: (
+        "Действието не е разрешено",
+        "Този адрес не приема такава заявка.",
     ),
     413: (
         "Файлът е твърде голям",
@@ -30,6 +34,11 @@ def register_error_pages(app: Flask) -> None:
     def handler(error):
         code = getattr(error, "code", None)
         code = code if code in MESSAGES else 500
+        if request.path.startswith("/api/"):
+            # API clients get JSON, also for URLs that match no API route.
+            from app.routes.api import ERRORS, _error
+
+            return _error(code if code in ERRORS else 500)
         title, message = MESSAGES[code]
         return (
             render_template("error.html", code=code, title=title, message=message),
