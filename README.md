@@ -2,8 +2,10 @@
 
 AI-assisted school timetable maker, built for the National Autumn IT Tournament "Джон Атанасов" (December 2026, Sofia).
 
-> **Status:** in development. Merged so far: data contract, constraint models, DB models, login with roles, solver core.
-> Not yet: background jobs, LLM, data entry pages, deploy. Feature freeze: **26.11.2026**.
+> **Status:** feature freeze since **26.11.2026**: fixes, polish and tests only.
+
+**Full documentation (Bulgarian): [docs/README.md](docs/README.md)** — user guides for admins and viewers, constraint
+reference, installation and operations, REST API, technical overview and developer guide.
 
 ## Core principle
 
