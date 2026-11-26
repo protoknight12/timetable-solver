@@ -198,6 +198,7 @@ docker compose run --rm web flask --app app shell
 ```python
 from werkzeug.security import generate_password_hash
 from app.models import User, db
+
 u = db.session.scalar(db.select(User).filter_by(username="ivan.petrov"))
 u.password_hash = generate_password_hash("нова-парола-поне-8-знака")
 db.session.commit()
